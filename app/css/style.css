@@ -1809,6 +1809,11 @@ body.expense-input-active #input-bar {
     font-size: 0.95rem;
 }
 
+.stats-empty-initial {
+    padding-top: 132px;
+    z-index: 95;
+}
+
 /* ============================================
    SETTINGS PAGE
    ============================================ */

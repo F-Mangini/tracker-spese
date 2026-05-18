@@ -13,6 +13,12 @@ const CHART_COLORS = [
    ============================================ */
 const App = {
     currentPage: 'timeline',
+    pageScrollTop: {
+        timeline: 0,
+        stats: 0,
+        settings: 0
+    },
+    _restoringPageScroll: false,
     editingId: null,
     toastTimer: null,
     newCardId: null,
@@ -122,22 +128,44 @@ const App = {
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => this.navigateTo(btn.dataset.page));
         });
+
+        this.setupPageScrollTracking();
     },
 
-    navigateTo(page, fromPopstate = false) {
-        if (!fromPopstate && page !== 'timeline') {
-            if (this.currentPage === 'timeline') {
-                try { history.pushState({ page: page }, ''); } catch (_) { }
-            } else {
-                try { history.replaceState({ page: page }, ''); } catch (_) { }
-            }
-        } else if (!fromPopstate && page === 'timeline' && this.currentPage !== 'timeline') {
-            this._suppressNextPopstate = true;
-            try { history.back(); } catch (_) { }
-        }
+    setupPageScrollTracking() {
+        const main = document.getElementById('app-main');
+        if (!main) return;
 
-        this.currentPage = page;
+        main.addEventListener('scroll', () => {
+            if (this._restoringPageScroll) return;
+            this.pageScrollTop[this.currentPage] = main.scrollTop;
+        }, { passive: true });
+    },
 
+    rememberCurrentPageScroll() {
+        const main = document.getElementById('app-main');
+        if (!main || !this.currentPage) return;
+
+        this.pageScrollTop[this.currentPage] = main.scrollTop;
+    },
+
+    restorePageScroll(page) {
+        const main = document.getElementById('app-main');
+        if (!main) return;
+
+        const top = this.pageScrollTop[page] || 0;
+
+        requestAnimationFrame(() => {
+            this._restoringPageScroll = true;
+            main.scrollTop = top;
+
+            setTimeout(() => {
+                this._restoringPageScroll = false;
+            }, 0);
+        });
+    },
+
+    syncPageDom(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
         document.getElementById('page-' + page).classList.remove('hidden');
 
@@ -157,14 +185,42 @@ const App = {
 
         document.getElementById('btn-filter-toggle').style.display =
             page === 'settings' ? 'none' : '';
+    },
+
+    syncPageContent(page) {
+        if (page === 'timeline') this.renderTimeline();
+        if (page === 'stats') this.renderStats();
+        if (page === 'settings') this.renderSettings();
+    },
+
+    updateNavigationHistory(page, fromPopstate) {
+        if (fromPopstate) return;
+
+        if (!fromPopstate && page !== 'timeline') {
+            if (this.currentPage === 'timeline') {
+                try { history.pushState({ page: page }, ''); } catch (_) { }
+            } else {
+                try { history.replaceState({ page: page }, ''); } catch (_) { }
+            }
+        } else if (!fromPopstate && page === 'timeline' && this.currentPage !== 'timeline') {
+            this._suppressNextPopstate = true;
+            try { history.back(); } catch (_) { }
+        }
+    },
+
+    navigateTo(page, fromPopstate = false) {
+        if (!page) return;
+
+        this.rememberCurrentPageScroll();
+        this.updateNavigationHistory(page, fromPopstate);
+        this.currentPage = page;
+        this.syncPageDom(page);
 
         if (page === 'settings' && this.filterOpen) this.closeFilterPanel();
 
         this.updateAppMainPadding();
-
-        if (page === 'timeline') this.renderTimeline();
-        if (page === 'stats') this.renderStats();
-        if (page === 'settings') this.renderSettings();
+        this.syncPageContent(page);
+        this.restorePageScroll(page);
     },
 
     /* =====================
@@ -266,40 +322,61 @@ const App = {
     },
 
     toggleAdvancedFilters() {
-        this.advancedFiltersOpen = !this.advancedFiltersOpen;
+        if (this.advancedFiltersOpen) {
+            this.closeAdvancedFilters(false);
+        } else {
+            this.openAdvancedFilters();
+        }
+    },
+
+    openAdvancedFilters() {
+        this.advancedFiltersOpen = true;
         const section = document.getElementById('advanced-filters');
         const btn = document.getElementById('btn-advanced-toggle');
 
-        if (this.advancedFiltersOpen) {
-            section.classList.remove('hidden');
-            btn.classList.add('active');
-            document.body.classList.add('no-scroll');
-            history.pushState({ panel: 'advanced-filters' }, '');
-        } else {
-            section.classList.add('hidden');
-            btn.classList.remove('active');
-            document.body.classList.remove('no-scroll');
-        }
+        section.classList.remove('hidden');
+        btn.classList.add('active');
+        document.body.classList.add('no-scroll');
+        try { history.pushState({ panel: 'advanced-filters' }, ''); } catch (_) { }
 
         requestAnimationFrame(() => {
             const panel = document.getElementById('filter-panel');
             const h = panel.offsetHeight;
             document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
 
-            if (this.advancedFiltersOpen) {
-                const scrollContainer = panel.querySelector('.filter-panel-scroll');
-                scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-            }
+            const scrollContainer = panel.querySelector('.filter-panel-scroll');
+            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
             this.updateAppMainPadding();
         });
+    },
+
+    closeAdvancedFilters(fromPopstate = false) {
+        if (!this.advancedFiltersOpen) return;
+
+        this.advancedFiltersOpen = false;
+        document.getElementById('advanced-filters').classList.add('hidden');
+        document.getElementById('btn-advanced-toggle').classList.remove('active');
+        document.body.classList.remove('no-scroll');
+
+        requestAnimationFrame(() => {
+            const panel = document.getElementById('filter-panel');
+            if (!panel || panel.classList.contains('hidden')) return;
+
+            const h = panel.offsetHeight;
+            document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
+            this.updateAppMainPadding();
+        });
+
+        if (!fromPopstate) {
+            this._suppressNextPopstate = true;
+            try { history.back(); } catch (_) { }
+        }
     },
 
     buildChips(containerId, items, targetSet) {
         const container = document.getElementById(containerId);
 
-        container.innerHTML = items.map(item =>
-            `<button class="filter-chip" data-id="${item.id}">${item.emoji} ${item.nome}</button>`
-        ).join('');
+        container.innerHTML = FilterView.renderChips(items);
 
         container.querySelectorAll('.filter-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -323,6 +400,8 @@ const App = {
         document.getElementById('btn-search-clear').classList.toggle('hidden', !this.filters.query);
         document.getElementById('filter-date-from').value = this.filters.dateFrom;
         document.getElementById('filter-date-to').value = this.filters.dateTo;
+        document.getElementById('filter-date-from').classList.toggle('date-picked', !!this.filters.dateFrom);
+        document.getElementById('filter-date-to').classList.toggle('date-picked', !!this.filters.dateTo);
 
         document.querySelectorAll('#filter-cats .filter-chip').forEach(chip => {
             chip.classList.toggle('active', this.filters.categories.has(chip.dataset.id));
@@ -376,22 +455,7 @@ const App = {
 
     recalcSliderMax() {
         const spese = Storage.getSpese();
-
-        if (spese.length === 0) {
-            this.sliderMax = 100;
-        } else {
-            const mx = Math.max(...spese.map(s => Number(s.importo) || 0));
-
-            if (mx <= 5) this.sliderMax = 10;
-            else if (mx <= 10) this.sliderMax = 25;
-            else if (mx <= 25) this.sliderMax = 50;
-            else if (mx <= 50) this.sliderMax = 100;
-            else if (mx <= 100) this.sliderMax = 200;
-            else if (mx <= 250) this.sliderMax = 500;
-            else if (mx <= 500) this.sliderMax = 750;
-            else if (mx <= 1000) this.sliderMax = 1500;
-            else this.sliderMax = Math.ceil(mx / 500) * 500 + 500;
-        }
+        this.sliderMax = FilterView.getSliderMax(spese);
 
         const sMin = document.getElementById('slider-min');
         const sMax = document.getElementById('slider-max');
@@ -462,6 +526,7 @@ const App = {
 
     closeFilterPanel(fromPopstate) {
         const wasOpen = this.filterOpen;
+        const hadAdvancedFilters = this.advancedFiltersOpen;
         this.filterOpen = false;
         this.advancedFiltersOpen = false;
         document.getElementById('filter-panel').classList.add('hidden');
@@ -479,7 +544,11 @@ const App = {
         document.getElementById('app-main').style.marginTop = '';
         if (wasOpen && !fromPopstate) {
             this._suppressNextPopstate = true;
-            try { history.back(); } catch (_) { }
+            try {
+                history.go(hadAdvancedFilters ? -2 : -1);
+            } catch (_) {
+                try { history.back(); } catch (_) { }
+            }
         }
         this.updateAppMainPadding();
     },
@@ -501,47 +570,26 @@ const App = {
         const badge = document.getElementById('filter-badge');
         const resetBtn = document.getElementById('btn-filter-reset');
         const info = document.getElementById('filter-info');
+        const allSpese = Storage.getSpese();
 
         if (n > 0) {
             badge.textContent = n;
             badge.classList.remove('hidden');
             resetBtn.classList.remove('hidden');
 
-            const allSpese = Storage.getSpese();
             const filtered = this.applyFilters(allSpese);
-            const total = filtered.reduce((sum, x) => sum + x.importo, 0);
-
-            info.textContent = `${n} filtr${n === 1 ? 'o' : 'i'} · ${filtered.length} spes${filtered.length === 1 ? 'a' : 'e'} · €${total.toFixed(2)}`;
+            info.textContent = FilterView.renderFooterInfo({
+                activeCount: n,
+                filtered
+            });
         } else {
             badge.classList.add('hidden');
             resetBtn.classList.add('hidden');
 
-            const allSpese = Storage.getSpese();
-            const oggi = new Date();
-            const oggiKey = this.dateKey(oggi);
-            const meseCorrente = oggi.getMonth();
-            const annoCorrente = oggi.getFullYear();
-
-            const monday = new Date(oggi);
-            const dayOfWeek = monday.getDay();
-            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-            monday.setDate(monday.getDate() + diffToMonday);
-            monday.setHours(0, 0, 0, 0);
-
-            let totOggi = 0;
-            let totSettimana = 0;
-            let totMese = 0;
-
-            allSpese.forEach(s => {
-                const d = new Date(s.data);
-                if (this.dateKey(d) === oggiKey) totOggi += s.importo;
-                if (d >= monday) totSettimana += s.importo;
-                if (d.getMonth() === meseCorrente && d.getFullYear() === annoCorrente) totMese += s.importo;
+            info.textContent = FilterView.renderFooterInfo({
+                activeCount: n,
+                quickTotals: StatsData.getQuickTotals(allSpese)
             });
-            const nomeMese = oggi.toLocaleString('it-IT', { month: 'long' });
-            const nomeMeseCap = nomeMese.charAt(0).toUpperCase() + nomeMese.slice(1);
-
-            info.textContent = `Oggi: €${totOggi.toFixed(2)} · Settimana: €${totSettimana.toFixed(2)} · ${nomeMeseCap}: €${totMese.toFixed(2)}`;
         }
     },
 
@@ -895,7 +943,8 @@ const App = {
        ===================== */
     renderTimeline() {
         const allSpese = Storage.getSpese();
-        const filtered = this.hasActiveFilters() ? this.applyFilters(allSpese) : allSpese;
+        const isFiltered = this.hasActiveFilters();
+        const filtered = isFiltered ? this.applyFilters(allSpese) : allSpese;
         const content = document.getElementById('timeline-content');
         const empty = document.getElementById('timeline-empty');
         const summary = document.getElementById('timeline-summary');
@@ -909,91 +958,30 @@ const App = {
 
         empty.classList.add('hidden');
 
-        const oggi = new Date();
-        const oggiKey = this.dateKey(oggi);
-        const meseCorrente = oggi.getMonth();
-        const annoCorrente = oggi.getFullYear();
-
-        const monday = new Date(oggi);
-        const dayOfWeek = monday.getDay();
-        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        monday.setDate(monday.getDate() + diffToMonday);
-        monday.setHours(0, 0, 0, 0);
-
-        let totOggi = 0;
-        let totSettimana = 0;
-        let totMese = 0;
-
-        allSpese.forEach(s => {
-            const d = new Date(s.data);
-
-            if (this.dateKey(d) === oggiKey) totOggi += s.importo;
-            if (d >= monday) totSettimana += s.importo;
-            if (d.getMonth() === meseCorrente && d.getFullYear() === annoCorrente) totMese += s.importo;
+        summary.innerHTML = TimelineView.renderSummary({
+            isFiltered,
+            filtered,
+            quickTotals: StatsData.getQuickTotals(allSpese)
         });
 
-        const nomeMese = oggi.toLocaleDateString('it-IT', { month: 'long' });
-
-        const isFiltered = this.hasActiveFilters();
-
-        let summaryLabel1, summaryValue1, summaryLabel2, summaryValue2, summaryLabel3, summaryValue3;
-
-        if (isFiltered) {
-            const filteredTotal = filtered.reduce((sum, x) => sum + x.importo, 0);
-            summaryLabel1 = 'Filtro Attivo';
-            summaryValue1 = '🔍';
-            summaryLabel2 = 'Totale';
-            summaryValue2 = `€${filteredTotal.toFixed(2)}`;
-            summaryLabel3 = 'N. spese';
-            summaryValue3 = filtered.length;
-        } else {
-            summaryLabel1 = 'Oggi';
-            summaryValue1 = `€${totOggi.toFixed(2)}`;
-            summaryLabel2 = 'Settimana';
-            summaryValue2 = `€${totSettimana.toFixed(2)}`;
-            summaryLabel3 = nomeMese;
-            summaryValue3 = `€${totMese.toFixed(2)}`;
-        }
-
-        summary.innerHTML = `
-            <div class="summary-row">
-                <div class="summary-item">
-                    <div class="summary-label">${summaryLabel1}</div>
-                    <div class="summary-value">${summaryValue1}</div>
-                </div>
-                <div class="summary-divider"></div>
-                <div class="summary-item">
-                    <div class="summary-label">${summaryLabel2}</div>
-                    <div class="summary-value">${summaryValue2}</div>
-                </div>
-                <div class="summary-divider"></div>
-                <div class="summary-item">
-                    <div class="summary-label">${summaryLabel3}</div>
-                    <div class="summary-value">${summaryValue3}</div>
-                </div>
-            </div>
-        `;
-
-        if (filtered.length === 0 && this.hasActiveFilters()) {
-            content.innerHTML = '<div class="stats-empty">🔍<br>Nessuna spesa trovata con questi filtri</div>';
+        if (filtered.length === 0 && isFiltered) {
+            content.innerHTML = TimelineView.renderFilteredEmpty();
             return;
         }
 
         const groups = this.groupByDay(filtered);
+        const newCardId = this.newCardId;
 
-        content.innerHTML = groups.map(g => {
-            const dayTotal = g.spese.reduce((sum, x) => sum + x.importo, 0);
+        content.innerHTML = TimelineView.renderGroups(groups, {
+            newCardId,
+            getCategory: id => this.getCat(id),
+            getMethod: id => this.getMet(id),
+            formatDayLabel: date => this.formatDayLabel(date)
+        });
 
-            return `
-                <div class="day-group">
-                    <div class="day-header">
-                        <span class="day-date">${this.formatDayLabel(g.date)}</span>
-                        <span class="day-total">€${dayTotal.toFixed(2)}</span>
-                    </div>
-                    ${g.spese.map(s => this.createCard(s)).join('')}
-                </div>
-            `;
-        }).join('');
+        if (newCardId && filtered.some(spesa => spesa.id === newCardId)) {
+            this.newCardId = null;
+        }
 
         content.querySelectorAll('.expense-card').forEach(card => {
             card.addEventListener('click', () => this.openEditModal(card.dataset.id));
@@ -1001,30 +989,14 @@ const App = {
     },
 
     createCard(s) {
-        const cat = this.getCat(s.categoria);
-        const met = this.getMet(s.metodo);
-        const d = new Date(s.data);
-        const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
         const isNew = s.id === this.newCardId;
-        const hasTags = s.tags && s.tags.length > 0;
-
         if (isNew) this.newCardId = null;
 
-        return `
-            <div class="expense-card${isNew ? ' new-card' : ''}" data-id="${s.id}">
-                <div class="expense-emoji">${cat.emoji}</div>
-                <div class="expense-info">
-                    <div class="expense-desc"><span class="expense-met-icon">${met.emoji}</span>${this.esc(s.descrizione)}</div>
-                    <div class="expense-meta">
-                        <span>${ora}</span><span class="dot"></span>
-                        <span>${cat.nome}</span>
-                        ${hasTags ? '<span class="dot"></span><span>🏷️</span>' : ''}
-                        ${s.nota ? '<span class="dot"></span><span>📝</span>' : ''}
-                    </div>
-                </div>
-                <div class="expense-amount">€${s.importo.toFixed(2)}</div>
-            </div>
-        `;
+        return TimelineView.renderExpenseCard(s, {
+            category: this.getCat(s.categoria),
+            method: this.getMet(s.metodo),
+            isNew
+        });
     },
 
     /* =====================
@@ -1344,82 +1316,7 @@ const App = {
             }
         });
 
-        window.addEventListener('popstate', () => {
-            if (this._suppressNextPopstate) {
-                this._suppressNextPopstate = false;
-                return;
-            }
-
-            if (this.isConfirmOpen()) {
-                this.closeConfirm(true);
-                return;
-            }
-
-            if (this.isModalOpen()) {
-                const dropdownOpen = !!this.getOpenModalDropdown();
-                const activeField = this.getActivePlainModalField();
-
-                if (this._modalInteractionActive || dropdownOpen) {
-                    this._suspendInteractionRelease = true;
-                    this.clearModalSelection();
-                    this._modalInteractionActive = false;
-
-                    setTimeout(() => {
-                        this._suspendInteractionRelease = false;
-                    }, 0);
-
-                    return;
-                }
-
-                if (activeField) {
-                    this.clearModalSelection();
-                    this.pushModalHistoryState();
-                    return;
-                }
-
-                this.closeModal(true);
-                return;
-            }
-
-            if (this._filterSearchActive) {
-                this._filterSearchActive = false;
-                const searchInput = document.getElementById('search-input');
-                if (searchInput) searchInput.blur();
-                return;
-            }
-
-            if (this._expenseInputActive) {
-                this._expenseInputActive = false;
-                document.body.classList.remove('expense-input-active');
-                this.stopExpenseInputBarWatch();
-                const expenseInput = document.getElementById('expense-input');
-                if (expenseInput) expenseInput.blur();
-                return;
-            }
-
-            if (this.advancedFiltersOpen) {
-                this.advancedFiltersOpen = false;
-                document.getElementById('advanced-filters').classList.add('hidden');
-                document.getElementById('btn-advanced-toggle').classList.remove('active');
-                document.body.classList.remove('no-scroll');
-                requestAnimationFrame(() => {
-                    const panel = document.getElementById('filter-panel');
-                    const h = panel.offsetHeight;
-                    document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
-                });
-                return;
-            }
-
-            if (this.filterOpen) {
-                this.closeFilterPanel(true);
-                return;
-            }
-
-            if (this.currentPage !== 'timeline') {
-                this.navigateTo('timeline', true);
-                return;
-            }
-        });
+        window.addEventListener('popstate', () => this.handlePopstate());
 
         ['edit-importo', 'edit-descrizione', 'edit-nota'].forEach(id => {
             const el = document.getElementById(id);
@@ -1432,6 +1329,78 @@ const App = {
                 });
             }
         });
+    },
+
+    handlePopstate() {
+        if (this._suppressNextPopstate) {
+            this._suppressNextPopstate = false;
+            return;
+        }
+
+        if (this.isConfirmOpen()) {
+            this.closeConfirm(true);
+            return;
+        }
+
+        if (this.isModalOpen()) {
+            this.handleModalPopstate();
+            return;
+        }
+
+        if (this._filterSearchActive) {
+            this._filterSearchActive = false;
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.blur();
+            return;
+        }
+
+        if (this._expenseInputActive) {
+            this._expenseInputActive = false;
+            document.body.classList.remove('expense-input-active');
+            this.stopExpenseInputBarWatch();
+            const expenseInput = document.getElementById('expense-input');
+            if (expenseInput) expenseInput.blur();
+            return;
+        }
+
+        if (this.advancedFiltersOpen) {
+            this.closeAdvancedFilters(true);
+            return;
+        }
+
+        if (this.filterOpen) {
+            this.closeFilterPanel(true);
+            return;
+        }
+
+        if (this.currentPage !== 'timeline') {
+            this.navigateTo('timeline', true);
+        }
+    },
+
+    handleModalPopstate() {
+        const dropdownOpen = !!this.getOpenModalDropdown();
+        const activeField = this.getActivePlainModalField();
+
+        if (this._modalInteractionActive || dropdownOpen) {
+            this._suspendInteractionRelease = true;
+            this.clearModalSelection();
+            this._modalInteractionActive = false;
+
+            setTimeout(() => {
+                this._suspendInteractionRelease = false;
+            }, 0);
+
+            return;
+        }
+
+        if (activeField) {
+            this.clearModalSelection();
+            this.pushModalHistoryState();
+            return;
+        }
+
+        this.closeModal(true);
     },
 
     /* --- Searchable Dropdown --- */
@@ -1887,12 +1856,11 @@ const App = {
         }
     },
 
-    saveEdit() {
+    readEditFormData() {
         const importo = this.parseAmountInput(document.getElementById('edit-importo').value);
 
         if (!importo || importo <= 0) {
-            this.showToast('Importo non valido', 'error');
-            return;
+            return { success: false, error: 'Importo non valido' };
         }
 
         const dateVal = document.getElementById('edit-data').value;
@@ -1901,15 +1869,28 @@ const App = {
         const catValue = this._sdInstances['sd-categoria'] ? this._sdInstances['sd-categoria'].getValue() : 'altro';
         const metValue = this._sdInstances['sd-metodo'] ? this._sdInstances['sd-metodo'].getValue() : 'carta';
 
-        const result = Storage.updateSpesa(this.editingId, {
-            importo: Math.round(importo * 100) / 100,
-            descrizione: document.getElementById('edit-descrizione').value || 'Spesa',
-            categoria: catValue,
-            metodo: metValue,
-            data: new Date(`${dateVal}T${timeVal || '12:00'}:00`).toISOString(),
-            nota: document.getElementById('edit-nota').value,
-            tags: [...this._editTags]
-        });
+        return {
+            success: true,
+            data: {
+                importo: Math.round(importo * 100) / 100,
+                descrizione: document.getElementById('edit-descrizione').value || 'Spesa',
+                categoria: catValue,
+                metodo: metValue,
+                data: new Date(`${dateVal}T${timeVal || '12:00'}:00`).toISOString(),
+                nota: document.getElementById('edit-nota').value,
+                tags: [...this._editTags]
+            }
+        };
+    },
+
+    saveEdit() {
+        const form = this.readEditFormData();
+        if (!form.success) {
+            this.showToast(form.error, 'error');
+            return;
+        }
+
+        const result = Storage.updateSpesa(this.editingId, form.data);
 
         if (!result.success) {
             this.showToast(result.error || 'Salvataggio non riuscito', 'error');
@@ -2016,7 +1997,7 @@ const App = {
         this.destroyCharts();
 
         if (allSpese.length === 0) {
-            container.innerHTML = '<div class="stats-empty">📊<br>Aggiungi qualche spesa per vedere le statistiche</div>';
+            container.innerHTML = StatsView.renderEmptyState();
             return;
         }
 
@@ -2030,112 +2011,21 @@ const App = {
         filtered = this.applyNonDateFilters(filtered);
 
         const summary = StatsData.summarizeExpenses(filtered, start, end);
-        const total = summary.total;
-        const avg = summary.avg;
-        const catSorted = summary.categoryTotals;
-        const maxCat = summary.maxCategory;
-        const topSpese = summary.topExpenses;
-
         const canGoNext = this.statsOffset < 0;
         const isCustom = this.statsPeriod === 'custom';
-        const hasNonDateFilters =
-            this.filters.query ||
-            this.filters.categories.size > 0 ||
-            this.filters.methods.size > 0 ||
-            this.filters.amountMin > 0 ||
-            this.filters.amountMax < Infinity;
-
         const barChartTitle = this.getBarChartTitle(start, end);
 
-        container.innerHTML = `
-            <div class="stats-sticky-header">
-                <div class="stats-period-selector">
-                    <button class="period-btn ${this.statsPeriod === 'week' ? 'active' : ''}" data-period="week">Settimana</button>
-                    <button class="period-btn ${this.statsPeriod === 'month' ? 'active' : ''}" data-period="month">Mese</button>
-                    <button class="period-btn ${this.statsPeriod === 'year' ? 'active' : ''}" data-period="year">Anno</button>
-                    <button class="period-btn ${this.statsPeriod === 'custom' ? 'active' : ''}" data-period="custom">Custom</button>
-                </div>
-
-                <div class="stats-period-nav">
-                    <button class="period-nav-btn" id="period-prev" title="Precedente" ${isCustom ? 'disabled' : ''}>◀</button>
-                    <span class="period-nav-label">${label}</span>
-                    <button class="period-nav-btn" id="period-next" title="Successivo" ${(!canGoNext || isCustom) ? 'disabled' : ''}>▶</button>
-                </div>
-            </div>
-
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-card-value">€${avg.toFixed(2)}</div>
-                    <div class="stat-card-label">Media/giorno</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-value">${filtered.length}</div>
-                    <div class="stat-card-label">Spese</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-value">€${total.toFixed(2)}</div>
-                    <div class="stat-card-label">Totale</div>
-                </div>
-            </div>
-
-            ${filtered.length > 0 ? `
-                <div class="chart-container">
-                    <div class="chart-title">🥧 Per categoria</div>
-                    <div class="chart-wrap chart-wrap-doughnut"><canvas id="chart-doughnut"></canvas></div>
-                </div>
-                <div class="chart-container">
-                    <div class="chart-title">📊 ${barChartTitle}</div>
-                    <div class="chart-wrap"><canvas id="chart-bar"></canvas></div>
-                </div>
-            ` : '<div class="stats-empty">Nessuna spesa in questo periodo</div>'}
-
-            ${catSorted.length > 0 ? `
-                <div class="stats-section">
-                    <div class="stats-section-title">📂 Dettaglio categorie</div>
-                    ${catSorted.map(([catId, amount], idx) => {
-            const cat = this.getCat(catId);
-            const pct = total > 0 ? ((amount / total) * 100).toFixed(0) : 0;
-            const barW = ((amount / maxCat) * 100).toFixed(1);
-            const color = CHART_COLORS[idx % CHART_COLORS.length];
-
-            return `
-                            <div class="cat-bar-item">
-                                <div class="cat-bar-header">
-                                    <span class="cat-bar-name">${cat.emoji} ${cat.nome}</span>
-                                    <span class="cat-bar-amount">€${amount.toFixed(2)} (${pct}%)</span>
-                                </div>
-                                <div class="cat-bar-track">
-                                    <div class="cat-bar-fill" style="width:${barW}%;background:${color}"></div>
-                                </div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-            ` : ''}
-
-            ${topSpese.length > 0 ? `
-                <div class="stats-section">
-                    <div class="stats-section-title">🏆 Top 5 spese</div>
-                    ${topSpese.map(s => {
-            const cat = this.getCat(s.categoria);
-            const d = new Date(s.data);
-
-            return `
-                            <div class="expense-card" style="cursor:default">
-                                <div class="expense-emoji">${cat.emoji}</div>
-                                <div class="expense-info">
-                                    <div class="expense-desc">${this.esc(s.descrizione)}</div>
-                                    <div class="expense-meta">
-                                        <span>${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>
-                                    </div>
-                                </div>
-                                <div class="expense-amount">€${s.importo.toFixed(2)}</div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-            ` : ''}
-        `;
+        container.innerHTML = StatsView.renderPage({
+            period: this.statsPeriod,
+            periodLabel: label,
+            canGoNext,
+            isCustom,
+            filtered,
+            summary,
+            barChartTitle,
+            chartColors: CHART_COLORS,
+            getCategory: id => this.getCat(id)
+        });
 
         container.querySelectorAll('.period-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -2593,11 +2483,11 @@ const App = {
        HELPERS
        ===================== */
     getCat(id) {
-        return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+        return AppUI.getCategory(id, CATEGORIES);
     },
 
     getMet(id) {
-        return PAYMENT_METHODS.find(m => m.id === id) || PAYMENT_METHODS[0];
+        return AppUI.getMethod(id, PAYMENT_METHODS);
     },
 
     groupByDay(spese) {
@@ -2609,35 +2499,19 @@ const App = {
     },
 
     formatDayLabel(dateKey) {
-        const oggi = this.dateKey(new Date());
-        const ieri = this.dateKey(new Date(Date.now() - 86400000));
-
-        if (dateKey === oggi) return '📌 Oggi';
-        if (dateKey === ieri) return 'Ieri';
-
-        return new Date(dateKey + 'T12:00:00').toLocaleDateString('it-IT', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long'
-        });
+        return AppUI.formatDayLabel(dateKey);
     },
 
     toInputDate(d) {
-        return (
-            d.getFullYear() +
-            '-' +
-            String(d.getMonth() + 1).padStart(2, '0') +
-            '-' +
-            String(d.getDate()).padStart(2, '0')
-        );
+        return AppUI.toInputDate(d);
     },
 
     toInputTime(d) {
-        return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return AppUI.toInputTime(d);
     },
 
     dateStamp() {
-        return this.dateKey(new Date());
+        return AppUI.dateStamp();
     },
 
     download(content, filename, mime) {
@@ -2656,30 +2530,11 @@ const App = {
     },
 
     parseAmountInput(value) {
-        let text = String(value || '').trim();
-        text = text.replace(/\s/g, '').replace(/€/g, '').replace(/euro/gi, '');
-
-        const lastComma = text.lastIndexOf(',');
-        const lastDot = text.lastIndexOf('.');
-
-        if (lastComma !== -1 && lastDot !== -1) {
-            if (lastComma > lastDot) {
-                text = text.replace(/\./g, '').replace(',', '.');
-            } else {
-                text = text.replace(/,/g, '');
-            }
-        } else if (lastComma !== -1) {
-            text = text.replace(',', '.');
-        }
-
-        const amount = Number(text);
-        return Number.isFinite(amount) ? amount : NaN;
+        return AppUI.parseAmountInput(value);
     },
 
     esc(str) {
-        const d = document.createElement('div');
-        d.textContent = str;
-        return d.innerHTML;
+        return AppUI.escapeHtml(str);
     }
 };
 

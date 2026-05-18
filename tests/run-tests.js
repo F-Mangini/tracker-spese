@@ -79,6 +79,39 @@ function loadStats() {
     return context.StatsData;
 }
 
+function loadUiViews() {
+    const context = { console };
+    vm.createContext(context);
+
+    const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
+    const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
+    const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
+    const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
+    const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
+
+    vm.runInContext(
+        [
+            statsCode,
+            uiCode,
+            filterViewCode,
+            timelineViewCode,
+            statsViewCode,
+            'globalThis.AppUI = AppUI;',
+            'globalThis.FilterView = FilterView;',
+            'globalThis.TimelineView = TimelineView;',
+            'globalThis.StatsView = StatsView;'
+        ].join('\n'),
+        context
+    );
+
+    return {
+        AppUI: context.AppUI,
+        FilterView: context.FilterView,
+        TimelineView: context.TimelineView,
+        StatsView: context.StatsView
+    };
+}
+
 function expense(overrides = {}) {
     return {
         id: 'expense-1',
@@ -382,6 +415,72 @@ test('Statistiche aggregano dati mensili e riepilogo categorie/top spese', () =>
     assert.equal(summary.total, 20);
     assert.deepEqual(summary.categoryTotals, [['bar', 13], ['ristorante', 7]]);
     assert.deepEqual(summary.topExpenses.map(s => s.id), ['a', 'b']);
+});
+
+test('Helper UI normalizzano importi e formattano denaro senza DOM', () => {
+    const { AppUI } = loadUiViews();
+
+    assert.equal(AppUI.parseAmountInput('€1,50'), 1.5);
+    assert.equal(AppUI.parseAmountInput('1.234,56 euro'), 1234.56);
+    assert.equal(AppUI.money(3), '€3.00');
+});
+
+test('Vista filtri calcola slider e footer riepilogo', () => {
+    const { FilterView } = loadUiViews();
+    const spese = [
+        expense({ importo: 4 }),
+        expense({ importo: 120 })
+    ];
+
+    assert.equal(FilterView.getSliderMax(spese), 500);
+    assert.equal(
+        FilterView.renderFooterInfo({ activeCount: 1, filtered: spese }),
+        '1 filtro · 2 spese · €124.00'
+    );
+});
+
+test('Vista timeline renderizza riepilogo e card escapando il testo utente', () => {
+    const { TimelineView } = loadUiViews();
+    const html = TimelineView.renderExpenseCard(
+        expense({ descrizione: '<script>alert(1)</script>', importo: 2 }),
+        {
+            category: { emoji: '☕', nome: 'Bar' },
+            method: { emoji: '💳', nome: 'Carta' },
+            isNew: true
+        }
+    );
+
+    assert(html.includes('new-card'));
+    assert(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+    assert(!html.includes('<script>alert(1)</script>'));
+});
+
+test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {
+    const { StatsView } = loadUiViews();
+
+    assert(StatsView.renderEmptyState().includes('stats-empty-initial'));
+
+    const html = StatsView.renderPage({
+        period: 'month',
+        periodLabel: 'maggio 2026',
+        canGoNext: false,
+        isCustom: false,
+        filtered: [expense({ importo: 10 })],
+        summary: {
+            total: 10,
+            avg: 1,
+            categoryTotals: [['bar', 10]],
+            maxCategory: 10,
+            topExpenses: [expense({ importo: 10 })]
+        },
+        barChartTitle: 'Andamento giornaliero',
+        chartColors: ['#10b981'],
+        getCategory: () => ({ emoji: '☕', nome: 'Bar' })
+    });
+
+    assert(html.includes('data-period="month"'));
+    assert(html.includes('chart-doughnut'));
+    assert(html.includes('Dettaglio categorie'));
 });
 
 let failed = 0;

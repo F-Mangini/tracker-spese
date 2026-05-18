@@ -11,6 +11,8 @@ Stato della fase iniziale:
 - Completato il 2026-05-16: primo test runner Node per storage e parser.
 - Completato il 2026-05-16: test minimi estesi a filtri e aggregazioni statistiche.
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
+- In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
+- Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 
 Priorita della fase attuale:
 
@@ -18,6 +20,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
+- Prossimo passo consigliato: estrarre in modo analogo dropdown/tag/modale e poi impostazioni, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 
@@ -42,7 +45,7 @@ Elementi emersi dagli appunti come utili nel breve periodo:
 - Sistemare animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
 - Nascondere la barra di inserimento quando il pannello filtri e completamente aperto.
 - Rendere il pannello filtri scrollabile anche quando non completamente aperto.
-- Separare lo scroll tra timeline, statistiche e impostazioni: lo scroll di una pagina non deve trascinare le altre, e il cambio pagina deve riportare in alto la vista attiva quando appropriato.
+- Completato parzialmente il 2026-05-18: separare lo scroll tra timeline, statistiche e impostazioni ricordando la posizione di ogni pagina e partendo dall'alto al primo ingresso.
 - Rivedere la gestione di chiusura di pannelli, modali e history quando filtri parzialmente aperti e modifica spesa interagiscono tra loro.
 - Evitare che l'app si chiuda completamente quando viene chiusa con indietro, mantenendola nei recenti dove possibile.
 
@@ -97,7 +100,7 @@ Idee future:
 - Filtri negativi con toggle a tre stati: includi, escludi, neutro.
 - Filtri tag con selezione di tutti i tag, spese senza tag e ricerca tag.
 - Filtri preimpostati salvabili da futura sezione personalizzazione.
-- Correggere l'empty state della pagina statistiche quando non ci sono spese: il tip iniziale non deve finire sotto l'effetto di trasparenza.
+- Completato il 2026-05-18: corretto l'empty state della pagina statistiche quando non ci sono spese, evitando che il tip iniziale finisca sotto l'effetto di trasparenza.
 
 ## Categorie, Metodi e Personalizzazione
 

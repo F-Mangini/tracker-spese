@@ -13,10 +13,14 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
 - `app/js/filters.js` contiene la logica pura dei filtri condivisi da timeline e statistiche.
 - `app/js/stats.js` contiene date, riepiloghi e aggregazioni statistiche testabili senza DOM.
+- `app/js/ui-utils.js` contiene helper UI piccoli per formattazione, escape HTML, date input e parsing importi nei form.
+- `app/js/filter-view.js` contiene rendering e micro-logica UI del pannello filtri, inclusi chip, riepilogo e soglia slider.
+- `app/js/timeline-view.js` contiene il rendering testabile di riepilogo timeline, gruppi giorno e card spesa.
+- `app/js/stats-view.js` contiene il rendering testabile della pagina statistiche, separato dai grafici Chart.js.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
-- `app/js/app.js` contiene lo stato UI, rendering, eventi e orchestrazione dei moduli.
+- `app/js/app.js` contiene stato UI, eventi, orchestrazione dei moduli, grafici Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: navigazione, input, modal, tag, import/export e gestione mobile. La prima estrazione di logica pura ha pero spostato filtri, date e aggregazioni statistiche in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, modal, tag, import/export, grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione e rendering di filtri/timeline/statistiche in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -128,6 +132,10 @@ La navigazione principale e composta da:
 - chiusura pannello filtri;
 - ritorno alla timeline dalle altre pagine.
 
+La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history creato all'apertura; se si chiude tutto il pannello mentre i filtri avanzati sono aperti, vengono consumati entrambi gli stati sovrapposti.
+
+Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso.
+
 Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale.
 
 ### Statistiche
@@ -175,8 +183,8 @@ Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabi
 - Le categorie non hanno ancora icone o immagini personalizzabili dall'utente, ne un colore visivo mostrato direttamente sulle spese.
 - Non esiste ancora una modalita selezione con evidenza visiva dedicata e azioni bulk sulle spese.
 - Non esiste ancora supporto multi-account: tutto vive in un unico contenitore dati locale.
-- Nella pagina statistiche esiste almeno un problema noto di resa dell'empty state: il tip iniziale puo risultare coperto dall'effetto di trasparenza quando non ci sono spese.
+- La pagina statistiche ha ancora una UI semplice quando non ci sono dati, ma il tip iniziale e ora posizionato sotto l'effetto di trasparenza della testata sticky.
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri e aggregazioni statistiche; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche e rendering/helper UI estratti; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.

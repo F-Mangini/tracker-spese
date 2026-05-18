@@ -63,6 +63,21 @@ La prima parte della Fase 2 e stata implementata:
 
 Restano aperti: parsing importo piu robusto, UI stack/back button, separazione progressiva di modali, navigazione, impostazioni e rendering timeline.
 
+## Aggiornamento 2026-05-18 - Estrazione rendering UI
+
+La seconda parte della separazione progressiva di `app.js` e stata implementata:
+
+- `app/js/ui-utils.js` contiene helper UI piccoli e testabili: formattazione importi, escape HTML, formattazione date per input e parsing importi nei form.
+- `app/js/filter-view.js` contiene rendering dei chip filtro, testo del riepilogo filtri e calcolo della soglia massima dello slider importo.
+- `app/js/timeline-view.js` contiene rendering di riepilogo timeline, empty state filtrato, gruppi giorno e card spesa.
+- `app/js/stats-view.js` contiene rendering della pagina statistiche; `app.js` resta responsabile di dati, eventi e grafici Chart.js.
+- `app.js` ha metodi piu piccoli per navigazione, salvataggio/ripristino scroll pagina, gestione popstate e lettura del form modale.
+- La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
+- La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
+- `tests/run-tests.js` copre anche helper UI e rendering estratto di filtri, timeline e statistiche.
+
+Restano aperti: UI stack/back button completo, estrazione piu profonda di modali/dropdown/tag/impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
+
 ## Findings Principali
 
 | ID | Problema | Gravita | Difficolta | Area |
@@ -138,7 +153,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene quasi tutto: tema, navigazione, filtri, slider, input, voce, timeline, modale, dropdown, tag, conferme, statistiche, grafici, impostazioni, toast e helper. Il file supera le 2800 righe.
+`App` contiene ancora molto: tema, navigazione, input, voce, modale, dropdown, tag, conferme, grafici, impostazioni, toast e workaround mobile. Il rendering di filtri, timeline e statistiche e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -165,7 +180,7 @@ La history e manipolata da molti punti: navigazione pagina, filtri, ricerca, inp
 
 Esempi concreti:
 
-- `toggleAdvancedFilters()` fa `pushState` quando apre, ma quando chiude da bottone non consuma quella history entry.
+- `toggleAdvancedFilters()` ora consuma la history entry quando chiude da bottone, ma il resto dello stack UI resta ancora distribuito.
 - `closeModal()` puo fare `history.go(-2)` se crede che esista uno stato interazione.
 - Blur di input e ricerca chiamano `history.back()` con timeout.
 - Il singolo listener `popstate` deve interpretare molti stati impliciti.
@@ -209,7 +224,7 @@ Direzione di fix:
 
 Problema:
 
-Non c'e test harness. Per ora il progetto e piccolo, ma il refactor tocchera esattamente le parti piu fragili: dati, parser, filtri, history e statistiche.
+Esiste un test harness leggero Node, ma il refactor tocchera ancora parti fragili non coperte automaticamente: history, modali, tastiera mobile e interazioni DOM.
 
 Direzione di fix:
 
@@ -449,10 +464,11 @@ Stato: completata il 2026-05-15.
 - Completato il 2026-05-16: introdurre schema versionato e normalizzazione.
 - Completato il 2026-05-16: aggiungere test storage/parser.
 
-### Fase 2 - Estrazione logica pura
+### Fase 2 - Estrazione logica pura e rendering testabile
 
 - Completato parzialmente il 2026-05-16: estratti filtri, date e aggregazioni statistiche in `app/js/filters.js` e `app/js/stats.js`.
 - Completato parzialmente il 2026-05-16: aggiunti test per filtri e aggregazioni statistiche.
+- Completato parzialmente il 2026-05-18: estratti helper UI e rendering di filtri, timeline e statistiche in `ui-utils.js`, `filter-view.js`, `timeline-view.js` e `stats-view.js`.
 - Restano da estrarre/parzialmente rafforzare parsing importo e altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
 
@@ -460,11 +476,13 @@ Stato: completata il 2026-05-15.
 
 - Disegnare un modello unico per pagina/pannello/modale/conferma/input attivo.
 - Sostituire gradualmente push/back sparsi.
+- Completato parzialmente il 2026-05-18: resa simmetrica la history dei filtri avanzati e separato il salvataggio scroll per pagina.
 - Verificare ogni passaggio su Android.
 
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
+- Completato parzialmente il 2026-05-18: rendering di filtri, timeline e statistiche spostato fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

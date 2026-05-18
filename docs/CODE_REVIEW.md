@@ -71,12 +71,14 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/filter-view.js` contiene rendering dei chip filtro, testo del riepilogo filtri e calcolo della soglia massima dello slider importo.
 - `app/js/timeline-view.js` contiene rendering di riepilogo timeline, empty state filtrato, gruppi giorno e card spesa.
 - `app/js/stats-view.js` contiene rendering della pagina statistiche; `app.js` resta responsabile di dati, eventi e grafici Chart.js.
+- `app/js/modal-view.js` contiene rendering dei dropdown ricercabili e logica pura dei suggerimenti tag.
+- `app/js/settings-view.js` contiene rendering della pagina impostazioni e messaggio preview import.
 - `app.js` ha metodi piu piccoli per navigazione, salvataggio/ripristino scroll pagina, gestione popstate e lettura del form modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
-- `tests/run-tests.js` copre anche helper UI e rendering estratto di filtri, timeline e statistiche.
+- `tests/run-tests.js` copre anche helper UI e rendering estratto di filtri, timeline, statistiche, dropdown, tag e impostazioni.
 
-Restano aperti: UI stack/back button completo, estrazione piu profonda di modali/dropdown/tag/impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
+Restano aperti: UI stack/back button completo, estrazione piu profonda degli eventi modale e delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
 
 ## Findings Principali
 
@@ -153,7 +155,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora molto: tema, navigazione, input, voce, modale, dropdown, tag, conferme, grafici, impostazioni, toast e workaround mobile. Il rendering di filtri, timeline e statistiche e stato pero estratto in moduli dedicati.
+`App` contiene ancora molto: tema, navigazione, input, voce, eventi modale, conferme, azioni impostazioni, grafici, toast e workaround mobile. Il rendering di filtri, timeline, statistiche, dropdown, tag e impostazioni e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -469,6 +471,8 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-16: estratti filtri, date e aggregazioni statistiche in `app/js/filters.js` e `app/js/stats.js`.
 - Completato parzialmente il 2026-05-16: aggiunti test per filtri e aggregazioni statistiche.
 - Completato parzialmente il 2026-05-18: estratti helper UI e rendering di filtri, timeline e statistiche in `ui-utils.js`, `filter-view.js`, `timeline-view.js` e `stats-view.js`.
+- Completato parzialmente il 2026-05-18: estratti rendering dropdown e logica suggerimenti tag in `modal-view.js`.
+- Completato parzialmente il 2026-05-18: estratti rendering impostazioni e preview import in `settings-view.js`.
 - Restano da estrarre/parzialmente rafforzare parsing importo e altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
 
@@ -482,7 +486,7 @@ Stato: completata il 2026-05-15.
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-18: rendering di filtri, timeline e statistiche spostato fuori da `app.js`.
+- Completato parzialmente il 2026-05-18: rendering di filtri, timeline, statistiche, dropdown, tag e impostazioni spostato fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

@@ -88,6 +88,8 @@ function loadUiViews() {
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
     const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
+    const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
+    const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
 
     vm.runInContext(
         [
@@ -96,10 +98,14 @@ function loadUiViews() {
             filterViewCode,
             timelineViewCode,
             statsViewCode,
+            modalViewCode,
+            settingsViewCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
-            'globalThis.StatsView = StatsView;'
+            'globalThis.StatsView = StatsView;',
+            'globalThis.ModalView = ModalView;',
+            'globalThis.SettingsView = SettingsView;'
         ].join('\n'),
         context
     );
@@ -108,7 +114,9 @@ function loadUiViews() {
         AppUI: context.AppUI,
         FilterView: context.FilterView,
         TimelineView: context.TimelineView,
-        StatsView: context.StatsView
+        StatsView: context.StatsView,
+        ModalView: context.ModalView,
+        SettingsView: context.SettingsView
     };
 }
 
@@ -481,6 +489,78 @@ test('Vista statistiche separa template da dati e conserva gli stati vuoti', () 
     assert(html.includes('data-period="month"'));
     assert(html.includes('chart-doughnut'));
     assert(html.includes('Dettaglio categorie'));
+});
+
+test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () => {
+    const { ModalView } = loadUiViews();
+    const items = [
+        { id: 'abbigliamento', emoji: '👕', nome: 'Abbigliamento' },
+        { id: 'bar', emoji: '☕', nome: 'Bar' },
+        { id: 'supermercato', emoji: '🛒', nome: 'Supermercato' }
+    ];
+
+    const filtered = ModalView.getDropdownItems(items, 'b');
+    const html = ModalView.renderDropdownList(filtered, 'bar');
+
+    assert.deepEqual(filtered.map(item => item.id), ['bar', 'abbigliamento']);
+    assert(html.includes('selected'));
+    assert(html.includes('data-id="bar"'));
+});
+
+test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
+    const { ModalView } = loadUiViews();
+    const spese = [
+        expense({ id: 'a', data: '2026-05-10T10:00:00.000Z', tags: ['casa', 'lavoro'] }),
+        expense({ id: 'b', data: '2026-05-12T10:00:00.000Z', tags: ['casa', 'viaggio'] }),
+        expense({ id: 'c', data: '2026-05-14T10:00:00.000Z', tags: ['salute'] })
+    ];
+    const allTags = ModalView.getAllTags(spese);
+    const stats = ModalView.getTagStats(spese);
+    const suggestions = ModalView.getTagSuggestions({ allTags, currentTags: [], filter: '', stats });
+    const filteredHtml = ModalView.renderTagList({
+        allTags,
+        currentTags: ['casa'],
+        filter: 'via',
+        stats
+    });
+    const createHtml = ModalView.renderTagList({
+        allTags,
+        currentTags: [],
+        filter: '#nuovo tag',
+        stats
+    });
+
+    assert.deepEqual(allTags, ['casa', 'lavoro', 'salute', 'viaggio']);
+    assert.equal(suggestions[0].tag, 'salute');
+    assert(filteredHtml.includes('data-tag="viaggio"'));
+    assert(createHtml.includes('data-tag="nuovotag"'));
+});
+
+test('Vista impostazioni renderizza info, guardrail e preview import escapata', () => {
+    const { SettingsView } = loadUiViews();
+    const spese = [
+        expense({ id: 'a', data: '2026-05-10T10:00:00.000Z' }),
+        expense({ id: 'b', data: '2026-05-12T10:00:00.000Z' })
+    ];
+    const page = SettingsView.renderPage({
+        settings: { tema: 'auto' },
+        spese,
+        sizeKB: 12.34,
+        storageStatus: { ok: false }
+    });
+    const preview = SettingsView.renderImportPreviewMessage({
+        format: 'json',
+        count: 2,
+        settingsIncluded: true,
+        warnings: ['<script>alert(1)</script>']
+    }, true);
+
+    assert(page.includes('btn-export-raw'));
+    assert(page.includes('Spese registrate'));
+    assert(page.includes('12.3 KB'));
+    assert(preview.includes('2 spese valide con impostazioni'));
+    assert(preview.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+    assert(!preview.includes('<script>alert(1)</script>'));
 });
 
 let failed = 0;

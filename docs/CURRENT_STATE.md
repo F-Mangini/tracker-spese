@@ -17,10 +17,12 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/filter-view.js` contiene rendering e micro-logica UI del pannello filtri, inclusi chip, riepilogo e soglia slider.
 - `app/js/timeline-view.js` contiene il rendering testabile di riepilogo timeline, gruppi giorno e card spesa.
 - `app/js/stats-view.js` contiene il rendering testabile della pagina statistiche, separato dai grafici Chart.js.
+- `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
+- `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi, orchestrazione dei moduli, grafici Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, modal, tag, import/export, grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione e rendering di filtri/timeline/statistiche in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, eventi modale, import/export, grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione e rendering di filtri/timeline/statistiche/dropdown/tag/impostazioni in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -114,6 +116,8 @@ La modale permette di modificare importo, descrizione, data, ora, categoria, met
 
 Categoria, metodo e tag usano dropdown ricercabili custom. I tag suggeriscono valori gia usati, con preferenza per ultimo uso e frequenza.
 
+Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; `app.js` mantiene gli eventi, focus/blur, history e workaround mobile della modale.
+
 ### Navigazione e mobile
 
 La navigazione principale e composta da:
@@ -173,6 +177,8 @@ La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impo
 
 Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni.
 
+Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; `app.js` mantiene lettura file, commit import/export e listener dei pulsanti.
+
 ## Limiti Noti
 
 - Non c'e ancora un service worker: l'app non e pienamente offline.
@@ -187,4 +193,4 @@ Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabi
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche e rendering/helper UI estratti; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche e rendering/helper UI estratti, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.

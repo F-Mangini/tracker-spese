@@ -1410,11 +1410,7 @@ const App = {
 
         const selected = items.find(i => i.id === currentValue) || items[0];
 
-        container.innerHTML = `
-            <textarea rows="1" class="sd-input" autocomplete="nope" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" enterkeyhint="done" readOnly data-value="${selected.id}">${selected.emoji} ${selected.nome}</textarea>
-            <span class="sd-arrow">▼</span>
-            <div class="sd-list"></div>
-        `;
+        container.innerHTML = ModalView.renderDropdownShell(selected);
 
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
@@ -1422,37 +1418,16 @@ const App = {
         let isEditable = false;
 
         const renderList = (filter = '') => {
-            const q = filter.toLowerCase();
-            let filtered = q
-                ? items.filter(i => i.nome.toLowerCase().includes(q) || (i.emoji + ' ' + i.nome).toLowerCase().includes(q))
-                : items;
-
-            if (q && filtered.length > 0) {
-                filtered = [...filtered].sort((a, b) => {
-                    const nameA = a.nome.toLowerCase();
-                    const nameB = b.nome.toLowerCase();
-                    const idxA = nameA.indexOf(q);
-                    const idxB = nameB.indexOf(q);
-
-                    if (idxA !== idxB) {
-                        if (idxA === -1) return 1;
-                        if (idxB === -1) return -1;
-                        return idxA - idxB;
-                    }
-                    return nameA.localeCompare(nameB, 'it');
-                });
-            }
+            const filtered = ModalView.getDropdownItems(items, filter);
 
             if (filtered.length === 0) {
-                list.innerHTML = '<div class="sd-empty">Nessun risultato</div>';
+                list.innerHTML = ModalView.renderDropdownEmpty();
                 highlightIdx = -1;
                 return;
             }
 
             highlightIdx = -1;
-            list.innerHTML = filtered.map((item, idx) =>
-                `<div class="sd-item${item.id === input.dataset.value ? ' selected' : ''}" data-id="${item.id}" data-idx="${idx}">${item.emoji} ${item.nome}</div>`
-            ).join('');
+            list.innerHTML = ModalView.renderDropdownList(filtered, input.dataset.value);
 
             list.querySelectorAll('.sd-item').forEach(el => {
                 el.addEventListener('mousedown', e => {
@@ -1463,7 +1438,9 @@ const App = {
         };
 
         const selectItem = (item) => {
-            input.value = `${item.emoji} ${item.nome}`;
+            if (!item) return;
+
+            input.value = ModalView.formatDropdownItem(item);
             input.dataset.value = item.id;
             close();
             try { input.blur(); } catch (_) { }
@@ -1487,7 +1464,7 @@ const App = {
             input.readOnly = true;
             isEditable = false;
             const sel = items.find(i => i.id === input.dataset.value) || items[0];
-            input.value = `${sel.emoji} ${sel.nome}`;
+            input.value = ModalView.formatDropdownItem(sel);
 
             const shouldRelease = wasOpen && this._modalInteractionActive && !this._suspendInteractionRelease;
             if (shouldRelease) {
@@ -1566,38 +1543,18 @@ const App = {
             setValue: (val) => {
                 const item = items.find(i => i.id === val) || items[0];
                 input.dataset.value = item.id;
-                input.value = `${item.emoji} ${item.nome}`;
+                input.value = ModalView.formatDropdownItem(item);
             }
         };
     },
 
     /* --- Tags --- */
     getAllTags() {
-        const spese = Storage.getSpese();
-        const tagSet = new Set();
-        spese.forEach(s => {
-            if (s.tags && Array.isArray(s.tags)) {
-                s.tags.forEach(t => tagSet.add(t));
-            }
-        });
-        return [...tagSet].sort();
+        return ModalView.getAllTags(Storage.getSpese());
     },
 
     getTagStats() {
-        const spese = Storage.getSpese();
-        const freq = {};
-        const lastUsed = {};
-
-        spese.forEach(s => {
-            if (!s.tags || !Array.isArray(s.tags)) return;
-            const ts = new Date(s.data).getTime();
-            s.tags.forEach(t => {
-                freq[t] = (freq[t] || 0) + 1;
-                if (!lastUsed[t] || ts > lastUsed[t]) lastUsed[t] = ts;
-            });
-        });
-
-        return { freq, lastUsed };
+        return ModalView.getTagStats(Storage.getSpese());
     },
 
     initTagInput() {
@@ -1605,19 +1562,14 @@ const App = {
         const chipsEl = document.getElementById('tag-chips');
         if (!container) return;
 
-        container.innerHTML = `
-            <textarea rows="1" class="sd-input" placeholder="Aggiungi tag..." autocomplete="nope" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" enterkeyhint="done" readOnly></textarea>
-            <div class="sd-list"></div>
-        `;
+        container.innerHTML = ModalView.renderTagInputShell();
 
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
         let isEditable = false;
 
         const renderChips = () => {
-            chipsEl.innerHTML = this._editTags.map(tag =>
-                `<span class="tag-chip">#${this.esc(tag)}<button class="tag-remove" data-tag="${this.esc(tag)}">&times;</button></span>`
-            ).join('');
+            chipsEl.innerHTML = ModalView.renderTagChips(this._editTags);
 
             chipsEl.querySelectorAll('.tag-remove').forEach(btn => {
                 btn.addEventListener('mousedown', e => {
@@ -1638,66 +1590,14 @@ const App = {
 
         const renderList = (filter = '') => {
             const allTags = this.getAllTags();
-            const { freq, lastUsed } = this.getTagStats();
-            const q = filter.toLowerCase().replace(/^#/, '');
-            const available = allTags.filter(t =>
-                !this._editTags.includes(t) && (q ? t.toLowerCase().includes(q) : true)
-            );
+            const stats = this.getTagStats();
 
-            let orderedItems = [];
-            if (available.length > 0 && !q) {
-                const sorted = available.slice().sort((a, b) => (lastUsed[b] || 0) - (lastUsed[a] || 0));
-                const mostRecent = sorted[0];
-                orderedItems.push({ tag: mostRecent, icon: '🕐' });
-
-                const byFreq = available.slice().sort((a, b) => (freq[b] || 0) - (freq[a] || 0));
-                const starItems = [];
-                for (const t of byFreq) {
-                    if (t !== mostRecent && starItems.length < 2) {
-                        starItems.push({ tag: t, icon: '⭐' });
-                    }
-                }
-                orderedItems.push(...starItems);
-
-                const usedTags = new Set(orderedItems.map(i => i.tag));
-                for (const t of sorted) {
-                    if (!usedTags.has(t)) {
-                        orderedItems.push({ tag: t, icon: '' });
-                    }
-                }
-            } else {
-                if (q && available.length > 0) {
-                    available.sort((a, b) => {
-                        const nameA = a.toLowerCase();
-                        const nameB = b.toLowerCase();
-                        const idxA = nameA.indexOf(q);
-                        const idxB = nameB.indexOf(q);
-
-                        if (idxA !== idxB) {
-                            if (idxA === -1) return 1;
-                            if (idxB === -1) return -1;
-                            return idxA - idxB;
-                        }
-                        return nameA.localeCompare(nameB, 'it');
-                    });
-                }
-                orderedItems = available.map(t => ({ tag: t, icon: '' }));
-            }
-
-            let html = orderedItems.map(({ tag, icon }) =>
-                `<div class="sd-item" data-tag="${this.esc(tag)}"><span>#${this.esc(tag)}</span>${icon ? `<span class="tag-hint-icon">${icon}</span>` : ''}</div>`
-            ).join('');
-
-            const cleanTag = q.replace(/\s+/g, '');
-            if (cleanTag && !allTags.includes(cleanTag) && !this._editTags.includes(cleanTag)) {
-                html += `<div class="sd-item create-new" data-tag="${this.esc(cleanTag)}">+ Crea "#${this.esc(cleanTag)}"</div>`;
-            }
-
-            if (!html) {
-                list.innerHTML = '<div class="sd-empty">Nessun tag</div>';
-            } else {
-                list.innerHTML = html;
-            }
+            list.innerHTML = ModalView.renderTagList({
+                allTags,
+                currentTags: this._editTags,
+                filter,
+                stats
+            });
 
             list.querySelectorAll('.sd-item').forEach(el => {
                 el.addEventListener('mousedown', e => {
@@ -1748,7 +1648,7 @@ const App = {
 
         input.addEventListener('mousedown', e => {
             const allTags = this.getAllTags();
-            const availableCount = allTags.filter(t => !this._editTags.includes(t)).length;
+            const availableCount = ModalView.getAvailableTagCount(allTags, this._editTags);
 
             if (!container.classList.contains('open')) {
                 e.preventDefault();
@@ -1784,7 +1684,7 @@ const App = {
                         addTag(firstTag);
                     }
                 } else {
-                    const val = input.value.replace(/\s+/g, '').replace(/^#/, '');
+                    const val = ModalView.cleanTagInput(input.value);
                     if (val) addTag(val);
                 }
             }
@@ -2223,68 +2123,15 @@ const App = {
         const sizeKB = Storage.getStorageSizeKB();
         const storageStatus = Storage.getStatus();
         const container = document.getElementById('settings-content');
+        const dateRange = SettingsView.getDateRange(spese);
 
-        let dateRange = '—';
-        if (spese.length > 0) {
-            const dates = spese.map(s => new Date(s.data)).sort((a, b) => a - b);
-            dateRange = `${dates[0].toLocaleDateString('it-IT')} — ${dates[dates.length - 1].toLocaleDateString('it-IT')}`;
-        }
-
-        const storageGuardSection = storageStatus.ok ? '' : `
-            <div class="settings-section danger-zone">
-                <h3>Guardrail dati</h3>
-                <p class="settings-hint">I dati locali non sono leggibili. I nuovi salvataggi sono bloccati per evitare sovrascritture.</p>
-                <button id="btn-export-raw" class="btn btn-warning btn-block">Esporta dati grezzi</button>
-            </div>
-        `;
-
-        container.innerHTML = `
-            <div class="settings-section">
-                <h3>🎨 Tema</h3>
-                <div class="theme-selector">
-                    <button class="theme-btn ${settings.tema === 'light' ? 'active' : ''}" data-theme="light">☀️ Chiaro</button>
-                    <button class="theme-btn ${settings.tema === 'dark' ? 'active' : ''}" data-theme="dark">🌙 Scuro</button>
-                    <button class="theme-btn ${settings.tema === 'auto' ? 'active' : ''}" data-theme="auto">🌓 Auto</button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3>📤 Esporta dati</h3>
-                <p class="settings-hint">Scegli JSON per backup completo o CSV per fogli di calcolo.</p>
-                <div class="settings-buttons">
-                    <button id="btn-export" class="btn btn-secondary btn-block">Scegli formato...</button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3>📥 Importa dati</h3>
-                <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
-                <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
-                <button id="btn-import" class="btn btn-secondary btn-block">📁 Scegli file...</button>
-            </div>
-
-            ${storageGuardSection}
-
-            <div class="settings-section">
-                <h3>📊 Informazioni</h3>
-                <div class="info-grid">
-                    <div class="info-item"><span class="info-label">Spese registrate</span><span class="info-value">${spese.length}</span></div>
-                    <div class="info-item"><span class="info-label">Periodo</span><span class="info-value">${dateRange}</span></div>
-                    <div class="info-item"><span class="info-label">Spazio usato</span><span class="info-value">${sizeKB.toFixed(1)} KB</span></div>
-                </div>
-            </div>
-
-            <div class="settings-section danger-zone">
-                <h3>⚠️ Zona pericolosa</h3>
-                <p class="settings-hint">Azione irreversibile. Esporta prima!</p>
-                <button id="btn-clear-all" class="btn btn-danger btn-block">🗑️ Cancella tutti i dati</button>
-            </div>
-
-            <div class="about-section">
-                <p>💰 Where's My Money? v2.3.4</p>
-                <p>Dati locali · Nessun server · Nessun costo</p>
-            </div>
-        `;
+        container.innerHTML = SettingsView.renderPage({
+            settings,
+            spese,
+            sizeKB,
+            storageStatus,
+            dateRange
+        });
 
         container.querySelectorAll('.theme-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -2417,17 +2264,7 @@ const App = {
     },
 
     importPreviewMessage(preview, hasSpese) {
-        const format = preview.format === 'json' ? 'JSON' : 'CSV';
-        const settings = preview.settingsIncluded ? ' con impostazioni' : '';
-        const warnings = (preview.warnings || []).slice(0, 3);
-        const warningsHtml = warnings.length
-            ? `<br><span style="font-size: 0.85rem; color: var(--warning);">${warnings.map(w => this.esc(w)).join('<br>')}</span>`
-            : '';
-        const modeHint = hasSpese
-            ? '<br><span style="font-size: 0.85rem; color: var(--text-tertiary);">Aggiungi mantiene i dati attuali. Sostituisci crea prima uno snapshot locale.</span>'
-            : '';
-
-        return `Importare file ${format}?<br><span style="font-size: 0.9rem; color: var(--text-secondary);">${preview.count} spese valide${settings}.</span>${modeHint}${warningsHtml}`;
+        return SettingsView.renderImportPreviewMessage(preview, hasSpese);
     },
 
     commitImport(preview, content, mode) {

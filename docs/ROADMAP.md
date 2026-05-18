@@ -12,6 +12,8 @@ Stato della fase iniziale:
 - Completato il 2026-05-16: test minimi estesi a filtri e aggregazioni statistiche.
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
+- In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
+- In corso dal 2026-05-18: rendering impostazioni e preview import spostati in `app/js/settings-view.js`.
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 
 Priorita della fase attuale:
@@ -20,7 +22,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: estrarre in modo analogo dropdown/tag/modale e poi impostazioni, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
+- Prossimo passo consigliato: estrarre gli eventi modale rimasti e poi consolidare lo stack UI, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

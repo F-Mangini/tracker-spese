@@ -11,6 +11,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/config.js` contiene configurazione runtime minima, inclusa la chiave `localStorage`.
 - `app/js/categories.js` contiene categorie e metodi di pagamento statici.
 - `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
+- `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
 - `app/js/filters.js` contiene la logica pura dei filtri condivisi da timeline e statistiche.
 - `app/js/stats.js` contiene date, riepiloghi e aggregazioni statistiche testabili senza DOM.
@@ -19,6 +20,8 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/timeline-view.js` contiene il rendering testabile di riepilogo timeline, gruppi giorno e card spesa.
 - `app/js/stats-view.js` contiene il rendering testabile della pagina statistiche, separato dai grafici Chart.js.
 - `app/js/stats-charts.js` contiene palette, colori tema e configurazione Chart.js per i grafici statistiche.
+- `app/js/theme-controller.js` contiene applicazione tema, tema automatico e toggle temporaneo dell'header.
+- `app/js/toast-controller.js` contiene visualizzazione, timer e posizionamento dei toast sopra la barra di inserimento quando serve.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
@@ -29,7 +32,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, tema, toast, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -86,6 +89,8 @@ La dettatura vocale e supportata quando il browser espone `SpeechRecognition` o 
 
 Alcuni campi monoriga sono implementati come `textarea` per evitare, su mobile, la sezione invasiva di suggerimenti/autofill della tastiera.
 
+Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`; `app.js` mantiene lettura DOM, refresh timeline/statistiche e feedback visivo.
+
 ### Parser e classificazione
 
 Il parser:
@@ -125,7 +130,7 @@ La modale permette di modificare importo, descrizione, data, ora, categoria, met
 
 Categoria, metodo e tag usano dropdown ricercabili custom. I tag suggeriscono valori gia usati, con preferenza per ultimo uso e frequenza.
 
-Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; eventi, focus/blur e micro-stato di dropdown/tag sono in `app/js/modal-interactions.js`. `app.js` mantiene apertura/chiusura, salvataggio, history/back button e workaround mobile della modale.
+Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; eventi, focus/blur e micro-stato di dropdown/tag sono in `app/js/modal-interactions.js`. Le chiamate storage per modifica ed eliminazione passano da `app/js/expense-actions.js`; `app.js` mantiene apertura/chiusura, lettura form, history/back button e workaround mobile della modale.
 
 ### Navigazione e mobile
 
@@ -184,7 +189,7 @@ Negli import aggiuntivi, gli id duplicati o mancanti vengono rigenerati e riepil
 
 La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impostazioni gia presenti, entrino nello stesso perimetro di backup/import per facilitare cambio dispositivo e ripristino completo.
 
-Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni.
+Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni. Applicazione del tema, tema automatico e toggle temporaneo sono in `app/js/theme-controller.js`. I toast sono gestiti da `app/js/toast-controller.js`, incluso il posizionamento sopra la barra di inserimento quando l'input rapido e attivo.
 
 Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export, salvataggio tema persistente e cancellazione completa sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. Il wiring DOM della pagina e in `app/js/settings-controller.js`, mentre `app.js` mantiene lettura file, download reale, aggiornamento UI post-commit e hook di navigazione/toast/conferma.
 
@@ -202,4 +207,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

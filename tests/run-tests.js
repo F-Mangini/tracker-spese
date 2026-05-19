@@ -84,6 +84,7 @@ function loadUiViews() {
     vm.createContext(context);
 
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
+    const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
     const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
@@ -97,10 +98,13 @@ function loadUiViews() {
     const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
     const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
     const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
+    const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
+    const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
 
     vm.runInContext(
         [
             statsCode,
+            expenseActionsCode,
             uiCode,
             filterViewCode,
             timelineViewCode,
@@ -114,7 +118,10 @@ function loadUiViews() {
             uiStackCode,
             uiStackEffectsCode,
             confirmDialogCode,
+            themeControllerCode,
+            toastControllerCode,
             'globalThis.AppUI = AppUI;',
+            'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.StatsView = StatsView;',
@@ -126,13 +133,16 @@ function loadUiViews() {
             'globalThis.SettingsController = SettingsController;',
             'globalThis.UIStack = UIStack;',
             'globalThis.UIStackEffects = UIStackEffects;',
-            'globalThis.ConfirmDialog = ConfirmDialog;'
+            'globalThis.ConfirmDialog = ConfirmDialog;',
+            'globalThis.ThemeController = ThemeController;',
+            'globalThis.ToastController = ToastController;'
         ].join('\n'),
         context
     );
 
     return {
         AppUI: context.AppUI,
+        ExpenseActions: context.ExpenseActions,
         FilterView: context.FilterView,
         TimelineView: context.TimelineView,
         StatsView: context.StatsView,
@@ -144,7 +154,9 @@ function loadUiViews() {
         SettingsController: context.SettingsController,
         UIStack: context.UIStack,
         UIStackEffects: context.UIStackEffects,
-        ConfirmDialog: context.ConfirmDialog
+        ConfirmDialog: context.ConfirmDialog,
+        ThemeController: context.ThemeController,
+        ToastController: context.ToastController
     };
 }
 
@@ -321,6 +333,58 @@ test('Parser preferisce importi espliciti o finali quando ci sono piu numeri', (
     assert.equal(caffe.descrizione, '2 caffe');
     assert.equal(currency.importo, 1.5);
     assert.equal(currency.descrizione, 'Caffe');
+});
+
+test('Azioni spesa isolano parser e storage dall input rapido', () => {
+    const { ExpenseActions } = loadUiViews();
+    const calls = [];
+    const parser = {
+        parse(text) {
+            calls.push(['parse', text]);
+            if (text === '???') return null;
+            return { descrizione: 'Caffe', importo: 1.5 };
+        }
+    };
+    const storage = {
+        addSpesa(data) {
+            calls.push(['add', data.descrizione, data.importo]);
+            return {
+                success: true,
+                spesa: expense({ id: 'saved', descrizione: data.descrizione, importo: data.importo })
+            };
+        },
+        updateSpesa(id, data) {
+            calls.push(['update', id, data.descrizione]);
+            return { success: true, spesa: expense({ id, descrizione: data.descrizione }) };
+        },
+        deleteSpesa(id) {
+            calls.push(['delete', id]);
+            return { success: true };
+        }
+    };
+
+    assert.equal(ExpenseActions.addFromText({ text: '   ', parser, storage }).reason, 'empty');
+    assert.equal(ExpenseActions.addFromText({ text: '???', parser, storage }).reason, 'parse');
+
+    const added = ExpenseActions.addFromText({ text: 'caffe 1,50', parser, storage });
+    const updated = ExpenseActions.updateExpense({
+        id: 'saved',
+        data: { descrizione: 'Caffe corretto' },
+        storage
+    });
+    const deleted = ExpenseActions.deleteExpense({ id: 'saved', storage });
+
+    assert.equal(added.success, true);
+    assert.equal(added.spesa.id, 'saved');
+    assert.equal(updated.success, true);
+    assert.equal(deleted.success, true);
+    assert.deepEqual(calls, [
+        ['parse', '???'],
+        ['parse', 'caffe 1,50'],
+        ['add', 'Caffe', 1.5],
+        ['update', 'saved', 'Caffe corretto'],
+        ['delete', 'saved']
+    ]);
 });
 
 test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
@@ -897,6 +961,136 @@ test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', 
     assert.equal(choices[1].onClick, yes);
     assert.equal(ConfirmDialog.isOpen(hiddenDoc), false);
     assert.equal(ConfirmDialog.isOpen(openDoc), true);
+});
+
+test('Controller tema mantiene separati tema persistente e toggle temporaneo', () => {
+    const { ThemeController } = loadUiViews();
+    const attrs = {};
+    const listeners = {};
+    const doc = {
+        documentElement: {
+            setAttribute(name, value) {
+                attrs[name] = value;
+            },
+            getAttribute(name) {
+                return attrs[name];
+            }
+        },
+        getElementById(id) {
+            if (id !== 'theme-toggle') return null;
+            return {
+                addEventListener(event, handler) {
+                    listeners[event] = handler;
+                }
+            };
+        }
+    };
+    const win = {
+        matchMedia: () => ({ matches: true })
+    };
+    const storage = {
+        getSettings() {
+            return { tema: 'auto' };
+        }
+    };
+    const temporaryThemes = [];
+
+    assert.equal(ThemeController.getSystemTheme(win), 'dark');
+
+    ThemeController.init({
+        storage,
+        document: doc,
+        window: win,
+        onTemporaryThemeChange: theme => temporaryThemes.push(theme)
+    });
+
+    assert.equal(attrs['data-theme'], 'dark');
+    listeners.click();
+    assert.equal(attrs['data-theme'], 'light');
+    assert.deepEqual(temporaryThemes, ['light']);
+
+    ThemeController.applyTheme('dark', { document: doc, window: win });
+    assert.equal(attrs['data-theme'], 'dark');
+});
+
+test('Controller toast posiziona notifica e resetta timer', () => {
+    const { ToastController } = loadUiViews();
+    const addedClasses = [];
+    const clearedTimers = [];
+    const callbacks = [];
+    let nextTimerId = 0;
+
+    const toast = {
+        textContent: '',
+        className: 'toast hidden',
+        style: {},
+        classList: {
+            add(cls) {
+                addedClasses.push(cls);
+                toast.className += ' ' + cls;
+            }
+        }
+    };
+    const inputBar = {
+        getBoundingClientRect() {
+            return { top: 600 };
+        }
+    };
+    const doc = {
+        getElementById(id) {
+            if (id === 'toast') return toast;
+            if (id === 'input-bar') return inputBar;
+            return null;
+        }
+    };
+    const timers = {
+        setTimeout(callback) {
+            callbacks.push(callback);
+            nextTimerId += 1;
+            return nextTimerId;
+        },
+        clearTimeout(id) {
+            clearedTimers.push(id);
+        }
+    };
+
+    ToastController.show('Salvato', 'success', {
+        document: doc,
+        window: { innerHeight: 700 },
+        expenseInputActive: true,
+        setTimeout: timers.setTimeout,
+        clearTimeout: timers.clearTimeout,
+        duration: 10
+    });
+
+    assert.equal(toast.textContent, 'Salvato');
+    assert.equal(toast.className, 'toast success');
+    assert.equal(toast.style.bottom, '108px');
+    assert.equal(toast.style.top, 'auto');
+
+    ToastController.show('Normale', 'info', {
+        document: doc,
+        window: { innerHeight: 700 },
+        expenseInputActive: false,
+        setTimeout: timers.setTimeout,
+        clearTimeout: timers.clearTimeout,
+        duration: 10
+    });
+
+    assert.deepEqual(clearedTimers, [1]);
+    assert.equal(toast.textContent, 'Normale');
+    assert.equal(toast.className, 'toast info');
+    assert.equal(toast.style.bottom, '');
+    assert.equal(toast.style.top, '');
+
+    callbacks[1]();
+
+    assert.deepEqual(addedClasses, ['hidden']);
+    assert.equal(toast.className, 'toast info hidden');
+    assert.equal(toast.style.bottom, '');
+    assert.equal(toast.style.top, '');
+
+    ToastController.clear({ clearTimeout: timers.clearTimeout });
 });
 
 test('UI stack mantiene esplicito ordine di chiusura del back button', () => {

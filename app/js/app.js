@@ -10,7 +10,6 @@ const App = {
     },
     _restoringPageScroll: false,
     editingId: null,
-    toastTimer: null,
     newCardId: null,
 
     /* --- Stats --- */
@@ -87,28 +86,18 @@ const App = {
        THEME
        ===================== */
     initTheme() {
-        const saved = Storage.getSettings().tema || 'auto';
-        this.applyTheme(saved);
-
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            const cur = document.documentElement.getAttribute('data-theme');
-            const next = cur === 'dark' ? 'light' : 'dark';
-
-            this.applyTheme(next);
-
-            if (this.currentPage === 'stats') this.renderStats();
+        ThemeController.init({
+            storage: Storage,
+            document,
+            window,
+            onTemporaryThemeChange: () => {
+                if (this.currentPage === 'stats') this.renderStats();
+            }
         });
     },
 
     applyTheme(theme) {
-        if (theme === 'auto') {
-            document.documentElement.setAttribute(
-                'data-theme',
-                window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-            );
-        } else {
-            document.documentElement.setAttribute('data-theme', theme);
-        }
+        ThemeController.applyTheme(theme, { document, window });
     },
 
     /* =====================
@@ -914,20 +903,22 @@ const App = {
 
     submitExpense() {
         const input = document.getElementById('expense-input');
-        const text = input.value.trim();
+        const result = ExpenseActions.addFromText({
+            text: input.value,
+            parser: Parser,
+            storage: Storage
+        });
 
-        if (!text) {
+        if (result.reason === 'empty') {
             this.showToast('Scrivi una spesa prima di inviare', 'error');
             return;
         }
 
-        const parsed = Parser.parse(text);
-        if (!parsed) {
+        if (result.reason === 'parse') {
             this.showToast('Non ho capito l\'importo. Prova: "caffè 1.50"', 'error');
             return;
         }
 
-        const result = Storage.addSpesa(parsed);
         if (!result.success) {
             this.showToast(result.error || 'Salvataggio non riuscito', 'error');
             return;
@@ -1241,7 +1232,11 @@ const App = {
 
         document.getElementById('btn-delete').addEventListener('click', () => {
             this.showConfirm('Eliminare questa spesa?', () => {
-                const result = Storage.deleteSpesa(this.editingId);
+                const result = ExpenseActions.deleteExpense({
+                    id: this.editingId,
+                    storage: Storage
+                });
+
                 if (!result.success) {
                     this.showToast(result.error || 'Eliminazione non riuscita', 'error');
                     return;
@@ -1571,7 +1566,11 @@ const App = {
             return;
         }
 
-        const result = Storage.updateSpesa(this.editingId, form.data);
+        const result = ExpenseActions.updateExpense({
+            id: this.editingId,
+            data: form.data,
+            storage: Storage
+        });
 
         if (!result.success) {
             this.showToast(result.error || 'Salvataggio non riuscito', 'error');
@@ -1798,28 +1797,11 @@ const App = {
        TOAST
        ===================== */
     showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = 'toast ' + type;
-
-        // Position above input bar when keyboard is open
-        if (this._expenseInputActive) {
-            const inputBar = document.getElementById('input-bar');
-            const barTop = inputBar.getBoundingClientRect().top;
-            toast.style.bottom = (window.innerHeight - barTop + 8) + 'px';
-            toast.style.top = 'auto';
-        } else {
-            toast.style.bottom = '';
-            toast.style.top = '';
-        }
-
-        if (this.toastTimer) clearTimeout(this.toastTimer);
-
-        this.toastTimer = setTimeout(() => {
-            toast.classList.add('hidden');
-            toast.style.bottom = '';
-            toast.style.top = '';
-        }, 2800);
+        ToastController.show(message, type, {
+            document,
+            window,
+            isExpenseInputActive: () => this._expenseInputActive
+        });
     },
 
     /* =====================

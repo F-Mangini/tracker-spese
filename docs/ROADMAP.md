@@ -12,6 +12,7 @@ Stato della fase iniziale:
 - Completato il 2026-05-16: test minimi estesi a filtri e aggregazioni statistiche.
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
+- In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
 - In corso dal 2026-05-19: configurazione Chart.js delle statistiche spostata in `app/js/stats-charts.js`.
 - In corso dal 2026-05-19: gestione tema spostata in `app/js/theme-controller.js`.
@@ -32,6 +33,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: toggle tema temporaneo dell'header mantenuto ma spostato in `app/js/theme-controller.js`.
 - Completato parzialmente il 2026-05-19: toast e timer relativo spostati in `app/js/toast-controller.js`.
 - Completato parzialmente il 2026-05-19: input rapido, modifica ed eliminazione spesa passano da `app/js/expense-actions.js`.
+- Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 
 Priorita della fase attuale:
 

@@ -85,6 +85,7 @@ function loadUiViews() {
 
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
+    const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
     const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
@@ -105,6 +106,7 @@ function loadUiViews() {
         [
             statsCode,
             expenseActionsCode,
+            expenseInputControllerCode,
             uiCode,
             filterViewCode,
             timelineViewCode,
@@ -122,6 +124,7 @@ function loadUiViews() {
             toastControllerCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.ExpenseActions = ExpenseActions;',
+            'globalThis.ExpenseInputController = ExpenseInputController;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.StatsView = StatsView;',
@@ -143,6 +146,7 @@ function loadUiViews() {
     return {
         AppUI: context.AppUI,
         ExpenseActions: context.ExpenseActions,
+        ExpenseInputController: context.ExpenseInputController,
         FilterView: context.FilterView,
         TimelineView: context.TimelineView,
         StatsView: context.StatsView,
@@ -384,6 +388,142 @@ test('Azioni spesa isolano parser e storage dall input rapido', () => {
         ['add', 'Caffe', 1.5],
         ['update', 'saved', 'Caffe corretto'],
         ['delete', 'saved']
+    ]);
+});
+
+test('Controller input rapido collega touch, focus e blur senza dipendere da App', () => {
+    const { ExpenseInputController } = loadUiViews();
+    const calls = [];
+    const timers = [];
+    let active = false;
+    let submitCount = 0;
+    let lastViewportHeight = 0;
+
+    function element(id) {
+        const classes = new Set();
+        return {
+            id,
+            value: '',
+            style: {},
+            listeners: {},
+            classList: {
+                add(cls) {
+                    classes.add(cls);
+                },
+                remove(cls) {
+                    classes.delete(cls);
+                },
+                contains(cls) {
+                    return classes.has(cls);
+                }
+            },
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            }
+        };
+    }
+
+    const elements = {
+        'expense-input': element('expense-input'),
+        'btn-send': element('btn-send'),
+        'btn-voice': element('btn-voice'),
+        'input-bar': element('input-bar')
+    };
+    const bodyClasses = new Set();
+    const doc = {
+        body: {
+            classList: {
+                add(cls) {
+                    bodyClasses.add(cls);
+                },
+                remove(cls) {
+                    bodyClasses.delete(cls);
+                },
+                contains(cls) {
+                    return bodyClasses.has(cls);
+                }
+            }
+        },
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    const controller = ExpenseInputController.init({
+        document: doc,
+        window: {},
+        onSubmit: () => { submitCount += 1; },
+        isInputActive: () => active,
+        setInputActive: value => { active = value; calls.push(['active', value]); },
+        getViewportHeight: () => 640,
+        setLastViewportHeight: value => { lastViewportHeight = value; },
+        pushInputState: () => calls.push('push-input'),
+        consumeInputState: () => calls.push('consume-input'),
+        startInputBarWatch: () => calls.push('start-watch'),
+        stopInputBarWatch: () => calls.push('stop-watch'),
+        scheduleInputBarPositionUpdate: force => calls.push(['schedule', force]),
+        updateAppMainPadding: () => calls.push('update-padding'),
+        setTimeout: (callback, ms) => {
+            timers.push({ callback, ms });
+            return timers.length;
+        },
+        clearTimeout: id => calls.push(['clear-timer', id])
+    });
+
+    assert.ok(controller);
+    assert.equal(elements['btn-voice'].style.display, 'none');
+
+    let touchMovePrevented = false;
+    elements['input-bar'].listeners.touchmove({
+        preventDefault() {
+            touchMovePrevented = true;
+        }
+    });
+    assert.equal(touchMovePrevented, true);
+
+    elements['expense-input'].listeners.focus();
+    assert.equal(active, true);
+    assert.equal(lastViewportHeight, 640);
+    assert.equal(bodyClasses.has('expense-input-active'), true);
+
+    elements['expense-input'].listeners.blur();
+    assert.equal(active, false);
+    assert.equal(bodyClasses.has('expense-input-active'), false);
+    assert.equal(timers[0].ms, 300);
+    timers[0].callback();
+
+    elements['btn-send'].listeners.touchstart();
+    assert.equal(elements['btn-send'].classList.contains('pressed'), true);
+
+    let touchEndPrevented = false;
+    elements['btn-send'].listeners.touchend({
+        preventDefault() {
+            touchEndPrevented = true;
+        }
+    });
+    elements['btn-send'].listeners.click();
+    elements['btn-send'].listeners.click();
+
+    let enterPrevented = false;
+    elements['expense-input'].listeners.keydown({
+        key: 'Enter',
+        preventDefault() {
+            enterPrevented = true;
+        }
+    });
+
+    assert.equal(touchEndPrevented, true);
+    assert.equal(enterPrevented, true);
+    assert.equal(submitCount, 3);
+    assert.deepEqual(calls, [
+        ['active', true],
+        'push-input',
+        'start-watch',
+        ['schedule', true],
+        'stop-watch',
+        ['active', false],
+        'update-padding',
+        'consume-input'
     ]);
 });
 

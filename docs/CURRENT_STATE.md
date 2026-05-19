@@ -12,6 +12,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/categories.js` contiene categorie e metodi di pagamento statici.
 - `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
 - `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
+- `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
 - `app/js/filters.js` contiene la logica pura dei filtri condivisi da timeline e statistiche.
 - `app/js/stats.js` contiene date, riepiloghi e aggregazioni statistiche testabili senza DOM.
@@ -32,7 +33,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, tema, toast, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, tema, toast, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -89,7 +90,7 @@ La dettatura vocale e supportata quando il browser espone `SpeechRecognition` o 
 
 Alcuni campi monoriga sono implementati come `textarea` per evitare, su mobile, la sezione invasiva di suggerimenti/autofill della tastiera.
 
-Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`; `app.js` mantiene lettura DOM, refresh timeline/statistiche e feedback visivo.
+Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`. Il wiring touch/click, invio da tastiera, focus/blur e dettatura vocale e in `app/js/expense-input-controller.js`; `app.js` mantiene refresh timeline/statistiche, feedback visivo, stato history e posizionamento mobile tramite hook.
 
 ### Parser e classificazione
 
@@ -207,4 +208,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

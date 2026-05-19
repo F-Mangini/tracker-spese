@@ -765,139 +765,25 @@ const App = {
        INPUT
        ===================== */
     initInput() {
-        const input = document.getElementById('expense-input');
-        const btnSend = document.getElementById('btn-send');
-        const btnVoice = document.getElementById('btn-voice');
-        const inputBar = document.getElementById('input-bar');
-
-        // Previene lo scroll (e il conseguente effetto elastico su iOS/Android)
-        // quando si trascina la barra di inserimento
-        inputBar.addEventListener('touchmove', (e) => {
-            // Blocca sempre il touchmove per evitare qualsiasi scroll elastico
-            e.preventDefault();
-        }, { passive: false });
-
-        /*
-         * Mobile button strategy:
-         * - touchstart: add .pressed class (visual only, NO preventDefault)
-         * - touchend: remove .pressed, preventDefault (stops stale click), run action
-         * - click: desktop fallback (runs only if no prior touchend)
-         */
-        let touchHandled = false;
-        let blurCleanupTimer = null;
-
-        // --- Send button ---
-        btnSend.addEventListener('touchstart', () => {
-            btnSend.classList.add('pressed');
-        }, { passive: true });
-
-        btnSend.addEventListener('touchend', (e) => {
-            btnSend.classList.remove('pressed');
-            e.preventDefault();
-            touchHandled = true;
-            this.submitExpense();
+        const controller = ExpenseInputController.init({
+            document,
+            window,
+            onSubmit: () => this.submitExpense(),
+            onVoiceError: () => this.showToast('Non ho capito. Riprova.', 'error'),
+            isInputActive: () => this._expenseInputActive,
+            setInputActive: value => { this._expenseInputActive = value; },
+            getViewportHeight: () => this.getViewportHeight(),
+            setLastViewportHeight: value => { this._lastViewportHeight = value; },
+            pushInputState: () => this.pushUiState({ panel: 'expense-input' }),
+            consumeInputState: () => this.consumeUiState(),
+            startInputBarWatch: () => this.startExpenseInputBarWatch(),
+            stopInputBarWatch: () => this.stopExpenseInputBarWatch(),
+            scheduleInputBarPositionUpdate: force => this.scheduleExpenseInputBarPositionUpdate(force),
+            updateAppMainPadding: () => this.updateAppMainPadding()
         });
 
-        btnSend.addEventListener('click', () => {
-            if (touchHandled) { touchHandled = false; return; }
-            this.submitExpense();
-        });
-
-        // --- Keyboard Enter ---
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.submitExpense();
-            }
-        });
-
-        // --- Input bar positioning ---
-        const doBlurCleanup = () => {
-            document.body.classList.remove('expense-input-active');
-            this.stopExpenseInputBarWatch();
-            this._expenseInputActive = false;
-            this.updateAppMainPadding();
-
-            blurCleanupTimer = setTimeout(() => {
-                this.consumeUiState();
-            }, 300);
-        };
-
-        input.addEventListener('focus', () => {
-            if (blurCleanupTimer) {
-                clearTimeout(blurCleanupTimer);
-                blurCleanupTimer = null;
-            }
-
-            const wasInactive = !this._expenseInputActive;
-            this._expenseInputActive = true;
-            this._lastViewportHeight = this.getViewportHeight();
-
-            document.body.classList.add('expense-input-active');
-
-            if (wasInactive) {
-                this.pushUiState({ panel: 'expense-input' });
-            }
-
-            this.startExpenseInputBarWatch();
-            this.scheduleExpenseInputBarPositionUpdate(true);
-        });
-
-        input.addEventListener('blur', () => {
-            if (!this._expenseInputActive) return;
-            doBlurCleanup();
-        });
-
-        // --- Voice button ---
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-            this.recognition = new SR();
-            this.recognition.lang = 'it-IT';
-            this.recognition.continuous = false;
-            this.recognition.interimResults = false;
-
-            this.recognition.onresult = e => {
-                input.value = e.results[0][0].transcript;
-                btnVoice.classList.remove('recording');
-                this.submitExpense();
-            };
-
-            this.recognition.onerror = () => {
-                btnVoice.classList.remove('recording');
-                this.showToast('Non ho capito. Riprova.', 'error');
-            };
-
-            this.recognition.onend = () => {
-                btnVoice.classList.remove('recording');
-            };
-
-            const toggleVoice = () => {
-                if (btnVoice.classList.contains('recording')) {
-                    this.recognition.stop();
-                } else {
-                    btnVoice.classList.add('recording');
-                    this.recognition.start();
-                }
-            };
-
-            btnVoice.addEventListener('touchstart', () => {
-                btnVoice.classList.add('pressed');
-            }, { passive: true });
-
-            btnVoice.addEventListener('touchend', (e) => {
-                btnVoice.classList.remove('pressed');
-                e.preventDefault();
-                touchHandled = true;
-                toggleVoice();
-            });
-
-            btnVoice.addEventListener('click', () => {
-                if (touchHandled) { touchHandled = false; return; }
-                toggleVoice();
-            });
-        } else {
-            btnVoice.style.display = 'none';
+        if (controller && controller.recognition) {
+            this.recognition = controller.recognition;
         }
     },
 

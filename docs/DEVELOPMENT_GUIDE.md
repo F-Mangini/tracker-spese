@@ -123,4 +123,4 @@ Il test runner leggero attuale non richiede dipendenze:
 node tests/run-tests.js
 ```
 
-Copre i primi guardrail su storage, parser base e importi ambigui, azioni spesa, filtri, aggregazioni statistiche giornaliere/settimanali/mensili, helper/rendering UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale. I prossimi test ad alto valore riguardano history/back button reale, modali, tastiera mobile e interazioni DOM complesse.
+Copre i primi guardrail su storage, parser base e importi ambigui, azioni spesa, controller input rapido, filtri, aggregazioni statistiche giornaliere/settimanali/mensili, helper/rendering UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale. I prossimi test ad alto valore riguardano history/back button reale, modali, tastiera mobile e interazioni DOM complesse.

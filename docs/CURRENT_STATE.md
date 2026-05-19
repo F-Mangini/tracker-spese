@@ -10,6 +10,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/css/style.css` contiene tutto lo stile, incluse variabili tema, layout mobile, modali, filtri, timeline, statistiche e impostazioni.
 - `app/js/config.js` contiene configurazione runtime minima, inclusa la chiave `localStorage`.
 - `app/js/categories.js` contiene categorie e metodi di pagamento statici.
+- `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
 - `app/js/filters.js` contiene la logica pura dei filtri condivisi da timeline e statistiche.
 - `app/js/stats.js` contiene date, riepiloghi e aggregazioni statistiche testabili senza DOM.
@@ -21,13 +22,14 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
-- `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi import/export impostazioni, usando `Storage` come adapter passato da `app.js`.
+- `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi impostazioni, usando `Storage` come adapter passato da `app.js`.
+- `app/js/settings-controller.js` contiene wiring della pagina impostazioni e collega view, actions e hook di `app.js`.
 - `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -184,7 +186,7 @@ La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impo
 
 Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni.
 
-Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. `app.js` mantiene lettura file, download reale, aggiornamento UI post-commit e listener dei pulsanti.
+Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export, salvataggio tema persistente e cancellazione completa sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. Il wiring DOM della pagina e in `app/js/settings-controller.js`, mentre `app.js` mantiene lettura file, download reale, aggiornamento UI post-commit e hook di navigazione/toast/conferma.
 
 ## Limiti Noti
 
@@ -200,4 +202,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate e flussi impostazioni/import-export, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

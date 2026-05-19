@@ -1590,45 +1590,43 @@ const App = {
        CONFIRM
        ===================== */
     isConfirmOpen() {
-        const overlay = document.getElementById('confirm-overlay');
-        return !!overlay && !overlay.classList.contains('hidden');
+        return ConfirmDialog.isOpen(document);
     },
 
     showChoices(msg, choices) {
-        document.getElementById('confirm-message').innerHTML = msg;
-        document.getElementById('confirm-overlay').classList.remove('hidden');
-
-        this.pushUiState({ panel: 'confirm' });
-
-        const buttons = document.querySelector('#confirm-dialog .confirm-buttons');
-        buttons.innerHTML = '';
-
-        choices.forEach(choice => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `btn ${choice.className || 'btn-secondary'}`;
-            btn.textContent = choice.text;
-            btn.addEventListener('click', () => {
-                this.closeConfirm();
-                if (typeof choice.onClick === 'function') choice.onClick();
-            });
-            buttons.appendChild(btn);
+        ConfirmDialog.showChoices({
+            document,
+            message: msg,
+            choices,
+            pushState: state => this.pushUiState(state),
+            close: () => this.closeConfirm()
         });
     },
 
     showConfirm(msg, onYes, yesText = null, noText = null, yesClass = 'btn-danger') {
-        this.showChoices(msg, [
-            { text: noText || 'Annulla', className: 'btn-secondary' },
-            { text: yesText || 'Elimina', className: yesClass, onClick: onYes }
-        ]);
+        ConfirmDialog.showConfirm({
+            document,
+            message: msg,
+            onYes,
+            yesText,
+            noText,
+            yesClass,
+            pushState: state => this.pushUiState(state),
+            close: () => this.closeConfirm()
+        });
     },
 
     closeConfirm(fromPopstate = false) {
-        document.getElementById('confirm-overlay').classList.add('hidden');
-        this.runHistoryAction(UIStack.getCloseHistoryAction({
+        ConfirmDialog.close({
+            document,
             fromPopstate,
-            wasOpen: true
-        }));
+            closeHistory: wasClosedFromPopstate => {
+                this.runHistoryAction(UIStack.getCloseHistoryAction({
+                    fromPopstate: wasClosedFromPopstate,
+                    wasOpen: true
+                }));
+            }
+        });
     },
 
     /* =============================================
@@ -1777,164 +1775,23 @@ const App = {
        SETTINGS
        ===================== */
     renderSettings() {
-        const settings = Storage.getSettings();
-        const spese = Storage.getSpese();
-        const sizeKB = Storage.getStorageSizeKB();
-        const storageStatus = Storage.getStatus();
-        const container = document.getElementById('settings-content');
-        const dateRange = SettingsView.getDateRange(spese);
-
-        container.innerHTML = SettingsView.renderPage({
-            settings,
-            spese,
-            sizeKB,
-            storageStatus,
-            dateRange
-        });
-
-        container.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const result = Storage.updateSettings({ tema: btn.dataset.theme });
-                if (!result.success) {
-                    this.showToast(result.error || 'Salvataggio impostazioni non riuscito', 'error');
-                    return;
-                }
-
-                this.applyTheme(btn.dataset.theme);
-                this.renderSettings();
-            });
-        });
-
-        container.querySelector('#btn-export').addEventListener('click', () => this.showExportChoice());
-
-        const rawBtn = container.querySelector('#btn-export-raw');
-        if (rawBtn) {
-            rawBtn.addEventListener('click', () => this.downloadRawData());
-        }
-
-        const fileInput = container.querySelector('#import-file');
-
-        container.querySelector('#btn-import').addEventListener('click', () => fileInput.click());
-
-        fileInput.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-
-            reader.onload = ev => {
-                const content = ev.target.result;
-
-                const preview = SettingsActions.previewImportFile({
-                    file,
-                    content,
-                    storage: Storage
-                });
-
-                if (!preview.success) {
-                    this.showToast(preview.code === 'unsupported-import-format'
-                        ? preview.error
-                        : 'Errore: ' + preview.error, 'error');
-                } else {
-                    this.showImportChoice(preview, content);
-                }
-
-                fileInput.value = '';
-            };
-
-            reader.readAsText(file);
-        });
-
-        container.querySelector('#btn-clear-all').addEventListener('click', () => {
-            this.showConfirm('Eliminare TUTTI i dati?', () => {
-                const result = Storage.clearAll();
-                if (!result.success) {
-                    this.showToast(result.error || 'Cancellazione non riuscita', 'error');
-                    return;
-                }
-
+        SettingsController.render({
+            container: document.getElementById('settings-content'),
+            storage: Storage,
+            FileReaderClass: FileReader,
+            dateStamp: () => this.dateStamp(),
+            download: (content, filename, mime) => this.download(content, filename, mime),
+            showToast: (message, type) => this.showToast(message, type),
+            showChoices: (message, choices) => this.showChoices(message, choices),
+            showConfirm: (message, onYes) => this.showConfirm(message, onYes),
+            applyTheme: theme => this.applyTheme(theme),
+            refreshSettings: () => this.renderSettings(),
+            refreshAfterDataChange: () => {
                 this.renderTimeline();
+                if (this.currentPage === 'stats') this.renderStats();
                 this.renderSettings();
-                this.showToast('Dati eliminati', 'info');
-            });
+            }
         });
-    },
-
-    showExportChoice() {
-        const choices = SettingsActions.getExportChoices().map(choice => ({
-            ...choice,
-            onClick: choice.format ? () => this.downloadExport(choice.format) : undefined
-        }));
-
-        this.showChoices('Esportare i dati in quale formato?', choices);
-    },
-
-    downloadExport(format) {
-        const result = SettingsActions.buildExportDownload({
-            format,
-            storage: Storage,
-            dateStamp: this.dateStamp()
-        });
-
-        if (!result.success) {
-            this.showToast(result.error || 'Export non riuscito', 'error');
-            return;
-        }
-
-        const spec = result.download;
-        this.download(spec.content, spec.filename, spec.mime);
-        this.showToast(spec.toast, 'info');
-    },
-
-    downloadRawData() {
-        const result = SettingsActions.buildRawDownload({
-            storage: Storage,
-            dateStamp: this.dateStamp()
-        });
-
-        if (!result.success) {
-            this.showToast(result.error || 'Export grezzo non riuscito', 'error');
-            return;
-        }
-
-        const spec = result.download;
-        this.download(spec.content, spec.filename, spec.mime);
-        this.showToast(spec.toast, 'info');
-    },
-
-    showImportChoice(preview, content) {
-        const hasSpese = Storage.getSpese().length > 0;
-        const msg = this.importPreviewMessage(preview, hasSpese);
-        const choices = SettingsActions.getImportChoices(hasSpese).map(choice => ({
-            ...choice,
-            onClick: choice.mode ? () => this.commitImport(preview, content, choice.mode) : undefined
-        }));
-
-        this.showChoices(msg, choices);
-    },
-
-    importPreviewMessage(preview, hasSpese) {
-        return SettingsView.renderImportPreviewMessage(preview, hasSpese);
-    },
-
-    commitImport(preview, content, mode) {
-        const importResult = SettingsActions.commitImport({
-            preview,
-            content,
-            mode,
-            storage: Storage
-        });
-
-        if (!importResult.success) {
-            this.showToast('Errore: ' + importResult.error, 'error');
-            return;
-        }
-
-        this.renderTimeline();
-        if (this.currentPage === 'stats') this.renderStats();
-        this.renderSettings();
-
-        this.showToast(importResult.toast, 'success');
     },
 
     /* =====================

@@ -16,6 +16,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
 - In corso dal 2026-05-19: eventi dropdown/tag della modale spostati in `app/js/modal-interactions.js`.
 - In corso dal 2026-05-18: rendering impostazioni e preview import spostati in `app/js/settings-view.js`.
+- In corso dal 2026-05-19: wiring pagina impostazioni spostato in `app/js/settings-controller.js`.
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 - Completato parzialmente il 2026-05-19: parser importi rafforzato per frasi con piu numeri, valuta esplicita e importi finali.
 - Completato parzialmente il 2026-05-19: decisione `popstate`/back button centralizzata in `app/js/ui-stack.js` e coperta da test.
@@ -23,6 +24,8 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: decisioni import/export impostazioni spostate in `app/js/settings-actions.js`.
 - Completato parzialmente il 2026-05-19: cleanup DOM minimi collegati al `popstate` spostati in `app/js/ui-stack-effects.js`.
 - Completato parzialmente il 2026-05-19: preview, export e commit import/export impostazioni orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
+- Completato parzialmente il 2026-05-19: salvataggio tema persistente e cancellazione completa orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
+- Completato parzialmente il 2026-05-19: dialog scelte/conferme spostato in `app/js/confirm-dialog.js`.
 
 Priorita della fase attuale:
 
@@ -30,7 +33,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: continuare con i cleanup DOM/mobile ancora rimasti nello stack UI oppure rifinire le azioni impostazioni residue, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
+- Prossimo passo consigliato: proseguire con moduli UI ad alto impatto ma isolabili, come input rapido o wrapper modale, continuando a evitare schema dati e workaround mobile non coperti.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

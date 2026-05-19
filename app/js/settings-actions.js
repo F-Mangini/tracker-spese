@@ -151,6 +151,32 @@ const SettingsActions = (() => {
         };
     }
 
+    function updateTheme(options = {}) {
+        const { theme, storage } = options;
+        const result = storage.updateSettings({ tema: theme });
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            theme,
+            result
+        };
+    }
+
+    function clearAll(options = {}) {
+        const { storage } = options;
+        const result = storage.clearAll();
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            result,
+            toast: 'Dati eliminati'
+        };
+    }
+
     return {
         detectImportFormat,
         getExportChoices,
@@ -161,6 +187,8 @@ const SettingsActions = (() => {
         previewImportFile,
         buildExportDownload,
         buildRawDownload,
-        commitImport
+        commitImport,
+        updateTheme,
+        clearAll
     };
 })();

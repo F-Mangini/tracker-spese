@@ -93,8 +93,10 @@ function loadUiViews() {
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
     const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
+    const settingsControllerCode = fs.readFileSync(path.join(root, 'app/js/settings-controller.js'), 'utf8');
     const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
     const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
+    const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
 
     vm.runInContext(
         [
@@ -108,8 +110,10 @@ function loadUiViews() {
             modalInteractionsCode,
             settingsViewCode,
             settingsActionsCode,
+            settingsControllerCode,
             uiStackCode,
             uiStackEffectsCode,
+            confirmDialogCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
@@ -119,8 +123,10 @@ function loadUiViews() {
             'globalThis.ModalInteractions = ModalInteractions;',
             'globalThis.SettingsView = SettingsView;',
             'globalThis.SettingsActions = SettingsActions;',
+            'globalThis.SettingsController = SettingsController;',
             'globalThis.UIStack = UIStack;',
-            'globalThis.UIStackEffects = UIStackEffects;'
+            'globalThis.UIStackEffects = UIStackEffects;',
+            'globalThis.ConfirmDialog = ConfirmDialog;'
         ].join('\n'),
         context
     );
@@ -135,8 +141,10 @@ function loadUiViews() {
         ModalInteractions: context.ModalInteractions,
         SettingsView: context.SettingsView,
         SettingsActions: context.SettingsActions,
+        SettingsController: context.SettingsController,
         UIStack: context.UIStack,
-        UIStackEffects: context.UIStackEffects
+        UIStackEffects: context.UIStackEffects,
+        ConfirmDialog: context.ConfirmDialog
     };
 }
 
@@ -674,7 +682,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     );
 });
 
-test('Azioni impostazioni orchestrano preview, export e commit con storage adapter', () => {
+test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     const { SettingsActions } = loadUiViews();
     const calls = [];
     const storage = {
@@ -697,6 +705,14 @@ test('Azioni impostazioni orchestrano preview, export e commit con storage adapt
         exportRaw() {
             calls.push(['export-raw']);
             return { success: true, content: 'raw-data' };
+        },
+        updateSettings(updates) {
+            calls.push(['update-settings', updates.tema]);
+            return { success: true, impostazioni: { tema: updates.tema } };
+        },
+        clearAll() {
+            calls.push(['clear-all']);
+            return { success: true };
         },
         importJSON(content, options) {
             calls.push(['import-json', content, options.mode]);
@@ -757,19 +773,130 @@ test('Azioni impostazioni orchestrano preview, export e commit con storage adapt
         mode: 'append',
         storage
     });
+    const themeResult = SettingsActions.updateTheme({
+        theme: 'dark',
+        storage
+    });
+    const clearResult = SettingsActions.clearAll({ storage });
 
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
     assert.equal(rawDownload.download.filename, 'spese_raw_2026-05-19.txt');
     assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
+    assert.equal(themeResult.theme, 'dark');
+    assert.equal(clearResult.toast, 'Dati eliminati');
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
         ['export-json'],
         ['export-csv'],
         ['export-raw'],
-        ['import-csv', 'a,b', 'append']
+        ['import-csv', 'a,b', 'append'],
+        ['update-settings', 'dark'],
+        ['clear-all']
     ]);
+});
+
+test('Controller impostazioni prepara modello e callback senza dipendere da App', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    const spese = [
+        expense({ id: 'old', data: '2026-05-10T10:00:00.000Z' }),
+        expense({ id: 'new', data: '2026-05-12T10:00:00.000Z' })
+    ];
+    const storage = {
+        getSettings() {
+            return { tema: 'auto' };
+        },
+        getSpese() {
+            return spese;
+        },
+        getStorageSizeKB() {
+            return 4.2;
+        },
+        getStatus() {
+            return { ok: true };
+        },
+        exportJSON() {
+            calls.push(['export-json']);
+            return { success: true, content: '{}' };
+        },
+        importCSV(content, options) {
+            calls.push(['import-csv', content, options.mode]);
+            return { success: true, count: 2, regeneratedIds: 0 };
+        }
+    };
+
+    const model = SettingsController.getRenderModel(storage);
+    assert.equal(model.settings.tema, 'auto');
+    assert.equal(model.spese.length, 2);
+    assert.equal(model.sizeKB, 4.2);
+    assert(/10\/0?5\/2026/.test(model.dateRange));
+    assert(/12\/0?5\/2026/.test(model.dateRange));
+
+    const exportChoices = SettingsController.createExportChoices({
+        storage,
+        dateStamp: () => '2026-05-19',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    });
+    exportChoices.find(choice => choice.format === 'json').onClick();
+
+    const importChoices = SettingsController.createImportChoices(
+        { format: 'csv' },
+        'a,b',
+        true,
+        {
+            storage,
+            refreshAfterDataChange: () => calls.push(['refresh-data']),
+            showToast: (message, type) => calls.push(['toast', type, message])
+        }
+    );
+    importChoices.find(choice => choice.mode === 'append').onClick();
+
+    assert.deepEqual(calls, [
+        ['export-json'],
+        ['download', 'spese_backup_2026-05-19.json', 'application/json', '{}'],
+        ['toast', 'info', 'Download JSON avviato...'],
+        ['import-csv', 'a,b', 'append'],
+        ['refresh-data'],
+        ['toast', 'success', '2 spese aggiunte \u2713']
+    ]);
+});
+
+test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', () => {
+    const { ConfirmDialog } = loadUiViews();
+    const yes = () => {};
+    const choices = ConfirmDialog.getConfirmChoices(yes, 'Conferma', 'No', 'btn-warning');
+    const hiddenDoc = {
+        getElementById() {
+            return {
+                classList: {
+                    contains: cls => cls === 'hidden'
+                }
+            };
+        }
+    };
+    const openDoc = {
+        getElementById() {
+            return {
+                classList: {
+                    contains: () => false
+                }
+            };
+        }
+    };
+
+    assert.deepEqual(
+        choices.map(choice => [choice.text, choice.className]),
+        [
+            ['No', 'btn-secondary'],
+            ['Conferma', 'btn-warning']
+        ]
+    );
+    assert.equal(choices[1].onClick, yes);
+    assert.equal(ConfirmDialog.isOpen(hiddenDoc), false);
+    assert.equal(ConfirmDialog.isOpen(openDoc), true);
 });
 
 test('UI stack mantiene esplicito ordine di chiusura del back button', () => {

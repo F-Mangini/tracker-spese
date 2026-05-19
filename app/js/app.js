@@ -103,73 +103,45 @@ const App = {
     /* =====================
        NAVIGATION
        ===================== */
-    initNavigation() {
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.navigateTo(btn.dataset.page));
-        });
-
-        this.setupPageScrollTracking();
+    getNavigationControllerOptions() {
+        return {
+            document,
+            pageScrollTop: this.pageScrollTop,
+            getCurrentPage: () => this.currentPage,
+            setCurrentPage: page => { this.currentPage = page; },
+            isRestoringPageScroll: () => this._restoringPageScroll,
+            setRestoringPageScroll: value => { this._restoringPageScroll = value; },
+            getNavigationHistoryAction: payload => UIStack.getNavigationHistoryAction(payload),
+            runHistoryAction: action => this.runHistoryAction(action),
+            isFilterOpen: () => this.filterOpen,
+            closeFilterPanel: () => this.closeFilterPanel(),
+            updateAppMainPadding: () => this.updateAppMainPadding(),
+            renderTimeline: () => this.renderTimeline(),
+            renderStats: () => this.renderStats(),
+            renderSettings: () => this.renderSettings(),
+            requestAnimationFrame: callback => requestAnimationFrame(callback),
+            defer: callback => setTimeout(callback, 0)
+        };
     },
 
-    setupPageScrollTracking() {
-        const main = document.getElementById('app-main');
-        if (!main) return;
-
-        main.addEventListener('scroll', () => {
-            if (this._restoringPageScroll) return;
-            this.pageScrollTop[this.currentPage] = main.scrollTop;
-        }, { passive: true });
+    initNavigation() {
+        NavigationController.init(this.getNavigationControllerOptions());
     },
 
     rememberCurrentPageScroll() {
-        const main = document.getElementById('app-main');
-        if (!main || !this.currentPage) return;
-
-        this.pageScrollTop[this.currentPage] = main.scrollTop;
+        NavigationController.rememberCurrentPageScroll(this.getNavigationControllerOptions());
     },
 
     restorePageScroll(page) {
-        const main = document.getElementById('app-main');
-        if (!main) return;
-
-        const top = this.pageScrollTop[page] || 0;
-
-        requestAnimationFrame(() => {
-            this._restoringPageScroll = true;
-            main.scrollTop = top;
-
-            setTimeout(() => {
-                this._restoringPageScroll = false;
-            }, 0);
-        });
+        NavigationController.restorePageScroll(this.getNavigationControllerOptions(), page);
     },
 
     syncPageDom(page) {
-        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-        document.getElementById('page-' + page).classList.remove('hidden');
-
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.nav-btn[data-page="${page}"]`).classList.add('active');
-
-        const inputBar = document.getElementById('input-bar');
-        const main = document.getElementById('app-main');
-
-        if (page === 'timeline') {
-            inputBar.classList.remove('hidden');
-            main.classList.remove('no-input-bar');
-        } else {
-            inputBar.classList.add('hidden');
-            main.classList.add('no-input-bar');
-        }
-
-        document.getElementById('btn-filter-toggle').style.display =
-            page === 'settings' ? 'none' : '';
+        NavigationController.syncPageDom(this.getNavigationControllerOptions(), page);
     },
 
     syncPageContent(page) {
-        if (page === 'timeline') this.renderTimeline();
-        if (page === 'stats') this.renderStats();
-        if (page === 'settings') this.renderSettings();
+        NavigationController.syncPageContent(this.getNavigationControllerOptions(), page);
     },
 
     runHistoryAction(action) {
@@ -205,26 +177,19 @@ const App = {
     },
 
     updateNavigationHistory(page, fromPopstate) {
-        this.runHistoryAction(UIStack.getNavigationHistoryAction({
-            fromPopstate,
-            currentPage: this.currentPage,
-            nextPage: page
-        }));
+        NavigationController.updateNavigationHistory(
+            this.getNavigationControllerOptions(),
+            page,
+            fromPopstate
+        );
     },
 
     navigateTo(page, fromPopstate = false) {
-        if (!page) return;
-
-        this.rememberCurrentPageScroll();
-        this.updateNavigationHistory(page, fromPopstate);
-        this.currentPage = page;
-        this.syncPageDom(page);
-
-        if (page === 'settings' && this.filterOpen) this.closeFilterPanel();
-
-        this.updateAppMainPadding();
-        this.syncPageContent(page);
-        this.restorePageScroll(page);
+        NavigationController.navigateTo(
+            this.getNavigationControllerOptions(),
+            page,
+            fromPopstate
+        );
     },
 
     /* =====================
@@ -883,114 +848,76 @@ const App = {
         ModalFormController.bindPlainFieldEnterBlur({ document });
     },
 
-    getUiStackSnapshot() {
+    getUiStackControllerOptions() {
         return {
-            suppressNextPopstate: this._suppressNextPopstate,
-            confirmOpen: this.isConfirmOpen(),
-            modalOpen: this.isModalOpen(),
-            filterSearchActive: this._filterSearchActive,
-            expenseInputActive: this._expenseInputActive,
-            advancedFiltersOpen: this.advancedFiltersOpen,
-            filterOpen: this.filterOpen,
-            currentPage: this.currentPage
+            document,
+            stack: UIStack,
+            effects: UIStackEffects,
+            getSuppressNextPopstate: () => this._suppressNextPopstate,
+            setSuppressNextPopstate: value => { this._suppressNextPopstate = value; },
+            isConfirmOpen: () => this.isConfirmOpen(),
+            closeConfirm: fromPopstate => this.closeConfirm(fromPopstate),
+            isModalOpen: () => this.isModalOpen(),
+            closeModal: fromPopstate => this.closeModal(fromPopstate),
+            isFilterSearchActive: () => this._filterSearchActive,
+            setFilterSearchActive: value => { this._filterSearchActive = value; },
+            isExpenseInputActive: () => this._expenseInputActive,
+            setExpenseInputActive: value => { this._expenseInputActive = value; },
+            isAdvancedFiltersOpen: () => this.advancedFiltersOpen,
+            closeAdvancedFilters: fromPopstate => this.closeAdvancedFilters(fromPopstate),
+            isFilterOpen: () => this.filterOpen,
+            closeFilterPanel: fromPopstate => this.closeFilterPanel(fromPopstate),
+            getCurrentPage: () => this.currentPage,
+            navigateTo: (page, fromPopstate) => this.navigateTo(page, fromPopstate),
+            stopExpenseInputBarWatch: () => this.stopExpenseInputBarWatch(),
+            isModalInteractionActive: () => this._modalInteractionActive,
+            setModalInteractionActive: value => { this._modalInteractionActive = value; },
+            setModalInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; },
+            hasOpenModalDropdown: () => !!this.getOpenModalDropdown(),
+            hasActivePlainModalField: () => !!this.getActivePlainModalField(),
+            clearModalSelection: () => this.clearModalSelection(),
+            pushModalHistoryState: () => this.pushModalHistoryState()
         };
+    },
+
+    getUiStackSnapshot() {
+        return UIStackController.getUiStackSnapshot(this.getUiStackControllerOptions());
     },
 
     applyPopstateAction(action) {
-        if (action === UIStack.ACTIONS.IGNORE) {
-            this._suppressNextPopstate = false;
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.CLOSE_CONFIRM) {
-            this.closeConfirm(true);
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.HANDLE_MODAL) {
-            this.handleModalPopstate();
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.CLOSE_FILTER_SEARCH) {
-            this.closeFilterSearchInteraction();
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.CLOSE_EXPENSE_INPUT) {
-            this.closeExpenseInputInteraction();
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.CLOSE_ADVANCED_FILTERS) {
-            this.closeAdvancedFilters(true);
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.CLOSE_FILTER) {
-            this.closeFilterPanel(true);
-            return;
-        }
-
-        if (action === UIStack.ACTIONS.NAVIGATE_TIMELINE) {
-            this.navigateTo('timeline', true);
-        }
+        UIStackController.applyPopstateAction(this.getUiStackControllerOptions(), action);
     },
 
     handlePopstate() {
-        this.applyPopstateAction(UIStack.getPopstateAction(this.getUiStackSnapshot()));
+        UIStackController.handlePopstate(this.getUiStackControllerOptions());
     },
 
     closeFilterSearchInteraction() {
-        this._filterSearchActive = false;
-        UIStackEffects.closeFilterSearch(document);
+        UIStackController.closeFilterSearchInteraction(this.getUiStackControllerOptions());
     },
 
     closeExpenseInputInteraction() {
-        this._expenseInputActive = false;
-        this.stopExpenseInputBarWatch();
-        UIStackEffects.closeExpenseInput(document);
+        UIStackController.closeExpenseInputInteraction(this.getUiStackControllerOptions());
     },
 
     getModalStackSnapshot() {
-        return {
-            interactionActive: this._modalInteractionActive,
-            dropdownOpen: !!this.getOpenModalDropdown(),
-            activeField: !!this.getActivePlainModalField()
-        };
+        return UIStackController.getModalStackSnapshot(this.getUiStackControllerOptions());
     },
 
     applyModalPopstateAction(action) {
-        if (action === UIStack.MODAL_ACTIONS.CLEAR_INTERACTION) {
-            this.clearModalInteractionFromPopstate();
-            return;
-        }
-
-        if (action === UIStack.MODAL_ACTIONS.CLEAR_FIELD) {
-            this.clearModalFieldFromPopstate();
-            return;
-        }
-
-        this.closeModal(true);
+        UIStackController.applyModalPopstateAction(this.getUiStackControllerOptions(), action);
     },
 
     handleModalPopstate() {
-        this.applyModalPopstateAction(UIStack.getModalPopstateAction(this.getModalStackSnapshot()));
+        UIStackController.handleModalPopstate(this.getUiStackControllerOptions());
     },
 
     clearModalInteractionFromPopstate() {
-        UIStackEffects.clearModalInteraction({
-            clearSelection: () => this.clearModalSelection(),
-            setInteractionActive: value => { this._modalInteractionActive = value; },
-            setInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; }
-        });
+        UIStackController.clearModalInteractionFromPopstate(this.getUiStackControllerOptions());
     },
 
     clearModalFieldFromPopstate() {
-        UIStackEffects.clearModalField({
-            clearSelection: () => this.clearModalSelection(),
-            pushModalHistoryState: () => this.pushModalHistoryState()
-        });
+        UIStackController.clearModalFieldFromPopstate(this.getUiStackControllerOptions());
     },
 
     getModalInteractionHooks() {

@@ -29,15 +29,17 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-form-controller.js` contiene popolamento, lettura e micro-eventi dei campi del form di modifica.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
+- `app/js/navigation-controller.js` contiene wiring della navigazione principale, sincronizzazione DOM pagina/nav, salvataggio e ripristino scroll per pagina.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
 - `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi impostazioni, usando `Storage` come adapter passato da `app.js`.
 - `app/js/settings-controller.js` contiene wiring della pagina impostazioni e collega view, actions e hook di `app.js`.
 - `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
+- `app/js/ui-stack-controller.js` contiene il glue applicativo dello stack UI/back button: snapshot stato, applicazione azioni `popstate` e stati interni modale tramite hook verso `app.js`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: apertura/chiusura modale e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, filtri, timeline, tema, toast, statistiche/grafici, form e micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: apertura/chiusura modale e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form e micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni/glue dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -159,9 +161,9 @@ La navigazione principale e composta da:
 
 La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history creato all'apertura; se si chiude tutto il pannello mentre i filtri avanzati sono aperti, vengono consumati entrambi gli stati sovrapposti.
 
-Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso.
+Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso. Questo wiring e in `app/js/navigation-controller.js`; `app.js` mantiene lo stato pagina corrente e l'esecuzione history tramite `runHistoryAction`.
 
-Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction` e molti dettagli DOM/mobile.
+Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`; il glue che applica le azioni tramite hook vive in `ui-stack-controller.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction` e molti dettagli DOM/mobile.
 
 ### Statistiche
 
@@ -214,4 +216,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, form/dropdown/tag della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni/controller stack UI/back button, cleanup DOM collegati al popstate, form/dropdown/tag della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

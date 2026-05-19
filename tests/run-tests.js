@@ -91,6 +91,7 @@ function loadUiViews() {
     const filterControllerCode = fs.readFileSync(path.join(root, 'app/js/filter-controller.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
     const timelineControllerCode = fs.readFileSync(path.join(root, 'app/js/timeline-controller.js'), 'utf8');
+    const navigationControllerCode = fs.readFileSync(path.join(root, 'app/js/navigation-controller.js'), 'utf8');
     const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
     const statsChartsCode = fs.readFileSync(path.join(root, 'app/js/stats-charts.js'), 'utf8');
     const statsControllerCode = fs.readFileSync(path.join(root, 'app/js/stats-controller.js'), 'utf8');
@@ -102,6 +103,7 @@ function loadUiViews() {
     const settingsControllerCode = fs.readFileSync(path.join(root, 'app/js/settings-controller.js'), 'utf8');
     const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
     const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
+    const uiStackControllerCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-controller.js'), 'utf8');
     const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
     const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
     const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
@@ -116,6 +118,7 @@ function loadUiViews() {
             filterControllerCode,
             timelineViewCode,
             timelineControllerCode,
+            navigationControllerCode,
             statsViewCode,
             statsChartsCode,
             statsControllerCode,
@@ -127,6 +130,7 @@ function loadUiViews() {
             settingsControllerCode,
             uiStackCode,
             uiStackEffectsCode,
+            uiStackControllerCode,
             confirmDialogCode,
             themeControllerCode,
             toastControllerCode,
@@ -137,6 +141,7 @@ function loadUiViews() {
             'globalThis.FilterController = FilterController;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.TimelineController = TimelineController;',
+            'globalThis.NavigationController = NavigationController;',
             'globalThis.StatsView = StatsView;',
             'globalThis.StatsCharts = StatsCharts;',
             'globalThis.StatsController = StatsController;',
@@ -148,6 +153,7 @@ function loadUiViews() {
             'globalThis.SettingsController = SettingsController;',
             'globalThis.UIStack = UIStack;',
             'globalThis.UIStackEffects = UIStackEffects;',
+            'globalThis.UIStackController = UIStackController;',
             'globalThis.ConfirmDialog = ConfirmDialog;',
             'globalThis.ThemeController = ThemeController;',
             'globalThis.ToastController = ToastController;'
@@ -163,6 +169,7 @@ function loadUiViews() {
         FilterController: context.FilterController,
         TimelineView: context.TimelineView,
         TimelineController: context.TimelineController,
+        NavigationController: context.NavigationController,
         StatsView: context.StatsView,
         StatsCharts: context.StatsCharts,
         StatsController: context.StatsController,
@@ -174,6 +181,7 @@ function loadUiViews() {
         SettingsController: context.SettingsController,
         UIStack: context.UIStack,
         UIStackEffects: context.UIStackEffects,
+        UIStackController: context.UIStackController,
         ConfirmDialog: context.ConfirmDialog,
         ThemeController: context.ThemeController,
         ToastController: context.ToastController
@@ -1043,6 +1051,157 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert.equal(elements['timeline-content'].innerHTML, '');
     assert.equal(elements['timeline-summary'].innerHTML, '');
     assert(!elements['timeline-empty'].classList.contains('hidden'));
+});
+
+test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
+    const { NavigationController } = loadUiViews();
+    const calls = [];
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function makeElement(id, classes = []) {
+        return {
+            id,
+            dataset: {},
+            classList: makeClassList(classes),
+            style: {},
+            scrollTop: 0,
+            listeners: {},
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            }
+        };
+    }
+
+    const pages = {
+        timeline: makeElement('page-timeline'),
+        stats: makeElement('page-stats', ['hidden']),
+        settings: makeElement('page-settings', ['hidden'])
+    };
+    const navTimeline = makeElement('nav-timeline', ['active']);
+    navTimeline.dataset.page = 'timeline';
+    const navStats = makeElement('nav-stats');
+    navStats.dataset.page = 'stats';
+    const navSettings = makeElement('nav-settings');
+    navSettings.dataset.page = 'settings';
+    const navButtons = [navTimeline, navStats, navSettings];
+    const main = makeElement('app-main');
+    main.scrollTop = 17;
+    const inputBar = makeElement('input-bar');
+    const filterToggle = makeElement('btn-filter-toggle');
+
+    const doc = {
+        getElementById(id) {
+            if (id === 'app-main') return main;
+            if (id === 'input-bar') return inputBar;
+            if (id === 'btn-filter-toggle') return filterToggle;
+            if (id === 'page-timeline') return pages.timeline;
+            if (id === 'page-stats') return pages.stats;
+            if (id === 'page-settings') return pages.settings;
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '.nav-btn') return navButtons;
+            if (selector === '.page') return Object.values(pages);
+            return [];
+        },
+        querySelector(selector) {
+            const match = selector.match(/\.nav-btn\[data-page="([^"]+)"\]/);
+            if (!match) return null;
+            return navButtons.find(btn => btn.dataset.page === match[1]) || null;
+        }
+    };
+
+    const state = {
+        currentPage: 'timeline',
+        pageScrollTop: {
+            timeline: 0,
+            stats: 42,
+            settings: 9
+        },
+        restoring: false,
+        filterOpen: true
+    };
+    const options = {
+        document: doc,
+        pageScrollTop: state.pageScrollTop,
+        getCurrentPage: () => state.currentPage,
+        setCurrentPage: page => { state.currentPage = page; },
+        isRestoringPageScroll: () => state.restoring,
+        setRestoringPageScroll: value => {
+            state.restoring = value;
+            calls.push(['restoring', value]);
+        },
+        getNavigationHistoryAction: payload => ({ type: 'history', ...payload }),
+        runHistoryAction: action => calls.push(['history', action]),
+        isFilterOpen: () => state.filterOpen,
+        closeFilterPanel: () => {
+            state.filterOpen = false;
+            calls.push('close-filter');
+        },
+        updateAppMainPadding: () => calls.push('padding'),
+        renderTimeline: () => calls.push('render-timeline'),
+        renderStats: () => calls.push('render-stats'),
+        renderSettings: () => calls.push('render-settings'),
+        requestAnimationFrame: callback => callback(),
+        defer: callback => callback()
+    };
+
+    NavigationController.init(options);
+
+    assert.equal(typeof navStats.listeners.click, 'function');
+    assert.equal(typeof main.listeners.scroll, 'function');
+
+    main.scrollTop = 88;
+    main.listeners.scroll();
+    assert.equal(state.pageScrollTop.timeline, 88);
+
+    state.restoring = true;
+    main.scrollTop = 99;
+    main.listeners.scroll();
+    assert.equal(state.pageScrollTop.timeline, 88);
+    state.restoring = false;
+
+    navStats.listeners.click();
+
+    assert.equal(state.currentPage, 'stats');
+    assert(pages.timeline.classList.contains('hidden'));
+    assert(!pages.stats.classList.contains('hidden'));
+    assert(!navTimeline.classList.contains('active'));
+    assert(navStats.classList.contains('active'));
+    assert(inputBar.classList.contains('hidden'));
+    assert(main.classList.contains('no-input-bar'));
+    assert.equal(filterToggle.style.display, '');
+    assert.equal(main.scrollTop, 42);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].nextPage === 'stats'));
+    assert(calls.includes('render-stats'));
+
+    NavigationController.navigateTo(options, 'settings');
+
+    assert.equal(state.currentPage, 'settings');
+    assert.equal(state.filterOpen, false);
+    assert.equal(filterToggle.style.display, 'none');
+    assert(calls.includes('close-filter'));
+    assert(calls.includes('render-settings'));
+
+    const popAction = NavigationController.navigateTo(options, 'timeline', true);
+    assert.equal(popAction.fromPopstate, true);
+    assert.equal(state.currentPage, 'timeline');
+    assert(!inputBar.classList.contains('hidden'));
+    assert(!main.classList.contains('no-input-bar'));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {
@@ -1952,6 +2111,142 @@ test('UI stack effects isolano cleanup DOM usati dal popstate', () => {
     });
 
     assert.deepEqual(fieldCalls, ['clear', 'push-history']);
+});
+
+test('UI stack controller applica popstate e modale tramite hook App sottili', () => {
+    const { UIStack, UIStackController } = loadUiViews();
+    const calls = [];
+    const effects = {
+        closeFilterSearch(doc) {
+            calls.push(['effect-filter-search', doc.name]);
+        },
+        closeExpenseInput(doc) {
+            calls.push(['effect-expense-input', doc.name]);
+        },
+        clearModalInteraction(options = {}) {
+            calls.push('effect-clear-interaction');
+            options.setInteractionReleaseSuspended(true);
+            options.clearSelection();
+            options.setInteractionActive(false);
+            options.defer(() => {
+                options.setInteractionReleaseSuspended(false);
+            });
+        },
+        clearModalField(options = {}) {
+            calls.push('effect-clear-field');
+            options.clearSelection();
+            options.pushModalHistoryState();
+        }
+    };
+    const state = {
+        suppress: false,
+        confirmOpen: false,
+        modalOpen: false,
+        filterSearchActive: false,
+        expenseInputActive: false,
+        advancedFiltersOpen: false,
+        filterOpen: false,
+        currentPage: 'timeline',
+        interactionActive: false,
+        dropdownOpen: false,
+        activeField: false
+    };
+    const options = {
+        document: { name: 'doc' },
+        stack: UIStack,
+        effects,
+        getSuppressNextPopstate: () => state.suppress,
+        setSuppressNextPopstate: value => {
+            state.suppress = value;
+            calls.push(['suppress', value]);
+        },
+        isConfirmOpen: () => state.confirmOpen,
+        closeConfirm: fromPopstate => calls.push(['close-confirm', fromPopstate]),
+        isModalOpen: () => state.modalOpen,
+        closeModal: fromPopstate => calls.push(['close-modal', fromPopstate]),
+        isFilterSearchActive: () => state.filterSearchActive,
+        setFilterSearchActive: value => {
+            state.filterSearchActive = value;
+            calls.push(['filter-search', value]);
+        },
+        isExpenseInputActive: () => state.expenseInputActive,
+        setExpenseInputActive: value => {
+            state.expenseInputActive = value;
+            calls.push(['expense-input', value]);
+        },
+        isAdvancedFiltersOpen: () => state.advancedFiltersOpen,
+        closeAdvancedFilters: fromPopstate => calls.push(['close-advanced', fromPopstate]),
+        isFilterOpen: () => state.filterOpen,
+        closeFilterPanel: fromPopstate => calls.push(['close-filter', fromPopstate]),
+        getCurrentPage: () => state.currentPage,
+        navigateTo: (page, fromPopstate) => calls.push(['navigate', page, fromPopstate]),
+        stopExpenseInputBarWatch: () => calls.push('stop-watch'),
+        isModalInteractionActive: () => state.interactionActive,
+        setModalInteractionActive: value => {
+            state.interactionActive = value;
+            calls.push(['interaction', value]);
+        },
+        setModalInteractionReleaseSuspended: value => calls.push(['suspend', value]),
+        hasOpenModalDropdown: () => state.dropdownOpen,
+        hasActivePlainModalField: () => state.activeField,
+        clearModalSelection: () => calls.push('clear-selection'),
+        pushModalHistoryState: () => calls.push('push-modal-history'),
+        defer: callback => callback()
+    };
+
+    state.currentPage = 'stats';
+    assert.equal(UIStackController.handlePopstate(options), UIStack.ACTIONS.NAVIGATE_TIMELINE);
+    assert.deepEqual(calls.pop(), ['navigate', 'timeline', true]);
+
+    state.currentPage = 'timeline';
+    state.filterSearchActive = true;
+    UIStackController.handlePopstate(options);
+    assert.deepEqual(calls.slice(-2), [
+        ['filter-search', false],
+        ['effect-filter-search', 'doc']
+    ]);
+
+    state.filterSearchActive = false;
+    state.expenseInputActive = true;
+    UIStackController.handlePopstate(options);
+    assert.deepEqual(calls.slice(-3), [
+        ['expense-input', false],
+        'stop-watch',
+        ['effect-expense-input', 'doc']
+    ]);
+
+    state.expenseInputActive = false;
+    state.suppress = true;
+    UIStackController.handlePopstate(options);
+    assert.deepEqual(calls[calls.length - 1], ['suppress', false]);
+
+    state.suppress = false;
+    state.modalOpen = true;
+    state.interactionActive = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.HANDLE_MODAL
+    );
+    assert.deepEqual(calls.slice(-5), [
+        'effect-clear-interaction',
+        ['suspend', true],
+        'clear-selection',
+        ['interaction', false],
+        ['suspend', false]
+    ]);
+
+    state.interactionActive = false;
+    state.activeField = true;
+    UIStackController.handleModalPopstate(options);
+    assert.deepEqual(calls.slice(-3), [
+        'effect-clear-field',
+        'clear-selection',
+        'push-modal-history'
+    ]);
+
+    state.activeField = false;
+    UIStackController.handleModalPopstate(options);
+    assert.deepEqual(calls[calls.length - 1], ['close-modal', true]);
 });
 
 let failed = 0;

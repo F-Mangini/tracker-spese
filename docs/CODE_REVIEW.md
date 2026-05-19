@@ -83,17 +83,21 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/modal-view.js` contiene rendering dei dropdown ricercabili e logica pura dei suggerimenti tag.
 - `app/js/modal-form-controller.js` contiene popolamento, lettura e micro-eventi dei campi del form di modifica.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato di dropdown ricercabili e input tag della modale, con hook verso la history gestita da `app.js`.
+- `app/js/navigation-controller.js` contiene wiring della navigazione principale, sincronizzazione pagina/nav e salvataggio/ripristino scroll.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e messaggio preview import.
 - `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile per preview, export, commit import/export, tema persistente e cancellazione completa tramite adapter `Storage`.
 - `app/js/settings-controller.js` contiene wiring della pagina impostazioni, collegando view/actions agli hook di `app.js`.
 - `app/js/ui-stack.js` contiene le decisioni pure dell'ordine di chiusura `popstate`/back button.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
-- `app.js` ha metodi piu piccoli per navigazione, salvataggio/ripristino scroll pagina, gestione popstate, input rapido, azioni spesa, filtri, timeline, toast, statistiche e form modale.
+- `app/js/ui-stack-controller.js` contiene il glue applicativo dello stack UI/back button e applica le azioni `popstate` tramite hook verso `app.js`.
+- `app.js` ha metodi piu piccoli per navigazione, gestione popstate, input rapido, azioni spesa, filtri, timeline, toast, statistiche e form modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
 - `tests/run-tests.js` copre anche helper UI, rendering/controller estratti di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
 - Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
 - Le decisioni di priorita del back button e le azioni push/back simmetriche sono coperte da test unitari tramite `UIStack`; l'esecuzione reale di `history` passa da `app.js#runHistoryAction`.
+- L'applicazione delle azioni `popstate` passa da `UIStackController`; `app.js` mantiene gli hook concreti e `runHistoryAction`.
+- La navigazione principale passa da `NavigationController`; `app.js` mantiene stato pagina, hook di render e l'esecuzione reale delle azioni history.
 - Il pannello filtri passa da `FilterController`; `app.js` mantiene stato filtri, refresh timeline/statistiche, history e hook mobile.
 - La timeline passa da `TimelineController`; `app.js` mantiene storage, stato `newCardId`, apertura modale e hook dati.
 - La pagina statistiche passa da `StatsController`; `app.js` mantiene solo stato periodo/offset e riferimenti alle istanze Chart.
@@ -182,7 +186,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora molto: navigazione, apertura/chiusura modale, wrapper conferme/history e workaround mobile. Il rendering/wiring di filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, azioni spesa, input rapido, tema, toast, micro-interazioni della modale, dialog conferma, decisioni dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
+`App` contiene ancora molto: apertura/chiusura modale, wrapper conferme/history e workaround mobile. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, azioni spesa, input rapido, tema, toast, micro-interazioni della modale, dialog conferma, decisioni/glue dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -521,6 +525,8 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-19: spostata in `theme-controller.js` la gestione del tema, incluso toggle temporaneo header.
 - Completato parzialmente il 2026-05-19: spostata in `toast-controller.js` la gestione dei toast, incluso il posizionamento sopra la barra di inserimento.
 - Completato parzialmente il 2026-05-19: spostato in `stats-controller.js` il wiring statistiche, periodo e grafici.
+- Completato parzialmente il 2026-05-19: spostato in `navigation-controller.js` il wiring della navigazione principale, incluso salvataggio/ripristino scroll pagina.
+- Completato parzialmente il 2026-05-19: spostato in `ui-stack-controller.js` il glue applicativo del `popstate`/back button e degli stati interni modale.
 - Completato parzialmente il 2026-05-19: spostato in `filter-controller.js` il wiring del pannello filtri, inclusi ricerca, slider, badge e apertura/chiusura base/avanzata.
 - Completato parzialmente il 2026-05-19: spostato in `timeline-controller.js` il wiring della timeline, inclusi empty state, riepilogo, applicazione filtri e click card.
 - Completato parzialmente il 2026-05-19: spostate in `expense-actions.js` le operazioni testabili per input rapido, modifica ed eliminazione spesa.
@@ -542,7 +548,7 @@ Stato: completata il 2026-05-15.
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-19: rendering/wiring di filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, input rapido, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
+- Completato parzialmente il 2026-05-19: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, input rapido, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, stack UI/back button, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

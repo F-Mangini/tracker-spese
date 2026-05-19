@@ -11,6 +11,7 @@ Stato della fase iniziale:
 - Completato il 2026-05-16: primo test runner Node per storage e parser.
 - Completato il 2026-05-16: test minimi estesi a filtri e aggregazioni statistiche.
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
+- In corso dal 2026-05-19: wiring navigazione principale spostato in `app/js/navigation-controller.js`.
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
@@ -20,6 +21,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: wiring statistiche e grafici spostato in `app/js/stats-controller.js`.
 - In corso dal 2026-05-19: gestione tema spostata in `app/js/theme-controller.js`.
 - In corso dal 2026-05-19: gestione toast spostata in `app/js/toast-controller.js`.
+- In corso dal 2026-05-19: glue `popstate`/back button spostato in `app/js/ui-stack-controller.js`.
 - In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
 - In corso dal 2026-05-19: form modifica spostato in `app/js/modal-form-controller.js`.
 - In corso dal 2026-05-19: eventi dropdown/tag della modale spostati in `app/js/modal-interactions.js`.
@@ -29,12 +31,14 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: parser importi rafforzato per frasi con piu numeri, valuta esplicita e importi finali.
 - Completato parzialmente il 2026-05-19: decisione `popstate`/back button centralizzata in `app/js/ui-stack.js` e coperta da test.
 - Completato parzialmente il 2026-05-19: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da un solo helper in `app.js`.
+- Completato parzialmente il 2026-05-19: applicazione delle azioni `popstate`/back button spostata in `app/js/ui-stack-controller.js` tramite hook verso `app.js`.
 - Completato parzialmente il 2026-05-19: decisioni import/export impostazioni spostate in `app/js/settings-actions.js`.
 - Completato parzialmente il 2026-05-19: cleanup DOM minimi collegati al `popstate` spostati in `app/js/ui-stack-effects.js`.
 - Completato parzialmente il 2026-05-19: preview, export e commit import/export impostazioni orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 - Completato parzialmente il 2026-05-19: salvataggio tema persistente e cancellazione completa orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 - Completato parzialmente il 2026-05-19: dialog scelte/conferme spostato in `app/js/confirm-dialog.js`.
 - Completato parzialmente il 2026-05-19: toggle tema temporaneo dell'header mantenuto ma spostato in `app/js/theme-controller.js`.
+- Completato parzialmente il 2026-05-19: cambio pagina, sync nav/pagine e salvataggio/ripristino scroll passano da `app/js/navigation-controller.js`.
 - Completato parzialmente il 2026-05-19: ricerca, chip, date, slider, badge, reset e apertura/chiusura filtri base/avanzati passano da `app/js/filter-controller.js`.
 - Completato parzialmente il 2026-05-19: empty state, riepilogo, gruppi giorno, applicazione filtri e click card timeline passano da `app/js/timeline-controller.js`.
 - Completato parzialmente il 2026-05-19: render statistiche, cambio periodo e creazione/distruzione grafici passano da `app/js/stats-controller.js`.

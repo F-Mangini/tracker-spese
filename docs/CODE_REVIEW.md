@@ -81,9 +81,9 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
 - `tests/run-tests.js` copre anche helper UI, rendering estratto di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
 - Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
-- Le decisioni di priorita del back button sono coperte da test unitari tramite `UIStack`; le azioni DOM e history reali restano in `app.js`.
+- Le decisioni di priorita del back button e le azioni push/back simmetriche sono coperte da test unitari tramite `UIStack`; l'esecuzione reale di `history` passa da `app.js#runHistoryAction`.
 
-Restano aperti: UI stack/back button completo con push/back simmetrici centralizzati, estrazione piu profonda delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
+Restano aperti: UI stack/back button completo con dettagli DOM/mobile centralizzati gradualmente, estrazione piu profonda delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
 
 ## Findings Principali
 
@@ -187,7 +187,7 @@ La history e manipolata da molti punti: navigazione pagina, filtri, ricerca, inp
 
 Esempi concreti:
 
-- `handlePopstate()` ora delega a `UIStack` la scelta dell'azione prioritaria, ma esegue ancora in `app.js` chiusure e cleanup DOM.
+- `handlePopstate()` ora delega a `UIStack` la scelta dell'azione prioritaria, mentre `runHistoryAction()` e l'unico punto che chiama direttamente `history`.
 - `toggleAdvancedFilters()` ora consuma la history entry quando chiude da bottone, ma il resto dello stack UI resta ancora distribuito.
 - `closeModal()` puo fare `history.go(-2)` se crede che esista uno stato interazione.
 - Blur di input e ricerca chiamano `history.back()` con timeout.
@@ -202,6 +202,7 @@ Direzione di fix:
 - Creare un piccolo "UI stack manager" per stati sovrapposti: pagina, pannello filtri, ricerca, input, modale, dropdown, conferma.
 - Definire regola unica: ogni `pushState` deve avere una chiusura simmetrica.
 - Completato parzialmente: estratta in `UIStack` la decisione dell'azione da eseguire su `popstate`, con test sull'ordine di priorita.
+- Completato parzialmente: push, replace, back e go sono descritti da azioni `UIStack` ed eseguiti da un solo helper in `app.js`.
 - Aggiungere checklist manuale Android per ogni modifica.
 
 ### CR-05 - Parser e modifica importo possono registrare importi sbagliati
@@ -488,6 +489,7 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-18: estratti rendering impostazioni e preview import in `settings-view.js`.
 - Completato parzialmente il 2026-05-19: rafforzato parsing importi nell'inserimento rapido con test sugli input ambigui.
 - Completato parzialmente il 2026-05-19: estratta la decisione `popstate`/back button in `ui-stack.js`, con test unitari sull'ordine di chiusura.
+- Completato parzialmente il 2026-05-19: centralizzata l'esecuzione `history` in `app.js#runHistoryAction`, usando azioni generate da `ui-stack.js`.
 - Restano da estrarre/parzialmente rafforzare altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
 
@@ -497,6 +499,7 @@ Stato: completata il 2026-05-15.
 - Sostituire gradualmente push/back sparsi.
 - Completato parzialmente il 2026-05-18: resa simmetrica la history dei filtri avanzati e separato il salvataggio scroll per pagina.
 - Completato parzialmente il 2026-05-19: centralizzata la decisione del `popstate` in `ui-stack.js`.
+- Completato parzialmente il 2026-05-19: rimosse le chiamate dirette a `history` dai flussi UI, lasciandole concentrate in `runHistoryAction`.
 - Verificare ogni passaggio su Android.
 
 ### Fase 4 - Modularizzazione UI

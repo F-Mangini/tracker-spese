@@ -183,19 +183,44 @@ const App = {
         if (page === 'settings') this.renderSettings();
     },
 
-    updateNavigationHistory(page, fromPopstate) {
-        if (fromPopstate) return;
+    runHistoryAction(action) {
+        if (!action || action.type === UIStack.HISTORY_ACTIONS.NONE) return;
 
-        if (!fromPopstate && page !== 'timeline') {
-            if (this.currentPage === 'timeline') {
-                try { history.pushState({ page: page }, ''); } catch (_) { }
-            } else {
-                try { history.replaceState({ page: page }, ''); } catch (_) { }
-            }
-        } else if (!fromPopstate && page === 'timeline' && this.currentPage !== 'timeline') {
+        if (action.suppressPopstate) {
             this._suppressNextPopstate = true;
-            try { history.back(); } catch (_) { }
         }
+
+        try {
+            if (action.type === UIStack.HISTORY_ACTIONS.PUSH) {
+                history.pushState(action.state || {}, '');
+            } else if (action.type === UIStack.HISTORY_ACTIONS.REPLACE) {
+                history.replaceState(action.state || {}, '');
+            } else if (action.type === UIStack.HISTORY_ACTIONS.BACK) {
+                history.back();
+            } else if (action.type === UIStack.HISTORY_ACTIONS.GO) {
+                history.go(action.delta || -1);
+            }
+        } catch (_) {
+            if (action.type === UIStack.HISTORY_ACTIONS.GO) {
+                try { history.back(); } catch (__) { }
+            }
+        }
+    },
+
+    pushUiState(state) {
+        this.runHistoryAction(UIStack.pushState(state));
+    },
+
+    consumeUiState(steps = 1) {
+        this.runHistoryAction(UIStack.consumeState({ steps }));
+    },
+
+    updateNavigationHistory(page, fromPopstate) {
+        this.runHistoryAction(UIStack.getNavigationHistoryAction({
+            fromPopstate,
+            currentPage: this.currentPage,
+            nextPage: page
+        }));
     },
 
     navigateTo(page, fromPopstate = false) {
@@ -248,7 +273,7 @@ const App = {
             if (this.filterOpen && !this._filterSearchActive) {
                 this._filterSearchActive = true;
                 this.startExpenseInputBarWatch();
-                try { history.pushState({ panel: 'filter-search' }, ''); } catch (_) { }
+                this.pushUiState({ panel: 'filter-search' });
             }
         });
 
@@ -256,8 +281,7 @@ const App = {
             if (this._filterSearchActive) {
                 this._filterSearchActive = false;
                 this.stopExpenseInputBarWatch();
-                this._suppressNextPopstate = true;
-                try { history.back(); } catch (_) { }
+                this.consumeUiState();
             }
         });
 
@@ -327,7 +351,7 @@ const App = {
         section.classList.remove('hidden');
         btn.classList.add('active');
         document.body.classList.add('no-scroll');
-        try { history.pushState({ panel: 'advanced-filters' }, ''); } catch (_) { }
+        this.pushUiState({ panel: 'advanced-filters' });
 
         requestAnimationFrame(() => {
             const panel = document.getElementById('filter-panel');
@@ -357,10 +381,10 @@ const App = {
             this.updateAppMainPadding();
         });
 
-        if (!fromPopstate) {
-            this._suppressNextPopstate = true;
-            try { history.back(); } catch (_) { }
-        }
+        this.runHistoryAction(UIStack.getCloseHistoryAction({
+            fromPopstate,
+            wasOpen: true
+        }));
     },
 
     buildChips(containerId, items, targetSet) {
@@ -499,7 +523,7 @@ const App = {
         panel.classList.remove('hidden');
         document.getElementById('btn-filter-toggle').classList.add('active');
 
-        history.pushState({ panel: 'filter' }, '');
+        this.pushUiState({ panel: 'filter' });
 
         const summary = document.getElementById('timeline-summary');
         if (summary) summary.classList.add('hidden');
@@ -532,14 +556,11 @@ const App = {
         if (pageTimeline) pageTimeline.classList.remove('filter-open');
 
         document.getElementById('app-main').style.marginTop = '';
-        if (wasOpen && !fromPopstate) {
-            this._suppressNextPopstate = true;
-            try {
-                history.go(hadAdvancedFilters ? -2 : -1);
-            } catch (_) {
-                try { history.back(); } catch (_) { }
-            }
-        }
+        this.runHistoryAction(UIStack.getCloseHistoryAction({
+            fromPopstate,
+            wasOpen,
+            steps: hadAdvancedFilters ? 2 : 1
+        }));
         this.updateAppMainPadding();
     },
 
@@ -809,8 +830,7 @@ const App = {
             this.updateAppMainPadding();
 
             blurCleanupTimer = setTimeout(() => {
-                this._suppressNextPopstate = true;
-                try { history.back(); } catch (_) { }
+                this.consumeUiState();
             }, 300);
         };
 
@@ -827,7 +847,7 @@ const App = {
             document.body.classList.add('expense-input-active');
 
             if (wasInactive) {
-                try { history.pushState({ panel: 'expense-input' }, ''); } catch (_) { }
+                this.pushUiState({ panel: 'expense-input' });
             }
 
             this.startExpenseInputBarWatch();
@@ -1107,9 +1127,7 @@ const App = {
     },
 
     pushModalHistoryState() {
-        try {
-            history.pushState({ panel: 'modal' }, '');
-        } catch (_) { }
+        this.pushUiState({ panel: 'modal' });
     },
 
     ensureModalInteractionState() {
@@ -1117,20 +1135,14 @@ const App = {
 
         this._modalInteractionActive = true;
 
-        try {
-            history.pushState({ panel: 'modal-interaction' }, '');
-        } catch (_) { }
+        this.pushUiState({ panel: 'modal-interaction' });
     },
 
     releaseModalInteractionState() {
         if (!this._modalInteractionActive) return;
 
         this._modalInteractionActive = false;
-        this._suppressNextPopstate = true;
-
-        try {
-            history.back();
-        } catch (_) { }
+        this.consumeUiState();
     },
 
     clearModalSelection() {
@@ -1494,15 +1506,11 @@ const App = {
             overlay.classList.add('hidden');
         }, 280);
 
-        if (!fromPopstate) {
-            this._suppressNextPopstate = true;
-
-            try {
-                history.go(hadInteractionState ? -2 : -1);
-            } catch (_) {
-                try { history.back(); } catch (_) { }
-            }
-        }
+        this.runHistoryAction(UIStack.getCloseHistoryAction({
+            fromPopstate,
+            wasOpen: true,
+            steps: hadInteractionState ? 2 : 1
+        }));
     },
 
     readEditFormData() {
@@ -1566,7 +1574,7 @@ const App = {
         document.getElementById('confirm-message').innerHTML = msg;
         document.getElementById('confirm-overlay').classList.remove('hidden');
 
-        try { history.pushState({ panel: 'confirm' }, ''); } catch (_) { }
+        this.pushUiState({ panel: 'confirm' });
 
         const buttons = document.querySelector('#confirm-dialog .confirm-buttons');
         buttons.innerHTML = '';
@@ -1593,10 +1601,10 @@ const App = {
 
     closeConfirm(fromPopstate = false) {
         document.getElementById('confirm-overlay').classList.add('hidden');
-        if (!fromPopstate) {
-            this._suppressNextPopstate = true;
-            try { history.back(); } catch (_) { }
-        }
+        this.runHistoryAction(UIStack.getCloseHistoryAction({
+            fromPopstate,
+            wasOpen: true
+        }));
     },
 
     /* =============================================

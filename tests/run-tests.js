@@ -693,6 +693,41 @@ test('UI stack separa le azioni popstate interne alla modale', () => {
     );
 });
 
+test('UI stack descrive push/back simmetrici senza toccare history', () => {
+    const { UIStack } = loadUiViews();
+
+    const pushStats = UIStack.getNavigationHistoryAction({
+        currentPage: 'timeline',
+        nextPage: 'stats'
+    });
+    const replaceSettings = UIStack.getNavigationHistoryAction({
+        currentPage: 'stats',
+        nextPage: 'settings'
+    });
+    const backTimeline = UIStack.getNavigationHistoryAction({
+        currentPage: 'settings',
+        nextPage: 'timeline'
+    });
+    const closeNested = UIStack.getCloseHistoryAction({
+        wasOpen: true,
+        steps: 2
+    });
+
+    assert.equal(pushStats.type, UIStack.HISTORY_ACTIONS.PUSH);
+    assert.deepEqual(pushStats.state, { page: 'stats' });
+    assert.equal(replaceSettings.type, UIStack.HISTORY_ACTIONS.REPLACE);
+    assert.deepEqual(replaceSettings.state, { page: 'settings' });
+    assert.equal(backTimeline.type, UIStack.HISTORY_ACTIONS.BACK);
+    assert.equal(backTimeline.suppressPopstate, true);
+    assert.equal(closeNested.type, UIStack.HISTORY_ACTIONS.GO);
+    assert.equal(closeNested.delta, -2);
+    assert.equal(closeNested.suppressPopstate, true);
+    assert.equal(
+        UIStack.getCloseHistoryAction({ fromPopstate: true, wasOpen: true }).type,
+        UIStack.HISTORY_ACTIONS.NONE
+    );
+});
+
 let failed = 0;
 
 for (const { name, fn } of tests) {

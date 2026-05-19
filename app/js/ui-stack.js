@@ -21,6 +21,23 @@ const UIStack = (() => {
         CLOSE_MODAL: 'close-modal'
     });
 
+    const HISTORY_ACTIONS = Object.freeze({
+        NONE: 'none',
+        PUSH: 'push',
+        REPLACE: 'replace',
+        BACK: 'back',
+        GO: 'go'
+    });
+
+    function createHistoryAction(type, options = {}) {
+        return {
+            type,
+            state: options.state || null,
+            delta: options.delta || 0,
+            suppressPopstate: !!options.suppressPopstate
+        };
+    }
+
     function getPopstateAction(state = {}) {
         if (state.suppressNextPopstate) return ACTIONS.IGNORE;
         if (state.confirmOpen) return ACTIONS.CLOSE_CONFIRM;
@@ -46,10 +63,65 @@ const UIStack = (() => {
         return MODAL_ACTIONS.CLOSE_MODAL;
     }
 
+    function getNavigationHistoryAction(state = {}) {
+        if (state.fromPopstate || !state.nextPage || state.nextPage === state.currentPage) {
+            return createHistoryAction(HISTORY_ACTIONS.NONE);
+        }
+
+        if (state.nextPage !== 'timeline') {
+            return createHistoryAction(
+                state.currentPage === 'timeline' ? HISTORY_ACTIONS.PUSH : HISTORY_ACTIONS.REPLACE,
+                { state: { page: state.nextPage } }
+            );
+        }
+
+        if (state.currentPage !== 'timeline') {
+            return createHistoryAction(HISTORY_ACTIONS.BACK, { suppressPopstate: true });
+        }
+
+        return createHistoryAction(HISTORY_ACTIONS.NONE);
+    }
+
+    function pushState(state) {
+        return createHistoryAction(HISTORY_ACTIONS.PUSH, { state });
+    }
+
+    function replaceState(state) {
+        return createHistoryAction(HISTORY_ACTIONS.REPLACE, { state });
+    }
+
+    function consumeState(options = {}) {
+        const steps = Math.max(1, Number(options.steps || 1));
+        return createHistoryAction(
+            steps > 1 ? HISTORY_ACTIONS.GO : HISTORY_ACTIONS.BACK,
+            {
+                delta: -steps,
+                suppressPopstate: options.suppressPopstate !== false
+            }
+        );
+    }
+
+    function getCloseHistoryAction(state = {}) {
+        if (state.fromPopstate || !state.wasOpen) {
+            return createHistoryAction(HISTORY_ACTIONS.NONE);
+        }
+
+        return consumeState({
+            steps: state.steps || 1,
+            suppressPopstate: true
+        });
+    }
+
     return {
         ACTIONS,
         MODAL_ACTIONS,
+        HISTORY_ACTIONS,
         getPopstateAction,
-        getModalPopstateAction
+        getModalPopstateAction,
+        getNavigationHistoryAction,
+        pushState,
+        replaceState,
+        consumeState,
+        getCloseHistoryAction
     };
 })();

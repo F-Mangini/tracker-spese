@@ -19,6 +19,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 - Completato parzialmente il 2026-05-19: parser importi rafforzato per frasi con piu numeri, valuta esplicita e importi finali.
 - Completato parzialmente il 2026-05-19: decisione `popstate`/back button centralizzata in `app/js/ui-stack.js` e coperta da test.
+- Completato parzialmente il 2026-05-19: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da un solo helper in `app.js`.
 
 Priorita della fase attuale:
 
@@ -26,7 +27,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: centralizzare gradualmente push/back simmetrici dello stack UI e poi isolare le azioni impostazioni rimaste, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
+- Prossimo passo consigliato: isolare gradualmente i cleanup DOM/mobile collegati allo stack UI e poi le azioni impostazioni rimaste, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

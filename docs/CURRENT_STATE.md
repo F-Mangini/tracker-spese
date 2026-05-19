@@ -145,7 +145,7 @@ La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history 
 
 Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso.
 
-Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: per ora centralizza la decisione testabile del `popstate`, mentre push/back e molti dettagli restano distribuiti in `app.js`.
+Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction` e molti dettagli DOM/mobile.
 
 ### Statistiche
 

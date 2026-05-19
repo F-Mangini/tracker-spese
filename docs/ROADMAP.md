@@ -22,6 +22,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da un solo helper in `app.js`.
 - Completato parzialmente il 2026-05-19: decisioni import/export impostazioni spostate in `app/js/settings-actions.js`.
 - Completato parzialmente il 2026-05-19: cleanup DOM minimi collegati al `popstate` spostati in `app/js/ui-stack-effects.js`.
+- Completato parzialmente il 2026-05-19: preview, export e commit import/export impostazioni orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 
 Priorita della fase attuale:
 
@@ -29,7 +30,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: continuare con i cleanup DOM/mobile ancora rimasti nello stack UI oppure passare ai commit impostazioni/import-export, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
+- Prossimo passo consigliato: continuare con i cleanup DOM/mobile ancora rimasti nello stack UI oppure rifinire le azioni impostazioni residue, senza toccare schema dati o workaround mobile finche non sono coperti da test manuali.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

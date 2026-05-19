@@ -1825,21 +1825,16 @@ const App = {
             reader.onload = ev => {
                 const content = ev.target.result;
 
-                const format = SettingsActions.detectImportFormat(file);
-
-                let preview;
-                if (format === 'json') {
-                    preview = Storage.previewImportJSON(content);
-                } else if (format === 'csv') {
-                    preview = Storage.previewImportCSV(content);
-                } else {
-                    this.showToast('Usa .json o .csv', 'error');
-                    fileInput.value = '';
-                    return;
-                }
+                const preview = SettingsActions.previewImportFile({
+                    file,
+                    content,
+                    storage: Storage
+                });
 
                 if (!preview.success) {
-                    this.showToast('Errore: ' + preview.error, 'error');
+                    this.showToast(preview.code === 'unsupported-import-format'
+                        ? preview.error
+                        : 'Errore: ' + preview.error, 'error');
                 } else {
                     this.showImportChoice(preview, content);
                 }
@@ -1875,25 +1870,34 @@ const App = {
     },
 
     downloadExport(format) {
-        const result = format === 'json' ? Storage.exportJSON() : Storage.exportCSV();
+        const result = SettingsActions.buildExportDownload({
+            format,
+            storage: Storage,
+            dateStamp: this.dateStamp()
+        });
+
         if (!result.success) {
             this.showToast(result.error || 'Export non riuscito', 'error');
             return;
         }
 
-        const spec = SettingsActions.getExportDownloadSpec(format, result.content, this.dateStamp());
+        const spec = result.download;
         this.download(spec.content, spec.filename, spec.mime);
         this.showToast(spec.toast, 'info');
     },
 
     downloadRawData() {
-        const result = Storage.exportRaw();
+        const result = SettingsActions.buildRawDownload({
+            storage: Storage,
+            dateStamp: this.dateStamp()
+        });
+
         if (!result.success) {
             this.showToast(result.error || 'Export grezzo non riuscito', 'error');
             return;
         }
 
-        const spec = SettingsActions.getRawDownloadSpec(result.content, this.dateStamp());
+        const spec = result.download;
         this.download(spec.content, spec.filename, spec.mime);
         this.showToast(spec.toast, 'info');
     },
@@ -1914,12 +1918,15 @@ const App = {
     },
 
     commitImport(preview, content, mode) {
-        const result = preview.format === 'json'
-            ? Storage.importJSON(content, { mode })
-            : Storage.importCSV(content, { mode });
+        const importResult = SettingsActions.commitImport({
+            preview,
+            content,
+            mode,
+            storage: Storage
+        });
 
-        if (!result.success) {
-            this.showToast('Errore: ' + result.error, 'error');
+        if (!importResult.success) {
+            this.showToast('Errore: ' + importResult.error, 'error');
             return;
         }
 
@@ -1927,8 +1934,7 @@ const App = {
         if (this.currentPage === 'stats') this.renderStats();
         this.renderSettings();
 
-        const successMessage = SettingsActions.getImportSuccessMessage(result, mode);
-        this.showToast(successMessage, 'success');
+        this.showToast(importResult.toast, 'success');
     },
 
     /* =====================

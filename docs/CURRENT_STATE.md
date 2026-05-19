@@ -21,7 +21,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
-- `app/js/settings-actions.js` contiene decisioni testabili per formati import/export, scelte import/export, nomi file e messaggi finali.
+- `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi import/export impostazioni, usando `Storage` come adapter passato da `app.js`.
 - `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
@@ -184,7 +184,7 @@ La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impo
 
 Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni.
 
-Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; le decisioni pure su formato file, opzioni import/export e nomi download sono in `app/js/settings-actions.js`. `app.js` mantiene lettura file, commit import/export, download reale e listener dei pulsanti.
+Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. `app.js` mantiene lettura file, download reale, aggiornamento UI post-commit e listener dei pulsanti.
 
 ## Limiti Noti
 
@@ -200,4 +200,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate e azioni impostazioni, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate e flussi impostazioni/import-export, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

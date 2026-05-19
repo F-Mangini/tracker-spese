@@ -81,12 +81,86 @@ const SettingsActions = (() => {
         return `${Number(result.count || 0)} spese ${modeLabel}${suffix} \u2713`;
     }
 
+    function fail(error, code) {
+        return {
+            success: false,
+            error,
+            code
+        };
+    }
+
+    function previewImportFile(options = {}) {
+        const { file, content, storage } = options;
+        const format = detectImportFormat(file);
+
+        if (format === 'json') {
+            return storage.previewImportJSON(content);
+        }
+
+        if (format === 'csv') {
+            return storage.previewImportCSV(content);
+        }
+
+        return fail('Usa .json o .csv', 'unsupported-import-format');
+    }
+
+    function buildExportDownload(options = {}) {
+        const { format, storage, dateStamp } = options;
+
+        let result;
+        if (format === 'json') {
+            result = storage.exportJSON();
+        } else if (format === 'csv') {
+            result = storage.exportCSV();
+        } else {
+            return fail('Formato export non valido', 'unsupported-export-format');
+        }
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            download: getExportDownloadSpec(format, result.content, dateStamp)
+        };
+    }
+
+    function buildRawDownload(options = {}) {
+        const { storage, dateStamp } = options;
+        const result = storage.exportRaw();
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            download: getRawDownloadSpec(result.content, dateStamp)
+        };
+    }
+
+    function commitImport(options = {}) {
+        const { preview = {}, content, mode, storage } = options;
+        const result = preview.format === 'json'
+            ? storage.importJSON(content, { mode })
+            : storage.importCSV(content, { mode });
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            result,
+            toast: getImportSuccessMessage(result, mode)
+        };
+    }
+
     return {
         detectImportFormat,
         getExportChoices,
         getImportChoices,
         getExportDownloadSpec,
         getRawDownloadSpec,
-        getImportSuccessMessage
+        getImportSuccessMessage,
+        previewImportFile,
+        buildExportDownload,
+        buildRawDownload,
+        commitImport
     };
 })();

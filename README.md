@@ -103,7 +103,7 @@ Test leggeri disponibili:
 node tests/run-tests.js
 ```
 
-Il runner copre guardrail iniziali su storage, parser base e importi ambigui, filtri, aggregazioni statistiche, configurazione grafici, stack UI/back button, cleanup DOM collegati al popstate, azioni impostazioni e rendering/helper UI estratti, inclusi dropdown/tag della modale.
+Il runner copre guardrail iniziali su storage, parser base e importi ambigui, filtri, aggregazioni statistiche, configurazione grafici, stack UI/back button, cleanup DOM collegati al popstate, flussi impostazioni/import-export e rendering/helper UI estratti, inclusi dropdown/tag della modale.
 
 ## Deploy
 

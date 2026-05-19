@@ -674,6 +674,104 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     );
 });
 
+test('Azioni impostazioni orchestrano preview, export e commit con storage adapter', () => {
+    const { SettingsActions } = loadUiViews();
+    const calls = [];
+    const storage = {
+        previewImportJSON(content) {
+            calls.push(['preview-json', content]);
+            return { success: true, format: 'json', count: 1 };
+        },
+        previewImportCSV(content) {
+            calls.push(['preview-csv', content]);
+            return { success: true, format: 'csv', count: 2 };
+        },
+        exportJSON() {
+            calls.push(['export-json']);
+            return { success: true, content: '{"ok":true}' };
+        },
+        exportCSV() {
+            calls.push(['export-csv']);
+            return { success: true, content: 'a,b' };
+        },
+        exportRaw() {
+            calls.push(['export-raw']);
+            return { success: true, content: 'raw-data' };
+        },
+        importJSON(content, options) {
+            calls.push(['import-json', content, options.mode]);
+            return { success: true, count: 1, regeneratedIds: 0 };
+        },
+        importCSV(content, options) {
+            calls.push(['import-csv', content, options.mode]);
+            return { success: true, count: 2, regeneratedIds: 1 };
+        }
+    };
+
+    assert.deepEqual(
+        SettingsActions.previewImportFile({
+            file: { name: 'backup.json' },
+            content: '{}',
+            storage
+        }),
+        { success: true, format: 'json', count: 1 }
+    );
+    assert.deepEqual(
+        SettingsActions.previewImportFile({
+            file: { name: 'spese.csv' },
+            content: 'a,b',
+            storage
+        }),
+        { success: true, format: 'csv', count: 2 }
+    );
+    assert.deepEqual(
+        SettingsActions.previewImportFile({
+            file: { name: 'spese.txt' },
+            content: 'x',
+            storage
+        }),
+        {
+            success: false,
+            error: 'Usa .json o .csv',
+            code: 'unsupported-import-format'
+        }
+    );
+
+    const jsonDownload = SettingsActions.buildExportDownload({
+        format: 'json',
+        storage,
+        dateStamp: '2026-05-19'
+    });
+    const csvDownload = SettingsActions.buildExportDownload({
+        format: 'csv',
+        storage,
+        dateStamp: '2026-05-19'
+    });
+    const rawDownload = SettingsActions.buildRawDownload({
+        storage,
+        dateStamp: '2026-05-19'
+    });
+    const importResult = SettingsActions.commitImport({
+        preview: { format: 'csv' },
+        content: 'a,b',
+        mode: 'append',
+        storage
+    });
+
+    assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
+    assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
+    assert.equal(rawDownload.download.filename, 'spese_raw_2026-05-19.txt');
+    assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
+    assert.deepEqual(calls, [
+        ['preview-json', '{}'],
+        ['preview-csv', 'a,b'],
+        ['export-json'],
+        ['export-csv'],
+        ['export-raw'],
+        ['import-csv', 'a,b', 'append']
+    ]);
+});
+
 test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
     const { UIStack } = loadUiViews();
 

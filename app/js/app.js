@@ -1333,8 +1333,8 @@ const App = {
         });
     },
 
-    handlePopstate() {
-        const action = UIStack.getPopstateAction({
+    getUiStackSnapshot() {
+        return {
             suppressNextPopstate: this._suppressNextPopstate,
             confirmOpen: this.isConfirmOpen(),
             modalOpen: this.isModalOpen(),
@@ -1343,8 +1343,10 @@ const App = {
             advancedFiltersOpen: this.advancedFiltersOpen,
             filterOpen: this.filterOpen,
             currentPage: this.currentPage
-        });
+        };
+    },
 
+    applyPopstateAction(action) {
         if (action === UIStack.ACTIONS.IGNORE) {
             this._suppressNextPopstate = false;
             return;
@@ -1361,18 +1363,12 @@ const App = {
         }
 
         if (action === UIStack.ACTIONS.CLOSE_FILTER_SEARCH) {
-            this._filterSearchActive = false;
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) searchInput.blur();
+            this.closeFilterSearchInteraction();
             return;
         }
 
         if (action === UIStack.ACTIONS.CLOSE_EXPENSE_INPUT) {
-            this._expenseInputActive = false;
-            document.body.classList.remove('expense-input-active');
-            this.stopExpenseInputBarWatch();
-            const expenseInput = document.getElementById('expense-input');
-            if (expenseInput) expenseInput.blur();
+            this.closeExpenseInputInteraction();
             return;
         }
 
@@ -1391,32 +1387,60 @@ const App = {
         }
     },
 
-    handleModalPopstate() {
-        const action = UIStack.getModalPopstateAction({
+    handlePopstate() {
+        this.applyPopstateAction(UIStack.getPopstateAction(this.getUiStackSnapshot()));
+    },
+
+    closeFilterSearchInteraction() {
+        this._filterSearchActive = false;
+        UIStackEffects.closeFilterSearch(document);
+    },
+
+    closeExpenseInputInteraction() {
+        this._expenseInputActive = false;
+        this.stopExpenseInputBarWatch();
+        UIStackEffects.closeExpenseInput(document);
+    },
+
+    getModalStackSnapshot() {
+        return {
             interactionActive: this._modalInteractionActive,
             dropdownOpen: !!this.getOpenModalDropdown(),
             activeField: !!this.getActivePlainModalField()
-        });
+        };
+    },
 
+    applyModalPopstateAction(action) {
         if (action === UIStack.MODAL_ACTIONS.CLEAR_INTERACTION) {
-            this._suspendInteractionRelease = true;
-            this.clearModalSelection();
-            this._modalInteractionActive = false;
-
-            setTimeout(() => {
-                this._suspendInteractionRelease = false;
-            }, 0);
-
+            this.clearModalInteractionFromPopstate();
             return;
         }
 
         if (action === UIStack.MODAL_ACTIONS.CLEAR_FIELD) {
-            this.clearModalSelection();
-            this.pushModalHistoryState();
+            this.clearModalFieldFromPopstate();
             return;
         }
 
         this.closeModal(true);
+    },
+
+    handleModalPopstate() {
+        this.applyModalPopstateAction(UIStack.getModalPopstateAction(this.getModalStackSnapshot()));
+    },
+
+    clearModalInteractionFromPopstate() {
+        UIStackEffects.clearModalInteraction({
+            clearSelection: () => this.clearModalSelection(),
+            setInteractionActive: value => { this._modalInteractionActive = value; },
+            setInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; }
+        });
+    },
+
+    clearModalFieldFromPopstate() {
+        UIStackEffects.clearModalField({
+            clearSelection: () => this.clearModalSelection(),
+            pushModalHistoryState: () => this.pushModalHistoryState()
+        });
     },
 
     getModalInteractionHooks() {
@@ -1801,16 +1825,12 @@ const App = {
             reader.onload = ev => {
                 const content = ev.target.result;
 
-                const fileName = file.name.toLowerCase();
-                const fileType = file.type ? file.type.toLowerCase() : '';
-
-                const isJson = fileName.endsWith('.json') || fileType.includes('json');
-                const isCsv = fileName.endsWith('.csv') || fileType.includes('csv') || fileType.includes('comma-separated-values');
+                const format = SettingsActions.detectImportFormat(file);
 
                 let preview;
-                if (isJson) {
+                if (format === 'json') {
                     preview = Storage.previewImportJSON(content);
-                } else if (isCsv) {
+                } else if (format === 'csv') {
                     preview = Storage.previewImportCSV(content);
                 } else {
                     this.showToast('Usa .json o .csv', 'error');
@@ -1846,11 +1866,12 @@ const App = {
     },
 
     showExportChoice() {
-        this.showChoices('Esportare i dati in quale formato?', [
-            { text: 'Annulla', className: 'btn-secondary' },
-            { text: 'JSON backup', className: 'btn-primary', onClick: () => this.downloadExport('json') },
-            { text: 'CSV tabella', className: 'btn-secondary', onClick: () => this.downloadExport('csv') }
-        ]);
+        const choices = SettingsActions.getExportChoices().map(choice => ({
+            ...choice,
+            onClick: choice.format ? () => this.downloadExport(choice.format) : undefined
+        }));
+
+        this.showChoices('Esportare i dati in quale formato?', choices);
     },
 
     downloadExport(format) {
@@ -1860,13 +1881,9 @@ const App = {
             return;
         }
 
-        if (format === 'json') {
-            this.download(result.content, `spese_backup_${this.dateStamp()}.json`, 'application/json');
-            this.showToast('Download JSON avviato...', 'info');
-        } else {
-            this.download('\uFEFF' + result.content, `spese_${this.dateStamp()}.csv`, 'text/csv;charset=utf-8');
-            this.showToast('Download CSV avviato...', 'info');
-        }
+        const spec = SettingsActions.getExportDownloadSpec(format, result.content, this.dateStamp());
+        this.download(spec.content, spec.filename, spec.mime);
+        this.showToast(spec.toast, 'info');
     },
 
     downloadRawData() {
@@ -1876,24 +1893,18 @@ const App = {
             return;
         }
 
-        this.download(result.content, `spese_raw_${this.dateStamp()}.txt`, 'text/plain;charset=utf-8');
-        this.showToast('Download dati grezzi avviato...', 'info');
+        const spec = SettingsActions.getRawDownloadSpec(result.content, this.dateStamp());
+        this.download(spec.content, spec.filename, spec.mime);
+        this.showToast(spec.toast, 'info');
     },
 
     showImportChoice(preview, content) {
         const hasSpese = Storage.getSpese().length > 0;
         const msg = this.importPreviewMessage(preview, hasSpese);
-
-        const choices = [{ text: 'Annulla', className: 'btn-secondary' }];
-
-        if (hasSpese) {
-            choices.push(
-                { text: 'Aggiungi', className: 'btn-primary', onClick: () => this.commitImport(preview, content, 'append') },
-                { text: 'Sostituisci', className: 'btn-warning', onClick: () => this.commitImport(preview, content, 'replace') }
-            );
-        } else {
-            choices.push({ text: 'Importa', className: 'btn-primary', onClick: () => this.commitImport(preview, content, 'replace') });
-        }
+        const choices = SettingsActions.getImportChoices(hasSpese).map(choice => ({
+            ...choice,
+            onClick: choice.mode ? () => this.commitImport(preview, content, choice.mode) : undefined
+        }));
 
         this.showChoices(msg, choices);
     },
@@ -1916,11 +1927,8 @@ const App = {
         if (this.currentPage === 'stats') this.renderStats();
         this.renderSettings();
 
-        const suffix = result.regeneratedIds
-            ? `, ${result.regeneratedIds} id rigenerati`
-            : '';
-        const modeLabel = mode === 'replace' ? 'sostituite' : 'aggiunte';
-        this.showToast(`${result.count} spese ${modeLabel}${suffix} ✓`, 'success');
+        const successMessage = SettingsActions.getImportSuccessMessage(result, mode);
+        this.showToast(successMessage, 'success');
     },
 
     /* =====================

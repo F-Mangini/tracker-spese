@@ -58,12 +58,14 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
         +-- modal-interactions.js
         +-- modal-view.js
         +-- parser.js
+        +-- settings-actions.js
         +-- settings-view.js
         +-- stats.js
         +-- stats-charts.js
         +-- stats-view.js
         +-- storage.js
         +-- timeline-view.js
+        +-- ui-stack-effects.js
         +-- ui-stack.js
         +-- ui-utils.js
 ```
@@ -101,7 +103,7 @@ Test leggeri disponibili:
 node tests/run-tests.js
 ```
 
-Il runner copre guardrail iniziali su storage, parser base e importi ambigui, filtri, aggregazioni statistiche, configurazione grafici, stack UI/back button e rendering/helper UI estratti, inclusi dropdown/tag della modale e impostazioni.
+Il runner copre guardrail iniziali su storage, parser base e importi ambigui, filtri, aggregazioni statistiche, configurazione grafici, stack UI/back button, cleanup DOM collegati al popstate, azioni impostazioni e rendering/helper UI estratti, inclusi dropdown/tag della modale.
 
 ## Deploy
 

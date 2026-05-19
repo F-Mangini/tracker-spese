@@ -92,7 +92,9 @@ function loadUiViews() {
     const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
+    const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
     const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
+    const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
 
     vm.runInContext(
         [
@@ -105,7 +107,9 @@ function loadUiViews() {
             modalViewCode,
             modalInteractionsCode,
             settingsViewCode,
+            settingsActionsCode,
             uiStackCode,
+            uiStackEffectsCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
@@ -114,7 +118,9 @@ function loadUiViews() {
             'globalThis.ModalView = ModalView;',
             'globalThis.ModalInteractions = ModalInteractions;',
             'globalThis.SettingsView = SettingsView;',
-            'globalThis.UIStack = UIStack;'
+            'globalThis.SettingsActions = SettingsActions;',
+            'globalThis.UIStack = UIStack;',
+            'globalThis.UIStackEffects = UIStackEffects;'
         ].join('\n'),
         context
     );
@@ -128,7 +134,9 @@ function loadUiViews() {
         ModalView: context.ModalView,
         ModalInteractions: context.ModalInteractions,
         SettingsView: context.SettingsView,
-        UIStack: context.UIStack
+        SettingsActions: context.SettingsActions,
+        UIStack: context.UIStack,
+        UIStackEffects: context.UIStackEffects
     };
 }
 
@@ -631,6 +639,41 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(!preview.includes('<script>alert(1)</script>'));
 });
 
+test('Azioni impostazioni isolano formati, scelte e download', () => {
+    const { SettingsActions } = loadUiViews();
+
+    assert.equal(SettingsActions.detectImportFormat({ name: 'backup.JSON', type: '' }), 'json');
+    assert.equal(SettingsActions.detectImportFormat({ name: 'spese.txt', type: 'text/csv' }), 'csv');
+    assert.equal(SettingsActions.detectImportFormat({ name: 'spese.md', type: 'text/markdown' }), null);
+
+    assert.deepEqual(
+        SettingsActions.getExportChoices().map(choice => choice.format || 'cancel'),
+        ['cancel', 'json', 'csv']
+    );
+    assert.deepEqual(
+        SettingsActions.getImportChoices(true).map(choice => choice.mode || 'cancel'),
+        ['cancel', 'append', 'replace']
+    );
+    assert.deepEqual(
+        SettingsActions.getImportChoices(false).map(choice => choice.mode || 'cancel'),
+        ['cancel', 'replace']
+    );
+
+    const csv = SettingsActions.getExportDownloadSpec('csv', 'a,b', '2026-05-19');
+    const json = SettingsActions.getExportDownloadSpec('json', '{}', '2026-05-19');
+    const raw = SettingsActions.getRawDownloadSpec('raw', '2026-05-19');
+
+    assert.equal(csv.filename, 'spese_2026-05-19.csv');
+    assert(csv.content.startsWith('\uFEFF'));
+    assert.equal(json.filename, 'spese_backup_2026-05-19.json');
+    assert.equal(json.mime, 'application/json');
+    assert.equal(raw.filename, 'spese_raw_2026-05-19.txt');
+    assert.equal(
+        SettingsActions.getImportSuccessMessage({ count: 3, regeneratedIds: 2 }, 'append'),
+        '3 spese aggiunte, 2 id rigenerati ✓'
+    );
+});
+
 test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
     const { UIStack } = loadUiViews();
 
@@ -726,6 +769,62 @@ test('UI stack descrive push/back simmetrici senza toccare history', () => {
         UIStack.getCloseHistoryAction({ fromPopstate: true, wasOpen: true }).type,
         UIStack.HISTORY_ACTIONS.NONE
     );
+});
+
+test('UI stack effects isolano cleanup DOM usati dal popstate', () => {
+    const { UIStackEffects } = loadUiViews();
+    const blurred = [];
+    const removedClasses = [];
+    const elements = {
+        'search-input': { blur: () => blurred.push('search-input') },
+        'expense-input': { blur: () => blurred.push('expense-input') }
+    };
+    const doc = {
+        body: {
+            classList: {
+                remove: cls => removedClasses.push(cls)
+            }
+        },
+        getElementById: id => elements[id] || null
+    };
+
+    UIStackEffects.closeFilterSearch(doc);
+    UIStackEffects.closeExpenseInput(doc);
+
+    assert.deepEqual(blurred, ['search-input', 'expense-input']);
+    assert.deepEqual(removedClasses, ['expense-input-active']);
+
+    const modalCalls = [];
+    const deferred = [];
+    UIStackEffects.clearModalInteraction({
+        clearSelection: () => modalCalls.push('clear'),
+        setInteractionActive: value => modalCalls.push(['active', value]),
+        setInteractionReleaseSuspended: value => modalCalls.push(['suspend', value]),
+        defer: callback => deferred.push(callback)
+    });
+
+    assert.deepEqual(modalCalls, [
+        ['suspend', true],
+        'clear',
+        ['active', false]
+    ]);
+    assert.equal(deferred.length, 1);
+
+    deferred[0]();
+    assert.deepEqual(modalCalls, [
+        ['suspend', true],
+        'clear',
+        ['active', false],
+        ['suspend', false]
+    ]);
+
+    const fieldCalls = [];
+    UIStackEffects.clearModalField({
+        clearSelection: () => fieldCalls.push('clear'),
+        pushModalHistoryState: () => fieldCalls.push('push-history')
+    });
+
+    assert.deepEqual(fieldCalls, ['clear', 'push-history']);
 });
 
 let failed = 0;

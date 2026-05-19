@@ -21,11 +21,13 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
+- `app/js/settings-actions.js` contiene decisioni testabili per formati import/export, scelte import/export, nomi file e messaggi finali.
 - `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
+- `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale e decisioni dello stack UI in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -145,7 +147,7 @@ La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history 
 
 Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso.
 
-Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction` e molti dettagli DOM/mobile.
+Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction` e molti dettagli DOM/mobile.
 
 ### Statistiche
 
@@ -182,7 +184,7 @@ La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impo
 
 Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni.
 
-Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; `app.js` mantiene lettura file, commit import/export e listener dei pulsanti.
+Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; le decisioni pure su formato file, opzioni import/export e nomi download sono in `app/js/settings-actions.js`. `app.js` mantiene lettura file, commit import/export, download reale e listener dei pulsanti.
 
 ## Limiti Noti
 
@@ -198,4 +200,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici e decisioni stack UI/back button, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate e azioni impostazioni, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

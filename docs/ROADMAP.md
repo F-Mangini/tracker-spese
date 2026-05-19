@@ -14,10 +14,14 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
+- In corso dal 2026-05-19: wiring pannello filtri spostato in `app/js/filter-controller.js`.
+- In corso dal 2026-05-19: wiring timeline spostato in `app/js/timeline-controller.js`.
 - In corso dal 2026-05-19: configurazione Chart.js delle statistiche spostata in `app/js/stats-charts.js`.
+- In corso dal 2026-05-19: wiring statistiche e grafici spostato in `app/js/stats-controller.js`.
 - In corso dal 2026-05-19: gestione tema spostata in `app/js/theme-controller.js`.
 - In corso dal 2026-05-19: gestione toast spostata in `app/js/toast-controller.js`.
 - In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
+- In corso dal 2026-05-19: form modifica spostato in `app/js/modal-form-controller.js`.
 - In corso dal 2026-05-19: eventi dropdown/tag della modale spostati in `app/js/modal-interactions.js`.
 - In corso dal 2026-05-18: rendering impostazioni e preview import spostati in `app/js/settings-view.js`.
 - In corso dal 2026-05-19: wiring pagina impostazioni spostato in `app/js/settings-controller.js`.
@@ -31,9 +35,13 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: salvataggio tema persistente e cancellazione completa orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 - Completato parzialmente il 2026-05-19: dialog scelte/conferme spostato in `app/js/confirm-dialog.js`.
 - Completato parzialmente il 2026-05-19: toggle tema temporaneo dell'header mantenuto ma spostato in `app/js/theme-controller.js`.
+- Completato parzialmente il 2026-05-19: ricerca, chip, date, slider, badge, reset e apertura/chiusura filtri base/avanzati passano da `app/js/filter-controller.js`.
+- Completato parzialmente il 2026-05-19: empty state, riepilogo, gruppi giorno, applicazione filtri e click card timeline passano da `app/js/timeline-controller.js`.
+- Completato parzialmente il 2026-05-19: render statistiche, cambio periodo e creazione/distruzione grafici passano da `app/js/stats-controller.js`.
 - Completato parzialmente il 2026-05-19: toast e timer relativo spostati in `app/js/toast-controller.js`.
 - Completato parzialmente il 2026-05-19: input rapido, modifica ed eliminazione spesa passano da `app/js/expense-actions.js`.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
+- Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.
 
 Priorita della fase attuale:
 

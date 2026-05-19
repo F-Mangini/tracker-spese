@@ -230,327 +230,88 @@ const App = {
     /* =====================
        FILTER PANEL
        ===================== */
-    initFilters() {
-        const toggleBtn = document.getElementById('btn-filter-toggle');
-        const searchInput = document.getElementById('search-input');
-        const clearBtn = document.getElementById('btn-search-clear');
-        const resetBtn = document.getElementById('btn-filter-reset');
-        const dateFrom = document.getElementById('filter-date-from');
-        const dateTo = document.getElementById('filter-date-to');
-
-        toggleBtn.addEventListener('click', () => {
-            if (this.filterOpen) this.closeFilterPanel();
-            else this.openFilterPanel();
-        });
-
-        searchInput.addEventListener('input', () => {
-            this.filters.query = searchInput.value.trim();
-            clearBtn.classList.toggle('hidden', !this.filters.query);
-            this.onFilterChange();
-        });
-
-        searchInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                searchInput.blur();
-            }
-        });
-
-        searchInput.addEventListener('focus', () => {
-            this._lastViewportHeight = this.getViewportHeight();
-
-            if (this.filterOpen && !this._filterSearchActive) {
-                this._filterSearchActive = true;
-                this.startExpenseInputBarWatch();
-                this.pushUiState({ panel: 'filter-search' });
-            }
-        });
-
-        searchInput.addEventListener('blur', () => {
-            if (this._filterSearchActive) {
-                this._filterSearchActive = false;
-                this.stopExpenseInputBarWatch();
-                this.consumeUiState();
-            }
-        });
-
-        const handleClear = (e) => {
-            if (e && e.cancelable) e.preventDefault();
-            if (searchInput.value === '') return;
-            searchInput.value = '';
-            this.filters.query = '';
-            clearBtn.classList.add('hidden');
-            this.onFilterChange();
+    getFilterControllerOptions() {
+        return {
+            document,
+            body: document.body,
+            filters: this.filters,
+            categories: CATEGORIES,
+            methods: PAYMENT_METHODS,
+            getSpese: () => Storage.getSpese(),
+            getSliderMax: spese => FilterView.getSliderMax(spese),
+            renderChips: items => FilterView.renderChips(items),
+            renderFooterInfo: payload => FilterView.renderFooterInfo(payload),
+            getQuickTotals: spese => StatsData.getQuickTotals(spese),
+            countActiveFilters: () => ExpenseFilters.countActive(this.filters),
+            applyFilters: spese => this.applyFilters(spese),
+            getFilterOpen: () => this.filterOpen,
+            setFilterOpen: value => { this.filterOpen = value; },
+            getAdvancedFiltersOpen: () => this.advancedFiltersOpen,
+            setAdvancedFiltersOpen: value => { this.advancedFiltersOpen = value; },
+            getFilterSearchActive: () => this._filterSearchActive,
+            setFilterSearchActive: value => { this._filterSearchActive = value; },
+            getLastSliderInput: () => this._lastSliderInput,
+            setLastSliderInput: value => { this._lastSliderInput = value; },
+            getSliderMaxValue: () => this.sliderMax,
+            setSliderMaxValue: value => { this.sliderMax = value; },
+            setLastViewportHeight: value => { this._lastViewportHeight = value; },
+            getViewportHeight: () => this.getViewportHeight(),
+            startExpenseInputBarWatch: () => this.startExpenseInputBarWatch(),
+            stopExpenseInputBarWatch: () => this.stopExpenseInputBarWatch(),
+            pushUiState: state => this.pushUiState(state),
+            consumeUiState: () => this.consumeUiState(),
+            runHistoryAction: action => this.runHistoryAction(action),
+            getCloseHistoryAction: payload => UIStack.getCloseHistoryAction(payload),
+            updateAppMainPadding: () => this.updateAppMainPadding(),
+            onFilterChange: () => this.onFilterChange(),
+            showToast: (message, type) => this.showToast(message, type),
+            requestAnimationFrame: callback => requestAnimationFrame(callback)
         };
+    },
 
-        clearBtn.addEventListener('mousedown', handleClear);
-        clearBtn.addEventListener('touchstart', handleClear, { passive: false });
-        clearBtn.addEventListener('click', handleClear);
-
-        this.buildChips('filter-cats', CATEGORIES, this.filters.categories);
-        this.buildChips('filter-methods', PAYMENT_METHODS, this.filters.methods);
-
-        this.initSlider();
-
-        [dateFrom, dateTo].forEach(el => {
-            el.addEventListener('click', () => {
-                el.classList.remove('date-picked');
-            });
-
-            el.addEventListener('change', () => {
-                el.classList.add('date-picked');
-                if (el === dateFrom) this.filters.dateFrom = el.value;
-                else this.filters.dateTo = el.value;
-                this.onFilterChange();
-                try { el.blur(); } catch (_) { }
-            });
-        });
-
-        resetBtn.addEventListener('click', () => this.resetFilters());
-
-        const advToggle = document.getElementById('btn-advanced-toggle');
-        advToggle.addEventListener('click', () => this.toggleAdvancedFilters());
-
-        this.syncFilterUI();
-        this.updateFilterBadge();
-
-        const panel = document.getElementById('filter-panel');
-        if (panel) {
-            panel.addEventListener('touchmove', (e) => {
-                if (!e.target.closest('.filter-panel-scroll')) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-        }
+    initFilters() {
+        FilterController.init(this.getFilterControllerOptions());
     },
 
     toggleAdvancedFilters() {
-        if (this.advancedFiltersOpen) {
-            this.closeAdvancedFilters(false);
-        } else {
-            this.openAdvancedFilters();
-        }
+        FilterController.toggleAdvancedFilters(this.getFilterControllerOptions());
     },
 
     openAdvancedFilters() {
-        this.advancedFiltersOpen = true;
-        const section = document.getElementById('advanced-filters');
-        const btn = document.getElementById('btn-advanced-toggle');
-
-        section.classList.remove('hidden');
-        btn.classList.add('active');
-        document.body.classList.add('no-scroll');
-        this.pushUiState({ panel: 'advanced-filters' });
-
-        requestAnimationFrame(() => {
-            const panel = document.getElementById('filter-panel');
-            const h = panel.offsetHeight;
-            document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
-
-            const scrollContainer = panel.querySelector('.filter-panel-scroll');
-            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-            this.updateAppMainPadding();
-        });
+        FilterController.openAdvancedFilters(this.getFilterControllerOptions());
     },
 
     closeAdvancedFilters(fromPopstate = false) {
-        if (!this.advancedFiltersOpen) return;
-
-        this.advancedFiltersOpen = false;
-        document.getElementById('advanced-filters').classList.add('hidden');
-        document.getElementById('btn-advanced-toggle').classList.remove('active');
-        document.body.classList.remove('no-scroll');
-
-        requestAnimationFrame(() => {
-            const panel = document.getElementById('filter-panel');
-            if (!panel || panel.classList.contains('hidden')) return;
-
-            const h = panel.offsetHeight;
-            document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
-            this.updateAppMainPadding();
-        });
-
-        this.runHistoryAction(UIStack.getCloseHistoryAction({
-            fromPopstate,
-            wasOpen: true
-        }));
+        FilterController.closeAdvancedFilters(this.getFilterControllerOptions(), fromPopstate);
     },
 
     buildChips(containerId, items, targetSet) {
-        const container = document.getElementById(containerId);
-
-        container.innerHTML = FilterView.renderChips(items);
-
-        container.querySelectorAll('.filter-chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                const id = chip.dataset.id;
-
-                if (targetSet.has(id)) {
-                    targetSet.delete(id);
-                    chip.classList.remove('active');
-                } else {
-                    targetSet.add(id);
-                    chip.classList.add('active');
-                }
-
-                this.onFilterChange();
-            });
-        });
+        FilterController.buildChips(this.getFilterControllerOptions(), containerId, items, targetSet);
     },
 
     syncFilterUI() {
-        document.getElementById('search-input').value = this.filters.query;
-        document.getElementById('btn-search-clear').classList.toggle('hidden', !this.filters.query);
-        document.getElementById('filter-date-from').value = this.filters.dateFrom;
-        document.getElementById('filter-date-to').value = this.filters.dateTo;
-        document.getElementById('filter-date-from').classList.toggle('date-picked', !!this.filters.dateFrom);
-        document.getElementById('filter-date-to').classList.toggle('date-picked', !!this.filters.dateTo);
-
-        document.querySelectorAll('#filter-cats .filter-chip').forEach(chip => {
-            chip.classList.toggle('active', this.filters.categories.has(chip.dataset.id));
-        });
-
-        document.querySelectorAll('#filter-methods .filter-chip').forEach(chip => {
-            chip.classList.toggle('active', this.filters.methods.has(chip.dataset.id));
-        });
-
-        this.recalcSliderMax();
+        FilterController.syncFilterUI(this.getFilterControllerOptions());
     },
 
     /* --- Dual Range Slider --- */
     initSlider() {
-        this.recalcSliderMax();
-
-        const sMin = document.getElementById('slider-min');
-        const sMax = document.getElementById('slider-max');
-
-        const update = () => {
-            let lo = Number(sMin.value);
-            let hi = Number(sMax.value);
-
-            if (lo > hi) {
-                if (this._lastSliderInput === 'min') {
-                    sMin.value = String(hi);
-                    lo = hi;
-                } else {
-                    sMax.value = String(lo);
-                    hi = lo;
-                }
-            }
-
-            this.filters.amountMin = lo;
-            this.filters.amountMax = hi >= this.sliderMax ? Infinity : hi;
-
-            this.updateSliderUI(lo, hi);
-            this.onFilterChange();
-        };
-
-        sMin.addEventListener('input', () => {
-            this._lastSliderInput = 'min';
-            update();
-        });
-
-        sMax.addEventListener('input', () => {
-            this._lastSliderInput = 'max';
-            update();
-        });
+        FilterController.initSlider(this.getFilterControllerOptions());
     },
 
     recalcSliderMax() {
-        const spese = Storage.getSpese();
-        this.sliderMax = FilterView.getSliderMax(spese);
-
-        const sMin = document.getElementById('slider-min');
-        const sMax = document.getElementById('slider-max');
-
-        if (!sMin || !sMax) return;
-
-        sMin.max = String(this.sliderMax);
-        sMax.max = String(this.sliderMax);
-
-        const hadInfinity = this.filters.amountMax === Infinity;
-
-        let lo = Number.isFinite(this.filters.amountMin) ? this.filters.amountMin : 0;
-        let hi = hadInfinity
-            ? this.sliderMax
-            : (Number.isFinite(this.filters.amountMax) ? this.filters.amountMax : this.sliderMax);
-
-        lo = Math.max(0, Math.min(lo, this.sliderMax));
-        hi = Math.max(0, Math.min(hi, this.sliderMax));
-
-        if (lo > hi) lo = hi;
-
-        this.filters.amountMin = lo;
-        this.filters.amountMax = hadInfinity ? Infinity : hi;
-
-        sMin.value = String(lo);
-        sMax.value = String(hi);
-
-        this.updateSliderUI(lo, hi);
+        FilterController.recalcSliderMax(this.getFilterControllerOptions());
     },
 
     updateSliderUI(lo, hi) {
-        const fill = document.getElementById('ds-fill');
-        const pctL = (lo / this.sliderMax) * 100;
-        const pctR = (hi / this.sliderMax) * 100;
-
-        fill.style.left = pctL + '%';
-        fill.style.width = (pctR - pctL) + '%';
-
-        document.getElementById('slider-val-min').textContent = '€' + lo;
-
-        const isOpenEnded = this.filters.amountMax === Infinity && hi >= this.sliderMax;
-        document.getElementById('slider-val-max').textContent =
-            isOpenEnded ? `€${this.sliderMax}+` : `€${hi}`;
+        FilterController.updateSliderUI(this.getFilterControllerOptions(), lo, hi);
     },
 
     openFilterPanel() {
-        this.filterOpen = true;
-        this.syncFilterUI();
-
-        const panel = document.getElementById('filter-panel');
-        panel.classList.remove('hidden');
-        document.getElementById('btn-filter-toggle').classList.add('active');
-
-        this.pushUiState({ panel: 'filter' });
-
-        const summary = document.getElementById('timeline-summary');
-        if (summary) summary.classList.add('hidden');
-
-        const pageTimeline = document.getElementById('page-timeline');
-        if (pageTimeline) pageTimeline.classList.add('filter-open');
-
-        requestAnimationFrame(() => {
-            const h = panel.offsetHeight;
-            document.getElementById('app-main').style.marginTop = `calc(var(--header-h) + ${h}px)`;
-            this.updateAppMainPadding();
-        });
+        FilterController.openFilterPanel(this.getFilterControllerOptions());
     },
 
     closeFilterPanel(fromPopstate) {
-        const wasOpen = this.filterOpen;
-        const hadAdvancedFilters = this.advancedFiltersOpen;
-        this.filterOpen = false;
-        this.advancedFiltersOpen = false;
-        document.getElementById('filter-panel').classList.add('hidden');
-        document.getElementById('btn-filter-toggle').classList.remove('active');
-        document.getElementById('advanced-filters').classList.add('hidden');
-        document.getElementById('btn-advanced-toggle').classList.remove('active');
-        document.body.classList.remove('no-scroll');
-
-        const summary = document.getElementById('timeline-summary');
-        if (summary) summary.classList.remove('hidden');
-
-        const pageTimeline = document.getElementById('page-timeline');
-        if (pageTimeline) pageTimeline.classList.remove('filter-open');
-
-        document.getElementById('app-main').style.marginTop = '';
-        this.runHistoryAction(UIStack.getCloseHistoryAction({
-            fromPopstate,
-            wasOpen,
-            steps: hadAdvancedFilters ? 2 : 1
-        }));
-        this.updateAppMainPadding();
+        FilterController.closeFilterPanel(this.getFilterControllerOptions(), fromPopstate);
     },
 
     /* --- Filter state --- */
@@ -562,49 +323,15 @@ const App = {
     },
 
     getActiveFilterCount() {
-        return ExpenseFilters.countActive(this.filters);
+        return FilterController.getActiveFilterCount(this.getFilterControllerOptions());
     },
 
     updateFilterBadge() {
-        const n = this.getActiveFilterCount();
-        const badge = document.getElementById('filter-badge');
-        const resetBtn = document.getElementById('btn-filter-reset');
-        const info = document.getElementById('filter-info');
-        const allSpese = Storage.getSpese();
-
-        if (n > 0) {
-            badge.textContent = n;
-            badge.classList.remove('hidden');
-            resetBtn.classList.remove('hidden');
-
-            const filtered = this.applyFilters(allSpese);
-            info.textContent = FilterView.renderFooterInfo({
-                activeCount: n,
-                filtered
-            });
-        } else {
-            badge.classList.add('hidden');
-            resetBtn.classList.add('hidden');
-
-            info.textContent = FilterView.renderFooterInfo({
-                activeCount: n,
-                quickTotals: StatsData.getQuickTotals(allSpese)
-            });
-        }
+        FilterController.updateFilterBadge(this.getFilterControllerOptions());
     },
 
     resetFilters() {
-        this.filters.query = '';
-        this.filters.categories.clear();
-        this.filters.methods.clear();
-        this.filters.amountMin = 0;
-        this.filters.amountMax = Infinity;
-        this.filters.dateFrom = '';
-        this.filters.dateTo = '';
-
-        this.syncFilterUI();
-        this.onFilterChange();
-        this.showToast('Filtri resettati', 'info');
+        FilterController.resetFilters(this.getFilterControllerOptions());
     },
 
     /* --- Apply filters --- */
@@ -829,61 +556,29 @@ const App = {
        TIMELINE
        ===================== */
     renderTimeline() {
-        const allSpese = Storage.getSpese();
-        const isFiltered = this.hasActiveFilters();
-        const filtered = isFiltered ? this.applyFilters(allSpese) : allSpese;
-        const content = document.getElementById('timeline-content');
-        const empty = document.getElementById('timeline-empty');
-        const summary = document.getElementById('timeline-summary');
-
-        if (allSpese.length === 0) {
-            content.innerHTML = '';
-            summary.innerHTML = '';
-            empty.classList.remove('hidden');
-            return;
-        }
-
-        empty.classList.add('hidden');
-
-        summary.innerHTML = TimelineView.renderSummary({
-            isFiltered,
-            filtered,
-            quickTotals: StatsData.getQuickTotals(allSpese)
-        });
-
-        if (filtered.length === 0 && isFiltered) {
-            content.innerHTML = TimelineView.renderFilteredEmpty();
-            return;
-        }
-
-        const groups = this.groupByDay(filtered);
-        const newCardId = this.newCardId;
-
-        content.innerHTML = TimelineView.renderGroups(groups, {
-            newCardId,
+        TimelineController.render({
+            document,
+            spese: Storage.getSpese(),
+            newCardId: this.newCardId,
+            hasActiveFilters: () => this.hasActiveFilters(),
+            applyFilters: spese => this.applyFilters(spese),
+            getQuickTotals: spese => StatsData.getQuickTotals(spese),
+            groupByDay: spese => this.groupByDay(spese),
             getCategory: id => this.getCat(id),
             getMethod: id => this.getMet(id),
-            formatDayLabel: date => this.formatDayLabel(date)
-        });
-
-        if (newCardId && filtered.some(spesa => spesa.id === newCardId)) {
-            this.newCardId = null;
-        }
-
-        content.querySelectorAll('.expense-card').forEach(card => {
-            card.addEventListener('click', () => this.openEditModal(card.dataset.id));
+            formatDayLabel: date => this.formatDayLabel(date),
+            clearNewCardId: () => { this.newCardId = null; },
+            openEditModal: id => this.openEditModal(id)
         });
     },
 
     createCard(s) {
-        const isNew = s.id === this.newCardId;
-        if (isNew) this.newCardId = null;
-
-        return TimelineView.renderExpenseCard(s, {
-            category: this.getCat(s.categoria),
-            method: this.getMet(s.metodo),
-            isNew
-        });
+        return TimelineController.renderCard(s, {
+            newCardId: this.newCardId,
+            getCategory: id => this.getCat(id),
+            getMethod: id => this.getMet(id),
+            clearNewCardId: () => { this.newCardId = null; }
+        }).html;
     },
 
     /* =====================
@@ -1144,24 +839,11 @@ const App = {
             }
         });
 
-        ['edit-data', 'edit-ora'].forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-
-            this.bindNonStickyNativePicker(el);
-
-            el.addEventListener('change', () => {
-                el.classList.remove('picker-open');
-                setTimeout(() => {
-                    if (document.activeElement === el) {
-                        try { el.blur(); } catch (_) { }
-                    }
-                }, 0);
-            });
-
-            el.addEventListener('focus', () => {
-                this._lastViewportHeight = this.getViewportHeight();
-            });
+        ModalFormController.bindPickerFields({
+            document,
+            bindPicker: el => this.bindNonStickyNativePicker(el),
+            getViewportHeight: () => this.getViewportHeight(),
+            setLastViewportHeight: value => { this._lastViewportHeight = value; }
         });
 
         const handleViewportResize = () => this.handleModalViewportChange();
@@ -1172,10 +854,7 @@ const App = {
         }
 
         const blurPickerOnReturn = () => {
-            ['edit-data', 'edit-ora'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.remove('picker-open');
-            });
+            ModalFormController.clearPickerVisuals(document);
 
             if (!this.isModalOpen()) return;
 
@@ -1201,17 +880,7 @@ const App = {
 
         window.addEventListener('popstate', () => this.handlePopstate());
 
-        ['edit-importo', 'edit-descrizione', 'edit-nota'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('keydown', e => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        el.blur();
-                    }
-                });
-            }
-        });
+        ModalFormController.bindPlainFieldEnterBlur({ document });
     },
 
     getUiStackSnapshot() {
@@ -1369,12 +1038,12 @@ const App = {
 
         this.editingId = id;
 
-        const d = new Date(spesa.data);
-        document.getElementById('edit-importo').value = spesa.importo;
-        document.getElementById('edit-descrizione').value = spesa.descrizione;
-        document.getElementById('edit-data').value = this.toInputDate(d);
-        document.getElementById('edit-ora').value = this.toInputTime(d);
-        document.getElementById('edit-nota').value = spesa.nota || '';
+        ModalFormController.fillForm({
+            document,
+            spesa,
+            toInputDate: date => this.toInputDate(date),
+            toInputTime: date => this.toInputTime(date)
+        });
 
         this.initSearchableDropdown('sd-categoria', CATEGORIES, spesa.categoria || 'altro');
         this.initSearchableDropdown('sd-metodo', PAYMENT_METHODS, spesa.metodo || 'carta');
@@ -1419,30 +1088,15 @@ const App = {
     },
 
     readEditFormData() {
-        const importo = this.parseAmountInput(document.getElementById('edit-importo').value);
-
-        if (!importo || importo <= 0) {
-            return { success: false, error: 'Importo non valido' };
-        }
-
-        const dateVal = document.getElementById('edit-data').value;
-        const timeVal = document.getElementById('edit-ora').value;
-
-        const catValue = this._sdInstances['sd-categoria'] ? this._sdInstances['sd-categoria'].getValue() : 'altro';
-        const metValue = this._sdInstances['sd-metodo'] ? this._sdInstances['sd-metodo'].getValue() : 'carta';
-
-        return {
-            success: true,
-            data: {
-                importo: Math.round(importo * 100) / 100,
-                descrizione: document.getElementById('edit-descrizione').value || 'Spesa',
-                categoria: catValue,
-                metodo: metValue,
-                data: new Date(`${dateVal}T${timeVal || '12:00'}:00`).toISOString(),
-                nota: document.getElementById('edit-nota').value,
-                tags: [...this._editTags]
-            }
-        };
+        return ModalFormController.readForm({
+            document,
+            parseAmountInput: value => this.parseAmountInput(value),
+            getDropdownValue: (id, fallback) => {
+                const instance = this._sdInstances[id];
+                return instance ? instance.getValue() : fallback;
+            },
+            getTags: () => this._editTags
+        });
     },
 
     saveEdit() {
@@ -1522,7 +1176,7 @@ const App = {
     },
 
     getPeriodDates(allSpese = []) {
-        return StatsData.getPeriodDates({
+        return StatsController.getPeriodDates({
             period: this.statsPeriod,
             offset: this.statsOffset,
             filters: this.filters,
@@ -1539,7 +1193,7 @@ const App = {
     },
 
     getBarAggregation(start, end) {
-        return StatsData.getBarAggregation({
+        return StatsController.getBarAggregation({
             period: this.statsPeriod,
             start,
             end
@@ -1547,7 +1201,7 @@ const App = {
     },
 
     getBarChartTitle(start, end) {
-        return StatsData.getBarChartTitle({
+        return StatsController.getBarChartTitle({
             period: this.statsPeriod,
             start,
             end
@@ -1555,105 +1209,59 @@ const App = {
     },
 
     renderStats() {
-        const container = document.getElementById('stats-content');
-        const allSpese = Storage.getSpese();
-
-        this.destroyCharts();
-
-        if (allSpese.length === 0) {
-            container.innerHTML = StatsView.renderEmptyState();
-            return;
-        }
-
-        const { start, end, label } = this.getPeriodDates(allSpese);
-
-        let filtered = allSpese.filter(s => {
-            const d = new Date(s.data);
-            return d >= start && d <= end;
-        });
-
-        filtered = this.applyNonDateFilters(filtered);
-
-        const summary = StatsData.summarizeExpenses(filtered, start, end);
-        const canGoNext = this.statsOffset < 0;
-        const isCustom = this.statsPeriod === 'custom';
-        const barChartTitle = this.getBarChartTitle(start, end);
-
-        container.innerHTML = StatsView.renderPage({
+        const result = StatsController.render({
+            document,
+            container: document.getElementById('stats-content'),
+            spese: Storage.getSpese(),
             period: this.statsPeriod,
-            periodLabel: label,
-            canGoNext,
-            isCustom,
-            filtered,
-            summary,
-            barChartTitle,
-            chartColors: StatsCharts.COLORS,
-            getCategory: id => this.getCat(id)
+            offset: this.statsOffset,
+            filters: this.filters,
+            charts: {
+                doughnut: this.chartDoughnut,
+                bar: this.chartBar
+            },
+            ChartClass: typeof Chart === 'undefined' ? null : Chart,
+            getCategory: id => this.getCat(id),
+            applyNonDateFilters: spese => this.applyNonDateFilters(spese),
+            setPeriod: period => { this.statsPeriod = period; },
+            setOffset: offset => { this.statsOffset = offset; },
+            rerender: () => this.renderStats()
         });
 
-        container.querySelectorAll('.period-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const newPeriod = btn.dataset.period;
-                this.statsPeriod = newPeriod;
-                this.statsOffset = 0;
-                this.renderStats();
-            });
-        });
-
-        const prevBtn = document.getElementById('period-prev');
-        const nextBtn = document.getElementById('period-next');
-
-        if (!isCustom) {
-            prevBtn.addEventListener('click', () => {
-                this.statsOffset--;
-                this.renderStats();
-            });
-
-            if (canGoNext) {
-                nextBtn.addEventListener('click', () => {
-                    this.statsOffset++;
-                    this.renderStats();
-                });
-            }
-        }
-
-        if (filtered.length > 0) {
-            this.renderCharts(filtered, start, end);
-        }
+        this.chartDoughnut = result.charts.doughnut;
+        this.chartBar = result.charts.bar;
     },
 
     /* =====================
        CHARTS
        ===================== */
     renderCharts(filtered, start, end) {
-        this.destroyCharts();
+        const charts = StatsController.renderCharts({
+            document,
+            ChartClass: typeof Chart === 'undefined' ? null : Chart,
+            charts: {
+                doughnut: this.chartDoughnut,
+                bar: this.chartBar
+            },
+            filtered,
+            start,
+            end,
+            period: this.statsPeriod,
+            getCategory: id => this.getCat(id)
+        });
 
-        if (typeof Chart === 'undefined') return;
-
-        const themeColors = StatsCharts.getThemeColors();
-
-        const ctxD = document.getElementById('chart-doughnut');
-        if (ctxD) {
-            this.chartDoughnut = new Chart(ctxD, StatsCharts.buildDoughnutConfig(filtered, {
-                themeColors,
-                chartColors: StatsCharts.COLORS,
-                getCategory: id => this.getCat(id)
-            }));
-        }
-
-        const aggregation = this.getBarAggregation(start, end);
-        const ctxB = document.getElementById('chart-bar');
-        if (ctxB) {
-            this.chartBar = new Chart(ctxB, StatsCharts.buildBarConfig(filtered, start, end, {
-                aggregation,
-                themeColors
-            }));
-        }
+        this.chartDoughnut = charts.doughnut;
+        this.chartBar = charts.bar;
     },
 
     destroyCharts() {
-        this.chartDoughnut = StatsCharts.destroy(this.chartDoughnut);
-        this.chartBar = StatsCharts.destroy(this.chartBar);
+        const charts = StatsController.destroyCharts({
+            doughnut: this.chartDoughnut,
+            bar: this.chartBar
+        });
+
+        this.chartDoughnut = charts.doughnut;
+        this.chartBar = charts.bar;
     },
 
     /* =====================

@@ -88,10 +88,14 @@ function loadUiViews() {
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
     const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
+    const filterControllerCode = fs.readFileSync(path.join(root, 'app/js/filter-controller.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
+    const timelineControllerCode = fs.readFileSync(path.join(root, 'app/js/timeline-controller.js'), 'utf8');
     const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
     const statsChartsCode = fs.readFileSync(path.join(root, 'app/js/stats-charts.js'), 'utf8');
+    const statsControllerCode = fs.readFileSync(path.join(root, 'app/js/stats-controller.js'), 'utf8');
     const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
+    const modalFormControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-form-controller.js'), 'utf8');
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
     const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
@@ -109,10 +113,14 @@ function loadUiViews() {
             expenseInputControllerCode,
             uiCode,
             filterViewCode,
+            filterControllerCode,
             timelineViewCode,
+            timelineControllerCode,
             statsViewCode,
             statsChartsCode,
+            statsControllerCode,
             modalViewCode,
+            modalFormControllerCode,
             modalInteractionsCode,
             settingsViewCode,
             settingsActionsCode,
@@ -126,10 +134,14 @@ function loadUiViews() {
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
             'globalThis.FilterView = FilterView;',
+            'globalThis.FilterController = FilterController;',
             'globalThis.TimelineView = TimelineView;',
+            'globalThis.TimelineController = TimelineController;',
             'globalThis.StatsView = StatsView;',
             'globalThis.StatsCharts = StatsCharts;',
+            'globalThis.StatsController = StatsController;',
             'globalThis.ModalView = ModalView;',
+            'globalThis.ModalFormController = ModalFormController;',
             'globalThis.ModalInteractions = ModalInteractions;',
             'globalThis.SettingsView = SettingsView;',
             'globalThis.SettingsActions = SettingsActions;',
@@ -148,10 +160,14 @@ function loadUiViews() {
         ExpenseActions: context.ExpenseActions,
         ExpenseInputController: context.ExpenseInputController,
         FilterView: context.FilterView,
+        FilterController: context.FilterController,
         TimelineView: context.TimelineView,
+        TimelineController: context.TimelineController,
         StatsView: context.StatsView,
         StatsCharts: context.StatsCharts,
+        StatsController: context.StatsController,
         ModalView: context.ModalView,
+        ModalFormController: context.ModalFormController,
         ModalInteractions: context.ModalInteractions,
         SettingsView: context.SettingsView,
         SettingsActions: context.SettingsActions,
@@ -697,6 +713,228 @@ test('Vista filtri calcola slider e footer riepilogo', () => {
     );
 });
 
+test('Controller filtri coordina pannello, ricerca e slider fuori da App', () => {
+    const { FilterController, FilterView } = loadUiViews();
+    const calls = [];
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+                calls.push(['add-class', cls]);
+            },
+            remove(cls) {
+                classes.delete(cls);
+                calls.push(['remove-class', cls]);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function makeElement(id, options = {}) {
+        return {
+            id,
+            value: options.value || '',
+            max: '',
+            textContent: '',
+            innerHTML: '',
+            offsetHeight: options.offsetHeight || 120,
+            scrollHeight: options.scrollHeight || 300,
+            style: {},
+            dataset: options.dataset || {},
+            classList: makeClassList(options.classes || []),
+            listeners: {},
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            },
+            blur() {
+                calls.push(['blur', id]);
+            },
+            querySelector(selector) {
+                if (selector === '.filter-panel-scroll') return scrollContainer;
+                return null;
+            },
+            querySelectorAll(selector) {
+                if (id === 'filter-cats' && selector === '.filter-chip') return catChips;
+                if (id === 'filter-methods' && selector === '.filter-chip') return methodChips;
+                return [];
+            }
+        };
+    }
+
+    function makeChip(id) {
+        return {
+            dataset: { id },
+            classList: makeClassList(),
+            listener: null,
+            addEventListener(event, handler) {
+                if (event === 'click') this.listener = handler;
+            }
+        };
+    }
+
+    const scrollContainer = {
+        scrollHeight: 300,
+        scrollTo(payload) {
+            calls.push(['scroll-to', payload.top, payload.behavior]);
+        }
+    };
+    const catChips = [makeChip('bar'), makeChip('casa')];
+    const methodChips = [makeChip('carta')];
+    const elements = {
+        'btn-filter-toggle': makeElement('btn-filter-toggle'),
+        'search-input': makeElement('search-input'),
+        'btn-search-clear': makeElement('btn-search-clear', { classes: ['hidden'] }),
+        'btn-filter-reset': makeElement('btn-filter-reset', { classes: ['hidden'] }),
+        'filter-date-from': makeElement('filter-date-from'),
+        'filter-date-to': makeElement('filter-date-to'),
+        'btn-advanced-toggle': makeElement('btn-advanced-toggle'),
+        'filter-panel': makeElement('filter-panel', { classes: ['hidden'], offsetHeight: 96 }),
+        'filter-cats': makeElement('filter-cats'),
+        'filter-methods': makeElement('filter-methods'),
+        'slider-min': makeElement('slider-min', { value: '0' }),
+        'slider-max': makeElement('slider-max', { value: '100' }),
+        'ds-fill': makeElement('ds-fill'),
+        'slider-val-min': makeElement('slider-val-min'),
+        'slider-val-max': makeElement('slider-val-max'),
+        'filter-badge': makeElement('filter-badge', { classes: ['hidden'] }),
+        'filter-info': makeElement('filter-info'),
+        'timeline-summary': makeElement('timeline-summary'),
+        'page-timeline': makeElement('page-timeline'),
+        'app-main': makeElement('app-main'),
+        'advanced-filters': makeElement('advanced-filters', { classes: ['hidden'] })
+    };
+    const doc = {
+        body: { classList: makeClassList() },
+        getElementById(id) {
+            return elements[id] || null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '#filter-cats .filter-chip') return catChips;
+            if (selector === '#filter-methods .filter-chip') return methodChips;
+            return [];
+        }
+    };
+    const filters = {
+        query: '',
+        categories: new Set(['bar']),
+        methods: new Set(),
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: ''
+    };
+    const state = {
+        filterOpen: false,
+        advancedFiltersOpen: false,
+        filterSearchActive: false,
+        lastSliderInput: 'max',
+        sliderMax: 100,
+        lastViewportHeight: 0
+    };
+    const spese = [
+        expense({ id: 'bar', importo: 120, categoria: 'bar' }),
+        expense({ id: 'casa', importo: 4, categoria: 'casa' })
+    ];
+
+    const options = {
+        document: doc,
+        body: doc.body,
+        filters,
+        categories: [{ id: 'bar', emoji: 'B', nome: 'Bar' }, { id: 'casa', emoji: 'C', nome: 'Casa' }],
+        methods: [{ id: 'carta', emoji: 'M', nome: 'Carta' }],
+        getSpese: () => spese,
+        getSliderMax: items => FilterView.getSliderMax(items),
+        renderChips: items => FilterView.renderChips(items),
+        renderFooterInfo: payload => FilterView.renderFooterInfo(payload),
+        countActiveFilters: () => {
+            let count = 0;
+            if (filters.query) count += 1;
+            if (filters.categories.size) count += 1;
+            if (filters.methods.size) count += 1;
+            if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
+            if (filters.dateFrom) count += 1;
+            if (filters.dateTo) count += 1;
+            return count;
+        },
+        applyFilters: items => items.filter(item => !filters.categories.size || filters.categories.has(item.categoria)),
+        getQuickTotals: () => ({ todayTotal: 1, weekTotal: 2, monthTotal: 3, monthNameCapitalized: 'Maggio' }),
+        getFilterOpen: () => state.filterOpen,
+        setFilterOpen: value => { state.filterOpen = value; },
+        getAdvancedFiltersOpen: () => state.advancedFiltersOpen,
+        setAdvancedFiltersOpen: value => { state.advancedFiltersOpen = value; },
+        getFilterSearchActive: () => state.filterSearchActive,
+        setFilterSearchActive: value => { state.filterSearchActive = value; },
+        getLastSliderInput: () => state.lastSliderInput,
+        setLastSliderInput: value => { state.lastSliderInput = value; },
+        getSliderMaxValue: () => state.sliderMax,
+        setSliderMaxValue: value => { state.sliderMax = value; },
+        setLastViewportHeight: value => { state.lastViewportHeight = value; },
+        getViewportHeight: () => 700,
+        startExpenseInputBarWatch: () => calls.push('start-watch'),
+        stopExpenseInputBarWatch: () => calls.push('stop-watch'),
+        pushUiState: payload => calls.push(['push', payload.panel]),
+        consumeUiState: () => calls.push('consume'),
+        runHistoryAction: action => calls.push(['history', action]),
+        getCloseHistoryAction: payload => ({ kind: 'close', ...payload }),
+        updateAppMainPadding: () => calls.push('padding'),
+        onFilterChange: () => calls.push('filter-change'),
+        showToast: (message, type) => calls.push(['toast', message, type]),
+        requestAnimationFrame: callback => callback()
+    };
+
+    FilterController.init(options);
+
+    assert.equal(state.sliderMax, 500);
+    assert.equal(elements['slider-max'].value, '500');
+    assert(catChips[0].classList.contains('active'));
+    assert.equal(FilterController.getActiveFilterCount(options), 1);
+
+    elements['search-input'].value = ' caffe ';
+    elements['search-input'].listeners.input();
+    assert.equal(filters.query, 'caffe');
+    assert(calls.includes('filter-change'));
+
+    FilterController.openFilterPanel(options);
+    elements['search-input'].listeners.focus();
+    assert.equal(state.filterOpen, true);
+    assert.equal(state.filterSearchActive, true);
+    assert.equal(state.lastViewportHeight, 700);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'push' && call[1] === 'filter-search'));
+
+    elements['search-input'].listeners.blur();
+    assert.equal(state.filterSearchActive, false);
+    assert(calls.includes('stop-watch'));
+
+    elements['slider-max'].value = '80';
+    elements['slider-max'].listeners.input();
+    assert.equal(state.lastSliderInput, 'max');
+    assert.equal(filters.amountMax, 80);
+
+    FilterController.openAdvancedFilters(options);
+    assert.equal(state.advancedFiltersOpen, true);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'scroll-to'));
+
+    FilterController.closeFilterPanel(options);
+    assert.equal(state.filterOpen, false);
+    assert.equal(state.advancedFiltersOpen, false);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
+
+    FilterController.resetFilters(options);
+    assert.equal(filters.query, '');
+    assert.equal(filters.categories.size, 0);
+    assert.equal(filters.amountMax, Infinity);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
+});
+
 test('Vista timeline renderizza riepilogo e card escapando il testo utente', () => {
     const { TimelineView } = loadUiViews();
     const html = TimelineView.renderExpenseCard(
@@ -711,6 +949,100 @@ test('Vista timeline renderizza riepilogo e card escapando il testo utente', () 
     assert(html.includes('new-card'));
     assert(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!html.includes('<script>alert(1)</script>'));
+});
+
+test('Controller timeline coordina render e click card fuori da App', () => {
+    const { TimelineController } = loadUiViews();
+    const calls = [];
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    const card = {
+        dataset: { id: 'a' },
+        addEventListener(event, handler) {
+            calls.push(['bind-card', event]);
+            this.handler = handler;
+        }
+    };
+    const elements = {
+        'timeline-content': {
+            innerHTML: '',
+            querySelectorAll(selector) {
+                return selector === '.expense-card' ? [card] : [];
+            }
+        },
+        'timeline-empty': { classList: makeClassList(['hidden']) },
+        'timeline-summary': { innerHTML: '' }
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+    const spese = [
+        expense({ id: 'a', importo: 10, categoria: 'bar', data: '2026-05-19T10:00:00.000Z' }),
+        expense({ id: 'b', importo: 5, categoria: 'casa', data: '2026-05-18T10:00:00.000Z' })
+    ];
+
+    let newCardId = 'a';
+    const result = TimelineController.render({
+        document: doc,
+        spese,
+        newCardId,
+        hasActiveFilters: () => true,
+        applyFilters: items => items.filter(item => item.id === 'a'),
+        getQuickTotals: () => ({ todayTotal: 10, weekTotal: 15, monthTotal: 15, monthName: 'Maggio' }),
+        groupByDay: items => [{ date: '2026-05-19', spese: items }],
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        getMethod: () => ({ emoji: 'm', nome: 'Carta' }),
+        formatDayLabel: date => `giorno ${date}`,
+        clearNewCardId: () => { newCardId = null; },
+        openEditModal: id => calls.push(['open', id])
+    });
+
+    assert.equal(result.filtered.length, 1);
+    assert.equal(newCardId, null);
+    assert(elements['timeline-summary'].innerHTML.includes('Filtro Attivo'));
+    assert(elements['timeline-content'].innerHTML.includes('new-card'));
+    assert(calls.some(call => call[0] === 'bind-card' && call[1] === 'click'));
+
+    card.handler();
+    assert.deepEqual(calls[calls.length - 1], ['open', 'a']);
+
+    let clearedByCard = false;
+    const cardResult = TimelineController.renderCard(spese[0], {
+        newCardId: 'a',
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        getMethod: () => ({ emoji: 'm', nome: 'Carta' }),
+        clearNewCardId: () => { clearedByCard = true; }
+    });
+
+    assert.equal(cardResult.isNew, true);
+    assert.equal(clearedByCard, true);
+    assert(cardResult.html.includes('new-card'));
+
+    TimelineController.render({
+        document: doc,
+        spese: [],
+        hasActiveFilters: () => false
+    });
+
+    assert.equal(elements['timeline-content'].innerHTML, '');
+    assert.equal(elements['timeline-summary'].innerHTML, '');
+    assert(!elements['timeline-empty'].classList.contains('hidden'));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {
@@ -777,6 +1109,119 @@ test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
     assert.equal(bar.options.scales.y.grid.color, '#dddddd');
 });
 
+test('Controller statistiche coordina render, periodo e grafici senza App', () => {
+    const { StatsController } = loadUiViews();
+    const calls = [];
+    const periodButtons = [
+        {
+            dataset: { period: 'year' },
+            addEventListener(event, handler) {
+                calls.push(['bind-period', event, this.dataset.period]);
+                this.handler = handler;
+            }
+        }
+    ];
+    const prevBtn = {
+        addEventListener(event, handler) {
+            calls.push(['bind-prev', event]);
+            this.handler = handler;
+        }
+    };
+    const nextBtn = {
+        addEventListener(event, handler) {
+            calls.push(['bind-next', event]);
+            this.handler = handler;
+        }
+    };
+    const container = {
+        innerHTML: '',
+        querySelectorAll(selector) {
+            return selector === '.period-btn' ? periodButtons : [];
+        },
+        querySelector(selector) {
+            if (selector === '#period-prev') return prevBtn;
+            if (selector === '#period-next') return nextBtn;
+            return null;
+        }
+    };
+    const destroyed = [];
+    const oldChart = {
+        destroy() {
+            destroyed.push('old');
+        }
+    };
+    const chartCalls = [];
+    function FakeChart(ctx, config) {
+        this.ctx = ctx;
+        this.config = config;
+        this.destroy = () => chartCalls.push(['destroy', ctx]);
+        chartCalls.push(['create', ctx, config.type]);
+    }
+
+    let period = 'month';
+    let offset = -1;
+    let rerenderCount = 0;
+    const result = StatsController.render({
+        document: {
+            getElementById(id) {
+                if (id === 'chart-doughnut') return 'doughnut-canvas';
+                if (id === 'chart-bar') return 'bar-canvas';
+                return null;
+            }
+        },
+        container,
+        spese: [
+            expense({ id: 'old', data: '2026-04-10T10:00:00.000Z', importo: 100 }),
+            expense({ id: 'current', data: '2026-05-10T10:00:00.000Z', importo: 12 })
+        ],
+        period,
+        offset,
+        filters: {
+            query: '',
+            categories: new Set(),
+            methods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '',
+            dateTo: ''
+        },
+        charts: {
+            doughnut: oldChart,
+            bar: null
+        },
+        ChartClass: FakeChart,
+        getCategory: () => ({ emoji: 'x', nome: 'Categoria' }),
+        applyNonDateFilters: spese => spese,
+        setPeriod: value => { period = value; },
+        setOffset: value => { offset = value; },
+        rerender: () => { rerenderCount += 1; }
+    });
+
+    assert(container.innerHTML.includes('stats-period-selector'));
+    assert.equal(result.filtered.length, 1);
+    assert.deepEqual(destroyed, ['old']);
+    assert.deepEqual(chartCalls.map(call => call.slice(0, 3)), [
+        ['create', 'doughnut-canvas', 'doughnut'],
+        ['create', 'bar-canvas', 'bar']
+    ]);
+    assert.equal(result.charts.doughnut.ctx, 'doughnut-canvas');
+    assert.equal(result.charts.bar.ctx, 'bar-canvas');
+
+    periodButtons[0].handler();
+    assert.equal(period, 'year');
+    assert.equal(offset, 0);
+    assert.equal(rerenderCount, 1);
+
+    offset = -1;
+    prevBtn.handler();
+    assert.equal(offset, -2);
+    assert.equal(rerenderCount, 2);
+
+    nextBtn.handler();
+    assert.equal(offset, 0);
+    assert.equal(rerenderCount, 3);
+});
+
 test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () => {
     const { ModalView, ModalInteractions } = loadUiViews();
     const items = [
@@ -822,6 +1267,129 @@ test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazion
     assert.equal(suggestions[0].tag, 'salute');
     assert(filteredHtml.includes('data-tag="viaggio"'));
     assert(createHtml.includes('data-tag="nuovotag"'));
+});
+
+test('Controller form modale popola campi, legge dati e collega micro-eventi', () => {
+    const { ModalFormController, AppUI } = loadUiViews();
+    const calls = [];
+
+    function makeElement(id) {
+        const classes = new Set(['picker-open']);
+        return {
+            id,
+            value: '',
+            listeners: {},
+            classList: {
+                add(cls) {
+                    classes.add(cls);
+                },
+                remove(cls) {
+                    classes.delete(cls);
+                    calls.push(['remove-class', id, cls]);
+                },
+                contains(cls) {
+                    return classes.has(cls);
+                }
+            },
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            },
+            blur() {
+                calls.push(['blur', id]);
+            }
+        };
+    }
+
+    const elements = {
+        'edit-importo': makeElement('edit-importo'),
+        'edit-descrizione': makeElement('edit-descrizione'),
+        'edit-data': makeElement('edit-data'),
+        'edit-ora': makeElement('edit-ora'),
+        'edit-nota': makeElement('edit-nota')
+    };
+    const doc = {
+        activeElement: elements['edit-data'],
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    ModalFormController.fillForm({
+        document: doc,
+        spesa: expense({
+            importo: 12.345,
+            descrizione: 'Pranzo',
+            data: '2026-05-19T13:45:00.000Z',
+            nota: 'nota'
+        }),
+        toInputDate: date => AppUI.toInputDate(date),
+        toInputTime: date => AppUI.toInputTime(date)
+    });
+
+    assert.equal(elements['edit-importo'].value, 12.345);
+    assert.equal(elements['edit-descrizione'].value, 'Pranzo');
+    assert.equal(elements['edit-data'].value, AppUI.toInputDate(new Date('2026-05-19T13:45:00.000Z')));
+    assert.equal(elements['edit-ora'].value, AppUI.toInputTime(new Date('2026-05-19T13:45:00.000Z')));
+    assert.equal(elements['edit-nota'].value, 'nota');
+
+    elements['edit-importo'].value = '12,35';
+    elements['edit-descrizione'].value = '';
+
+    const form = ModalFormController.readForm({
+        document: doc,
+        parseAmountInput: value => AppUI.parseAmountInput(value),
+        getDropdownValue: (id, fallback) => ({ 'sd-categoria': 'ristorante', 'sd-metodo': 'carta' }[id] || fallback),
+        getTags: () => ['lavoro']
+    });
+
+    assert.equal(form.success, true);
+    assert.equal(form.data.importo, 12.35);
+    assert.equal(form.data.descrizione, 'Spesa');
+    assert.equal(form.data.categoria, 'ristorante');
+    assert.equal(form.data.metodo, 'carta');
+    assert.equal(form.data.data, '2026-05-19T13:45:00.000Z');
+    assert.deepEqual(form.data.tags, ['lavoro']);
+
+    elements['edit-importo'].value = '0';
+    assert.equal(
+        ModalFormController.readForm({
+            document: doc,
+            parseAmountInput: value => AppUI.parseAmountInput(value)
+        }).error,
+        'Importo non valido'
+    );
+
+    let viewportHeight = 0;
+    const deferred = [];
+    ModalFormController.bindPickerFields({
+        document: doc,
+        bindPicker: el => calls.push(['bind-picker', el.id]),
+        getViewportHeight: () => 700,
+        setLastViewportHeight: value => { viewportHeight = value; },
+        defer: callback => deferred.push(callback)
+    });
+
+    elements['edit-data'].listeners.focus();
+    elements['edit-data'].listeners.change();
+    deferred[0]();
+
+    assert.equal(viewportHeight, 700);
+
+    let enterPrevented = false;
+    ModalFormController.bindPlainFieldEnterBlur({ document: doc });
+    elements['edit-descrizione'].listeners.keydown({
+        key: 'Enter',
+        preventDefault() {
+            enterPrevented = true;
+        }
+    });
+
+    ModalFormController.clearPickerVisuals(doc);
+
+    assert.equal(enterPrevented, true);
+    assert(calls.some(call => call[0] === 'bind-picker' && call[1] === 'edit-data'));
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
 });
 
 test('Vista impostazioni renderizza info, guardrail e preview import escapata', () => {

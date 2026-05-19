@@ -18,12 +18,16 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/stats.js` contiene date, riepiloghi e aggregazioni statistiche testabili senza DOM.
 - `app/js/ui-utils.js` contiene helper UI piccoli per formattazione, escape HTML, date input e parsing importi nei form.
 - `app/js/filter-view.js` contiene rendering e micro-logica UI del pannello filtri, inclusi chip, riepilogo e soglia slider.
+- `app/js/filter-controller.js` contiene wiring del pannello filtri: ricerca, chip, date, slider, badge, reset e apertura/chiusura base/avanzata tramite hook verso `app.js`.
 - `app/js/timeline-view.js` contiene il rendering testabile di riepilogo timeline, gruppi giorno e card spesa.
+- `app/js/timeline-controller.js` contiene wiring della timeline: stato vuoto, riepilogo, gruppi giorno, nuova card evidenziata e click per aprire la modifica.
 - `app/js/stats-view.js` contiene il rendering testabile della pagina statistiche, separato dai grafici Chart.js.
 - `app/js/stats-charts.js` contiene palette, colori tema e configurazione Chart.js per i grafici statistiche.
+- `app/js/stats-controller.js` contiene wiring della pagina statistiche, periodo, navigazione periodo e creazione/distruzione grafici.
 - `app/js/theme-controller.js` contiene applicazione tema, tema automatico e toggle temporaneo dell'header.
 - `app/js/toast-controller.js` contiene visualizzazione, timer e posizionamento dei toast sopra la barra di inserimento quando serve.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
+- `app/js/modal-form-controller.js` contiene popolamento, lettura e micro-eventi dei campi del form di modifica.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
 - `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi impostazioni, usando `Storage` come adapter passato da `app.js`.
@@ -33,7 +37,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: apertura/chiusura modale, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, tema, toast, configurazione grafici, micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: apertura/chiusura modale e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, filtri, timeline, tema, toast, statistiche/grafici, form e micro-interazioni della modale, flussi impostazioni, dialog conferma, decisioni dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -111,6 +115,8 @@ La timeline mostra le spese raggruppate per giorno, ordinate dalla piu recente. 
 
 Le spese sono apribili in modifica tramite click/tap sulla card.
 
+Rendering e template della timeline sono in `app/js/timeline-view.js`; orchestrazione DOM, empty state, applicazione filtri, nuova card evidenziata e binding click card sono in `app/js/timeline-controller.js`. `app.js` mantiene stato condiviso, storage, apertura modale e hook di refresh.
+
 ### Filtri
 
 I filtri sono condivisi tra timeline e statistiche:
@@ -123,7 +129,7 @@ I filtri sono condivisi tra timeline e statistiche:
 
 Il pannello filtri ha una sezione base e una sezione avanzata. Il badge nel pulsante filtri conta i filtri attivi.
 
-La valutazione dei filtri e centralizzata in `app/js/filters.js`, cosi timeline e statistiche usano lo stesso comportamento testabile.
+La valutazione dei filtri e centralizzata in `app/js/filters.js`, cosi timeline e statistiche usano lo stesso comportamento testabile. Rendering e micro-logica visuale sono in `app/js/filter-view.js`; eventi del pannello, slider, badge, reset e apertura/chiusura base/avanzata passano da `app/js/filter-controller.js`. `app.js` mantiene lo stato condiviso dei filtri, history e hook mobile.
 
 ### Modifica spesa
 
@@ -131,7 +137,7 @@ La modale permette di modificare importo, descrizione, data, ora, categoria, met
 
 Categoria, metodo e tag usano dropdown ricercabili custom. I tag suggeriscono valori gia usati, con preferenza per ultimo uso e frequenza.
 
-Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; eventi, focus/blur e micro-stato di dropdown/tag sono in `app/js/modal-interactions.js`. Le chiamate storage per modifica ed eliminazione passano da `app/js/expense-actions.js`; `app.js` mantiene apertura/chiusura, lettura form, history/back button e workaround mobile della modale.
+Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; popolamento/lettura del form e micro-eventi dei campi sono in `app/js/modal-form-controller.js`; eventi, focus/blur e micro-stato di dropdown/tag sono in `app/js/modal-interactions.js`. Le chiamate storage per modifica ed eliminazione passano da `app/js/expense-actions.js`; `app.js` mantiene apertura/chiusura, history/back button e workaround mobile della modale.
 
 ### Navigazione e mobile
 
@@ -170,7 +176,7 @@ Le statistiche usano Chart.js e includono:
 
 I filtri non-data vengono applicati anche alle statistiche.
 
-I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`. La configurazione Chart.js e in `app/js/stats-charts.js`; `app.js` crea e distrugge solo le istanze Chart.
+I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`. La configurazione Chart.js e in `app/js/stats-charts.js`; wiring pagina, bottoni periodo e creazione/distruzione grafici sono in `app/js/stats-controller.js`. `app.js` mantiene solo stato periodo/offset e riferimenti alle istanze Chart.
 
 Oggi la pagina statistiche e di sola lettura: da li non si apre direttamente la modale di modifica di una spesa.
 
@@ -208,4 +214,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, flussi/controller impostazioni, tema, toast e dialog conferma, inclusi dropdown/tag della modale; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni stack UI/back button, cleanup DOM collegati al popstate, form/dropdown/tag della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

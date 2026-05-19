@@ -92,6 +92,7 @@ function loadUiViews() {
     const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
+    const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
 
     vm.runInContext(
         [
@@ -104,6 +105,7 @@ function loadUiViews() {
             modalViewCode,
             modalInteractionsCode,
             settingsViewCode,
+            uiStackCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
@@ -111,7 +113,8 @@ function loadUiViews() {
             'globalThis.StatsCharts = StatsCharts;',
             'globalThis.ModalView = ModalView;',
             'globalThis.ModalInteractions = ModalInteractions;',
-            'globalThis.SettingsView = SettingsView;'
+            'globalThis.SettingsView = SettingsView;',
+            'globalThis.UIStack = UIStack;'
         ].join('\n'),
         context
     );
@@ -124,7 +127,8 @@ function loadUiViews() {
         StatsCharts: context.StatsCharts,
         ModalView: context.ModalView,
         ModalInteractions: context.ModalInteractions,
-        SettingsView: context.SettingsView
+        SettingsView: context.SettingsView,
+        UIStack: context.UIStack
     };
 }
 
@@ -625,6 +629,68 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(preview.includes('2 spese valide con impostazioni'));
     assert(preview.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!preview.includes('<script>alert(1)</script>'));
+});
+
+test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
+    const { UIStack } = loadUiViews();
+
+    assert.equal(
+        UIStack.getPopstateAction({ suppressNextPopstate: true, confirmOpen: true }),
+        UIStack.ACTIONS.IGNORE
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ confirmOpen: true, modalOpen: true }),
+        UIStack.ACTIONS.CLOSE_CONFIRM
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ modalOpen: true, filterOpen: true }),
+        UIStack.ACTIONS.HANDLE_MODAL
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ filterSearchActive: true, filterOpen: true }),
+        UIStack.ACTIONS.CLOSE_FILTER_SEARCH
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ expenseInputActive: true, filterOpen: true }),
+        UIStack.ACTIONS.CLOSE_EXPENSE_INPUT
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ advancedFiltersOpen: true, filterOpen: true }),
+        UIStack.ACTIONS.CLOSE_ADVANCED_FILTERS
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ filterOpen: true }),
+        UIStack.ACTIONS.CLOSE_FILTER
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ currentPage: 'stats' }),
+        UIStack.ACTIONS.NAVIGATE_TIMELINE
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ currentPage: 'timeline' }),
+        UIStack.ACTIONS.NONE
+    );
+});
+
+test('UI stack separa le azioni popstate interne alla modale', () => {
+    const { UIStack } = loadUiViews();
+
+    assert.equal(
+        UIStack.getModalPopstateAction({ interactionActive: true, activeField: true }),
+        UIStack.MODAL_ACTIONS.CLEAR_INTERACTION
+    );
+    assert.equal(
+        UIStack.getModalPopstateAction({ dropdownOpen: true }),
+        UIStack.MODAL_ACTIONS.CLEAR_INTERACTION
+    );
+    assert.equal(
+        UIStack.getModalPopstateAction({ activeField: true }),
+        UIStack.MODAL_ACTIONS.CLEAR_FIELD
+    );
+    assert.equal(
+        UIStack.getModalPopstateAction({}),
+        UIStack.MODAL_ACTIONS.CLOSE_MODAL
+    );
 });
 
 let failed = 0;

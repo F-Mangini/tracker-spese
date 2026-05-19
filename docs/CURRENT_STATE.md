@@ -21,10 +21,11 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
+- `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici e micro-interazioni della modale in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici, micro-interazioni della modale e decisioni dello stack UI in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -130,7 +131,7 @@ La navigazione principale e composta da:
 - Statistiche;
 - Impostazioni.
 
-`app.js` gestisce diversi casi legati al tasto indietro del telefono:
+`app.js` gestisce diversi casi legati al tasto indietro del telefono, usando `app/js/ui-stack.js` per decidere l'ordine di priorita e mantenendo in `app.js` le azioni concrete:
 
 - chiusura conferma eliminazione;
 - chiusura o pulizia interazioni della modale;
@@ -144,7 +145,7 @@ La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history 
 
 Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso.
 
-Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale.
+Ci sono anche workaround per tastiera mobile, `visualViewport`, input sticky e blocco scroll in modale. Lo stack UI non e ancora un manager completo: per ora centralizza la decisione testabile del `popstate`, mentre push/back e molti dettagli restano distribuiti in `app.js`.
 
 ### Statistiche
 
@@ -197,4 +198,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti e configurazione grafici, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti, configurazione grafici e decisioni stack UI/back button, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button reale e interazioni DOM complesse.

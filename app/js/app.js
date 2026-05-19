@@ -1322,29 +1322,40 @@ const App = {
     },
 
     handlePopstate() {
-        if (this._suppressNextPopstate) {
+        const action = UIStack.getPopstateAction({
+            suppressNextPopstate: this._suppressNextPopstate,
+            confirmOpen: this.isConfirmOpen(),
+            modalOpen: this.isModalOpen(),
+            filterSearchActive: this._filterSearchActive,
+            expenseInputActive: this._expenseInputActive,
+            advancedFiltersOpen: this.advancedFiltersOpen,
+            filterOpen: this.filterOpen,
+            currentPage: this.currentPage
+        });
+
+        if (action === UIStack.ACTIONS.IGNORE) {
             this._suppressNextPopstate = false;
             return;
         }
 
-        if (this.isConfirmOpen()) {
+        if (action === UIStack.ACTIONS.CLOSE_CONFIRM) {
             this.closeConfirm(true);
             return;
         }
 
-        if (this.isModalOpen()) {
+        if (action === UIStack.ACTIONS.HANDLE_MODAL) {
             this.handleModalPopstate();
             return;
         }
 
-        if (this._filterSearchActive) {
+        if (action === UIStack.ACTIONS.CLOSE_FILTER_SEARCH) {
             this._filterSearchActive = false;
             const searchInput = document.getElementById('search-input');
             if (searchInput) searchInput.blur();
             return;
         }
 
-        if (this._expenseInputActive) {
+        if (action === UIStack.ACTIONS.CLOSE_EXPENSE_INPUT) {
             this._expenseInputActive = false;
             document.body.classList.remove('expense-input-active');
             this.stopExpenseInputBarWatch();
@@ -1353,26 +1364,29 @@ const App = {
             return;
         }
 
-        if (this.advancedFiltersOpen) {
+        if (action === UIStack.ACTIONS.CLOSE_ADVANCED_FILTERS) {
             this.closeAdvancedFilters(true);
             return;
         }
 
-        if (this.filterOpen) {
+        if (action === UIStack.ACTIONS.CLOSE_FILTER) {
             this.closeFilterPanel(true);
             return;
         }
 
-        if (this.currentPage !== 'timeline') {
+        if (action === UIStack.ACTIONS.NAVIGATE_TIMELINE) {
             this.navigateTo('timeline', true);
         }
     },
 
     handleModalPopstate() {
-        const dropdownOpen = !!this.getOpenModalDropdown();
-        const activeField = this.getActivePlainModalField();
+        const action = UIStack.getModalPopstateAction({
+            interactionActive: this._modalInteractionActive,
+            dropdownOpen: !!this.getOpenModalDropdown(),
+            activeField: !!this.getActivePlainModalField()
+        });
 
-        if (this._modalInteractionActive || dropdownOpen) {
+        if (action === UIStack.MODAL_ACTIONS.CLEAR_INTERACTION) {
             this._suspendInteractionRelease = true;
             this.clearModalSelection();
             this._modalInteractionActive = false;
@@ -1384,7 +1398,7 @@ const App = {
             return;
         }
 
-        if (activeField) {
+        if (action === UIStack.MODAL_ACTIONS.CLEAR_FIELD) {
             this.clearModalSelection();
             this.pushModalHistoryState();
             return;

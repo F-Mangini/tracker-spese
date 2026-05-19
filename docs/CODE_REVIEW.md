@@ -75,13 +75,15 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/modal-view.js` contiene rendering dei dropdown ricercabili e logica pura dei suggerimenti tag.
 - `app/js/modal-interactions.js` contiene eventi e micro-stato di dropdown ricercabili e input tag della modale, con hook verso la history gestita da `app.js`.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e messaggio preview import.
+- `app/js/ui-stack.js` contiene le decisioni pure dell'ordine di chiusura `popstate`/back button.
 - `app.js` ha metodi piu piccoli per navigazione, salvataggio/ripristino scroll pagina, gestione popstate e lettura del form modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
 - `tests/run-tests.js` copre anche helper UI, rendering estratto di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
 - Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
+- Le decisioni di priorita del back button sono coperte da test unitari tramite `UIStack`; le azioni DOM e history reali restano in `app.js`.
 
-Restano aperti: UI stack/back button completo, estrazione piu profonda delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
+Restano aperti: UI stack/back button completo con push/back simmetrici centralizzati, estrazione piu profonda delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
 
 ## Findings Principali
 
@@ -158,7 +160,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora molto: tema, navigazione, input, voce, apertura/chiusura modale, conferme, azioni impostazioni, istanze grafici, toast e workaround mobile. Il rendering di filtri, timeline, statistiche, dropdown, tag, impostazioni, micro-interazioni della modale e configurazione Chart.js e stato pero estratto in moduli dedicati.
+`App` contiene ancora molto: tema, navigazione, input, voce, apertura/chiusura modale, conferme, azioni impostazioni, istanze grafici, toast e workaround mobile. Il rendering di filtri, timeline, statistiche, dropdown, tag, impostazioni, micro-interazioni della modale, decisioni dello stack UI e configurazione Chart.js e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -185,6 +187,7 @@ La history e manipolata da molti punti: navigazione pagina, filtri, ricerca, inp
 
 Esempi concreti:
 
+- `handlePopstate()` ora delega a `UIStack` la scelta dell'azione prioritaria, ma esegue ancora in `app.js` chiusure e cleanup DOM.
 - `toggleAdvancedFilters()` ora consuma la history entry quando chiude da bottone, ma il resto dello stack UI resta ancora distribuito.
 - `closeModal()` puo fare `history.go(-2)` se crede che esista uno stato interazione.
 - Blur di input e ricerca chiamano `history.back()` con timeout.
@@ -198,6 +201,7 @@ Direzione di fix:
 
 - Creare un piccolo "UI stack manager" per stati sovrapposti: pagina, pannello filtri, ricerca, input, modale, dropdown, conferma.
 - Definire regola unica: ogni `pushState` deve avere una chiusura simmetrica.
+- Completato parzialmente: estratta in `UIStack` la decisione dell'azione da eseguire su `popstate`, con test sull'ordine di priorita.
 - Aggiungere checklist manuale Android per ogni modifica.
 
 ### CR-05 - Parser e modifica importo possono registrare importi sbagliati
@@ -483,6 +487,7 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-19: estratti eventi dropdown/tag della modale in `modal-interactions.js`.
 - Completato parzialmente il 2026-05-18: estratti rendering impostazioni e preview import in `settings-view.js`.
 - Completato parzialmente il 2026-05-19: rafforzato parsing importi nell'inserimento rapido con test sugli input ambigui.
+- Completato parzialmente il 2026-05-19: estratta la decisione `popstate`/back button in `ui-stack.js`, con test unitari sull'ordine di chiusura.
 - Restano da estrarre/parzialmente rafforzare altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
 
@@ -491,6 +496,7 @@ Stato: completata il 2026-05-15.
 - Disegnare un modello unico per pagina/pannello/modale/conferma/input attivo.
 - Sostituire gradualmente push/back sparsi.
 - Completato parzialmente il 2026-05-18: resa simmetrica la history dei filtri avanzati e separato il salvataggio scroll per pagina.
+- Completato parzialmente il 2026-05-19: centralizzata la decisione del `popstate` in `ui-stack.js`.
 - Verificare ogni passaggio su Android.
 
 ### Fase 4 - Modularizzazione UI

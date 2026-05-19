@@ -1,14 +1,4 @@
 /* ============================================
-   CHART COLORS
-   ============================================ */
-const CHART_COLORS = [
-    '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
-    '#14b8a6', '#e11d48', '#0ea5e9', '#a855f7', '#eab308',
-    '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf'
-];
-
-/* ============================================
    APP
    ============================================ */
 const App = {
@@ -1403,294 +1393,39 @@ const App = {
         this.closeModal(true);
     },
 
-    /* --- Searchable Dropdown --- */
+    getModalInteractionHooks() {
+        return {
+            ensureInteractionState: () => this.ensureModalInteractionState(),
+            releaseInteractionState: () => this.releaseModalInteractionState(),
+            isInteractionActive: () => this._modalInteractionActive,
+            isInteractionReleaseSuspended: () => this._suspendInteractionRelease,
+            hasOpenDropdown: () => !!this.getOpenModalDropdown()
+        };
+    },
+
     initSearchableDropdown(containerId, items, currentValue) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        const selected = items.find(i => i.id === currentValue) || items[0];
-
-        container.innerHTML = ModalView.renderDropdownShell(selected);
-
-        const input = container.querySelector('.sd-input');
-        const list = container.querySelector('.sd-list');
-        let highlightIdx = -1;
-        let isEditable = false;
-
-        const renderList = (filter = '') => {
-            const filtered = ModalView.getDropdownItems(items, filter);
-
-            if (filtered.length === 0) {
-                list.innerHTML = ModalView.renderDropdownEmpty();
-                highlightIdx = -1;
-                return;
-            }
-
-            highlightIdx = -1;
-            list.innerHTML = ModalView.renderDropdownList(filtered, input.dataset.value);
-
-            list.querySelectorAll('.sd-item').forEach(el => {
-                el.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    selectItem(items.find(i => i.id === el.dataset.id));
-                });
-            });
-        };
-
-        const selectItem = (item) => {
-            if (!item) return;
-
-            input.value = ModalView.formatDropdownItem(item);
-            input.dataset.value = item.id;
-            close();
-            try { input.blur(); } catch (_) { }
-        };
-
-        const open = () => {
-            const wasClosed = !container.classList.contains('open');
-            container.classList.add('open');
-
-            if (wasClosed) {
-                this.ensureModalInteractionState();
-            }
-
-            renderList();
-        };
-
-        const close = () => {
-            const wasOpen = container.classList.contains('open');
-
-            container.classList.remove('open');
-            input.readOnly = true;
-            isEditable = false;
-            const sel = items.find(i => i.id === input.dataset.value) || items[0];
-            input.value = ModalView.formatDropdownItem(sel);
-
-            const shouldRelease = wasOpen && this._modalInteractionActive && !this._suspendInteractionRelease;
-            if (shouldRelease) {
-                setTimeout(() => {
-                    const dropdownOpen = !!this.getOpenModalDropdown();
-                    if (!dropdownOpen && this._modalInteractionActive) {
-                        this.releaseModalInteractionState();
-                    }
-                }, 10);
-            }
-        };
-
-        input.addEventListener('mousedown', e => {
-            if (!container.classList.contains('open')) {
-                e.preventDefault();
-                input.focus();
-                open();
-            } else if (!isEditable) {
-                e.preventDefault();
-                isEditable = true;
-                input.readOnly = false;
-                input.value = '';
-                input.focus();
-                setTimeout(() => {
-                    container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 300);
-            }
+        const instance = ModalInteractions.createSearchableDropdown({
+            ...this.getModalInteractionHooks(),
+            containerId,
+            items,
+            currentValue
         });
 
-        input.addEventListener('focus', () => {
-            if (!container.classList.contains('open')) {
-                open();
-            }
-        });
-
-        input.addEventListener('input', () => {
-            if (!container.classList.contains('open')) {
-                open();
-            }
-            renderList(input.value);
-        });
-
-        input.addEventListener('blur', () => {
-            close();
-        });
-
-        input.addEventListener('keydown', e => {
-            const items_in_list = list.querySelectorAll('.sd-item');
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                highlightIdx = Math.min(highlightIdx + 1, items_in_list.length - 1);
-                items_in_list.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                highlightIdx = Math.max(highlightIdx - 1, 0);
-                items_in_list.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (highlightIdx >= 0 && highlightIdx < items_in_list.length) {
-                    const id = items_in_list[highlightIdx].dataset.id;
-                    selectItem(items.find(i => i.id === id));
-                } else if (items_in_list.length > 0) {
-                    const id = items_in_list[0].dataset.id;
-                    selectItem(items.find(i => i.id === id));
-                }
-                input.blur();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                close();
-                input.blur();
-            }
-        });
-
-        this._sdInstances[containerId] = {
-            getValue: () => input.dataset.value,
-            setValue: (val) => {
-                const item = items.find(i => i.id === val) || items[0];
-                input.dataset.value = item.id;
-                input.value = ModalView.formatDropdownItem(item);
-            }
-        };
-    },
-
-    /* --- Tags --- */
-    getAllTags() {
-        return ModalView.getAllTags(Storage.getSpese());
-    },
-
-    getTagStats() {
-        return ModalView.getTagStats(Storage.getSpese());
+        if (instance) {
+            this._sdInstances[containerId] = instance;
+        }
     },
 
     initTagInput() {
-        const container = document.getElementById('sd-tags');
-        const chipsEl = document.getElementById('tag-chips');
-        if (!container) return;
-
-        container.innerHTML = ModalView.renderTagInputShell();
-
-        const input = container.querySelector('.sd-input');
-        const list = container.querySelector('.sd-list');
-        let isEditable = false;
-
-        const renderChips = () => {
-            chipsEl.innerHTML = ModalView.renderTagChips(this._editTags);
-
-            chipsEl.querySelectorAll('.tag-remove').forEach(btn => {
-                btn.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                });
-                btn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    this._editTags = this._editTags.filter(t => t !== btn.dataset.tag);
-                    renderChips();
-                    if (isEditable) {
-                        input.focus();
-                        renderList(input.value);
-                    }
-                });
-            });
-        };
-
-        const renderList = (filter = '') => {
-            const allTags = this.getAllTags();
-            const stats = this.getTagStats();
-
-            list.innerHTML = ModalView.renderTagList({
-                allTags,
-                currentTags: this._editTags,
-                filter,
-                stats
-            });
-
-            list.querySelectorAll('.sd-item').forEach(el => {
-                el.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    addTag(el.dataset.tag);
-                });
-            });
-        };
-
-        const addTag = (tag) => {
-            tag = tag.replace(/\s+/g, '');
-            if (!tag || this._editTags.includes(tag)) return;
-            this._editTags.push(tag);
-            input.value = '';
-            renderChips();
-            renderList();
-        };
-
-        const open = () => {
-            const wasClosed = !container.classList.contains('open');
-            container.classList.add('open');
-
-            if (wasClosed) {
-                this.ensureModalInteractionState();
-            }
-
-            renderList();
-        };
-
-        const close = () => {
-            const wasOpen = container.classList.contains('open');
-
-            container.classList.remove('open');
-            input.readOnly = true;
-            isEditable = false;
-            input.value = '';
-
-            const shouldRelease = wasOpen && this._modalInteractionActive && !this._suspendInteractionRelease;
-            if (shouldRelease) {
-                setTimeout(() => {
-                    const dropdownOpen = !!this.getOpenModalDropdown();
-                    if (!dropdownOpen && this._modalInteractionActive) {
-                        this.releaseModalInteractionState();
-                    }
-                }, 10);
-            }
-        };
-
-        input.addEventListener('mousedown', e => {
-            const allTags = this.getAllTags();
-            const availableCount = ModalView.getAvailableTagCount(allTags, this._editTags);
-
-            if (!container.classList.contains('open')) {
-                e.preventDefault();
-                if (availableCount === 0) {
-                    isEditable = true;
-                    input.readOnly = false;
-                    input.value = '';
-                }
-                input.focus();
-                open();
-            } else if (!isEditable) {
-                e.preventDefault();
-                isEditable = true;
-                input.readOnly = false;
-                input.value = '';
-                input.focus();
-            }
+        ModalInteractions.createTagInput({
+            ...this.getModalInteractionHooks(),
+            containerId: 'sd-tags',
+            chipsId: 'tag-chips',
+            getTags: () => this._editTags,
+            setTags: tags => { this._editTags = tags; },
+            getAllTags: () => ModalView.getAllTags(Storage.getSpese()),
+            getTagStats: () => ModalView.getTagStats(Storage.getSpese())
         });
-
-        input.addEventListener('focus', () => {
-            if (!container.classList.contains('open')) open();
-        });
-        input.addEventListener('input', () => renderList(input.value));
-        input.addEventListener('blur', () => close());
-
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const items_in_list = list.querySelectorAll('.sd-item');
-                if (items_in_list.length > 0) {
-                    const firstTag = items_in_list[0].dataset.tag;
-                    if (firstTag) {
-                        addTag(firstTag);
-                    }
-                } else {
-                    const val = ModalView.cleanTagInput(input.value);
-                    if (val) addTag(val);
-                }
-            }
-        });
-
-        renderChips();
     },
 
     populateDropdowns() {
@@ -1923,7 +1658,7 @@ const App = {
             filtered,
             summary,
             barChartTitle,
-            chartColors: CHART_COLORS,
+            chartColors: StatsCharts.COLORS,
             getCategory: id => this.getCat(id)
         });
 
@@ -1966,152 +1701,30 @@ const App = {
 
         if (typeof Chart === 'undefined') return;
 
-        const tc = this.getChartThemeColors();
-
-        const catSorted = StatsData.getSortedCategoryTotals(filtered);
+        const themeColors = StatsCharts.getThemeColors();
 
         const ctxD = document.getElementById('chart-doughnut');
         if (ctxD) {
-            this.chartDoughnut = new Chart(ctxD, {
-                type: 'doughnut',
-                data: {
-                    labels: catSorted.map(([id]) => {
-                        const c = this.getCat(id);
-                        return `${c.emoji} ${c.nome}`;
-                    }),
-                    datasets: [{
-                        data: catSorted.map(([, v]) => Math.round(v * 100) / 100),
-                        backgroundColor: catSorted.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
-                        borderColor: tc.cardBg,
-                        borderWidth: 3,
-                        hoverOffset: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    cutout: '55%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: tc.text,
-                                padding: 12,
-                                usePointStyle: true,
-                                pointStyleWidth: 10,
-                                font: { size: 11 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => {
-                                    const tot = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                                    return ` €${ctx.parsed.toFixed(2)} (${((ctx.parsed / tot) * 100).toFixed(1)}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            this.chartDoughnut = new Chart(ctxD, StatsCharts.buildDoughnutConfig(filtered, {
+                themeColors,
+                chartColors: StatsCharts.COLORS,
+                getCategory: id => this.getCat(id)
+            }));
         }
 
         const aggregation = this.getBarAggregation(start, end);
-        const bar = StatsData.buildBarData(filtered, start, end, { aggregation });
-
         const ctxB = document.getElementById('chart-bar');
         if (ctxB) {
-            const numBars = bar.labels.length;
-
-            this.chartBar = new Chart(ctxB, {
-                type: 'bar',
-                data: {
-                    labels: bar.labels,
-                    datasets: [{
-                        label: 'Spese €',
-                        data: bar.data,
-                        backgroundColor: bar.data.map(v => v > 0 ? tc.accent + 'cc' : tc.accent + '33'),
-                        borderColor: tc.accent,
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        borderSkipped: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: numBars <= 7 ? 1.8 : 2,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => ` €${ctx.parsed.y.toFixed(2)}`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: tc.textMuted,
-                                font: { size: 9 },
-                                maxRotation: numBars > 14 ? 45 : 0,
-                                autoSkip: true,
-                                maxTicksLimit: numBars > 60 ? 15 : undefined
-                            },
-                            grid: { display: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                color: tc.textMuted,
-                                font: { size: 10 },
-                                callback: v => '€' + v
-                            },
-                            grid: { color: tc.grid }
-                        }
-                    }
-                }
-            });
+            this.chartBar = new Chart(ctxB, StatsCharts.buildBarConfig(filtered, start, end, {
+                aggregation,
+                themeColors
+            }));
         }
-    },
-
-    buildDailyBarData(filtered, start, end) {
-        return StatsData.buildDailyBarData(filtered, start, end);
-    },
-
-    startOfWeek(date) {
-        return StatsData.startOfWeek(date);
-    },
-
-    buildWeeklyBarData(filtered, start, end) {
-        return StatsData.buildWeeklyBarData(filtered, start, end);
-    },
-
-    buildMonthlyBarData(filtered, start, end) {
-        return StatsData.buildMonthlyBarData(filtered, start, end);
-    },
-
-    getChartThemeColors() {
-        const s = getComputedStyle(document.documentElement);
-
-        return {
-            text: s.getPropertyValue('--text-primary').trim(),
-            textMuted: s.getPropertyValue('--text-tertiary').trim(),
-            accent: s.getPropertyValue('--accent').trim(),
-            cardBg: s.getPropertyValue('--bg-card').trim(),
-            grid: s.getPropertyValue('--border').trim()
-        };
     },
 
     destroyCharts() {
-        if (this.chartDoughnut) {
-            this.chartDoughnut.destroy();
-            this.chartDoughnut = null;
-        }
-
-        if (this.chartBar) {
-            this.chartBar.destroy();
-            this.chartBar = null;
-        }
+        this.chartDoughnut = StatsCharts.destroy(this.chartDoughnut);
+        this.chartBar = StatsCharts.destroy(this.chartBar);
     },
 
     /* =====================

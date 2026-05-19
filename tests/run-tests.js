@@ -88,7 +88,9 @@ function loadUiViews() {
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
     const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
+    const statsChartsCode = fs.readFileSync(path.join(root, 'app/js/stats-charts.js'), 'utf8');
     const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
+    const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
 
     vm.runInContext(
@@ -98,13 +100,17 @@ function loadUiViews() {
             filterViewCode,
             timelineViewCode,
             statsViewCode,
+            statsChartsCode,
             modalViewCode,
+            modalInteractionsCode,
             settingsViewCode,
             'globalThis.AppUI = AppUI;',
             'globalThis.FilterView = FilterView;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.StatsView = StatsView;',
+            'globalThis.StatsCharts = StatsCharts;',
             'globalThis.ModalView = ModalView;',
+            'globalThis.ModalInteractions = ModalInteractions;',
             'globalThis.SettingsView = SettingsView;'
         ].join('\n'),
         context
@@ -115,7 +121,9 @@ function loadUiViews() {
         FilterView: context.FilterView,
         TimelineView: context.TimelineView,
         StatsView: context.StatsView,
+        StatsCharts: context.StatsCharts,
         ModalView: context.ModalView,
+        ModalInteractions: context.ModalInteractions,
         SettingsView: context.SettingsView
     };
 }
@@ -275,6 +283,24 @@ test('Parser conserva il flusso base di inserimento rapido', () => {
     assert.equal(result.metodo, 'contanti');
     assert.deepEqual(result.tags, ['colazione']);
     assert.equal(result.categoria, 'bar');
+});
+
+test('Parser preferisce importi espliciti o finali quando ci sono piu numeri', () => {
+    const Parser = loadParser();
+
+    const pizza = Parser.parse('pizza 4 formaggi 8');
+    const pizzaEuro = Parser.parse('pizza 4 formaggi 8 euro');
+    const caffe = Parser.parse('2 caffe 3 euro');
+    const currency = Parser.parse('\u20ac 1,50 caffe');
+
+    assert.equal(pizza.importo, 8);
+    assert.equal(pizza.descrizione, 'Pizza 4 formaggi');
+    assert.equal(pizzaEuro.importo, 8);
+    assert.equal(pizzaEuro.descrizione, 'Pizza 4 formaggi');
+    assert.equal(caffe.importo, 3);
+    assert.equal(caffe.descrizione, '2 caffe');
+    assert.equal(currency.importo, 1.5);
+    assert.equal(currency.descrizione, 'Caffe');
 });
 
 test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
@@ -491,8 +517,44 @@ test('Vista statistiche separa template da dati e conserva gli stati vuoti', () 
     assert(html.includes('Dettaglio categorie'));
 });
 
+test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
+    const { StatsCharts } = loadUiViews();
+    const spese = [
+        expense({ id: 'a', importo: 10, categoria: 'bar', data: '2026-05-01T10:00:00' }),
+        expense({ id: 'b', importo: 0, categoria: 'bar', data: '2026-05-02T10:00:00' })
+    ];
+    const themeColors = {
+        text: '#111111',
+        textMuted: '#666666',
+        accent: '#10b981',
+        cardBg: '#ffffff',
+        grid: '#dddddd'
+    };
+
+    const doughnut = StatsCharts.buildDoughnutConfig(spese, {
+        themeColors,
+        chartColors: ['#111111'],
+        getCategory: () => ({ emoji: '☕', nome: 'Bar' })
+    });
+    const bar = StatsCharts.buildBarConfig(
+        spese,
+        new Date('2026-05-01T00:00:00'),
+        new Date('2026-05-02T23:59:59'),
+        { themeColors, aggregation: 'day', now: new Date('2026-05-02T12:00:00') }
+    );
+
+    assert.equal(doughnut.type, 'doughnut');
+    assert.deepEqual(doughnut.data.labels, ['☕ Bar']);
+    assert.deepEqual(doughnut.data.datasets[0].data, [10]);
+    assert.equal(doughnut.options.plugins.legend.labels.color, '#111111');
+    assert.equal(bar.type, 'bar');
+    assert.deepEqual(bar.data.datasets[0].data, [10, 0]);
+    assert.deepEqual(bar.data.datasets[0].backgroundColor, ['#10b981cc', '#10b98133']);
+    assert.equal(bar.options.scales.y.grid.color, '#dddddd');
+});
+
 test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () => {
-    const { ModalView } = loadUiViews();
+    const { ModalView, ModalInteractions } = loadUiViews();
     const items = [
         { id: 'abbigliamento', emoji: '👕', nome: 'Abbigliamento' },
         { id: 'bar', emoji: '☕', nome: 'Bar' },
@@ -502,6 +564,8 @@ test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () =
     const filtered = ModalView.getDropdownItems(items, 'b');
     const html = ModalView.renderDropdownList(filtered, 'bar');
 
+    assert.equal(typeof ModalInteractions.createSearchableDropdown, 'function');
+    assert.equal(typeof ModalInteractions.createTagInput, 'function');
     assert.deepEqual(filtered.map(item => item.id), ['bar', 'abbigliamento']);
     assert(html.includes('selected'));
     assert(html.includes('data-id="bar"'));

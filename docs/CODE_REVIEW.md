@@ -71,14 +71,17 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/filter-view.js` contiene rendering dei chip filtro, testo del riepilogo filtri e calcolo della soglia massima dello slider importo.
 - `app/js/timeline-view.js` contiene rendering di riepilogo timeline, empty state filtrato, gruppi giorno e card spesa.
 - `app/js/stats-view.js` contiene rendering della pagina statistiche; `app.js` resta responsabile di dati, eventi e grafici Chart.js.
+- `app/js/stats-charts.js` contiene palette, lettura colori tema e configurazione Chart.js per torta e barre.
 - `app/js/modal-view.js` contiene rendering dei dropdown ricercabili e logica pura dei suggerimenti tag.
+- `app/js/modal-interactions.js` contiene eventi e micro-stato di dropdown ricercabili e input tag della modale, con hook verso la history gestita da `app.js`.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e messaggio preview import.
 - `app.js` ha metodi piu piccoli per navigazione, salvataggio/ripristino scroll pagina, gestione popstate e lettura del form modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
-- `tests/run-tests.js` copre anche helper UI e rendering estratto di filtri, timeline, statistiche, dropdown, tag e impostazioni.
+- `tests/run-tests.js` copre anche helper UI, rendering estratto di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
+- Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
 
-Restano aperti: UI stack/back button completo, estrazione piu profonda degli eventi modale e delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
+Restano aperti: UI stack/back button completo, estrazione piu profonda delle azioni impostazioni, test automatici DOM o E2E per i flussi mobile piu fragili.
 
 ## Findings Principali
 
@@ -155,7 +158,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora molto: tema, navigazione, input, voce, eventi modale, conferme, azioni impostazioni, grafici, toast e workaround mobile. Il rendering di filtri, timeline, statistiche, dropdown, tag e impostazioni e stato pero estratto in moduli dedicati.
+`App` contiene ancora molto: tema, navigazione, input, voce, apertura/chiusura modale, conferme, azioni impostazioni, istanze grafici, toast e workaround mobile. Il rendering di filtri, timeline, statistiche, dropdown, tag, impostazioni, micro-interazioni della modale e configurazione Chart.js e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -202,21 +205,25 @@ Direzione di fix:
 - **Gravita**: Alta
 - **Difficolta**: Media
 - **File**: `app/js/parser.js:16`, `app/js/parser.js:21`, `app/js/app.js:1929`
+- **Stato 2026-05-19**: mitigato per il parser di inserimento rapido e per la modifica importo con virgola.
 
 Problemi:
 
-- Il parser prende il primo intero nel testo. Esempi verificati:
+- Il parser prendeva il primo intero nel testo. Esempi verificati:
   - `pizza 4 formaggi 8` diventa importo `4`, descrizione `Pizza formaggi 8`.
   - `pizza 4 formaggi 8 euro` diventa ancora importo `4`, perche manca pattern per interi seguiti da `euro`.
   - `2 caffe 3 euro` diventa importo `2`.
-- In modifica spesa, `parseFloat('1,50')` produce `1`, non `1.5`.
+- In modifica spesa, `parseFloat('1,50')` produceva `1`, non `1.5`.
+
+Aggiornamento:
+
+- `app/js/parser.js` sceglie ora il candidato importo piu affidabile, privilegiando valuta esplicita, decimali e posizione finale.
+- `saveEdit()` passa da `AppUI.parseAmountInput`, quindi accetta importi con virgola.
+- `tests/run-tests.js` copre gli esempi ambigui sopra e il parsing importo del form.
 
 Direzione di fix:
 
-- Estrarre un parser importo testabile.
-- Supportare interi con `euro`, simbolo euro e preferenza per importi a fine frase.
-- Normalizzare virgola/punto anche in `saveEdit()`.
-- Aggiungere test con esempi reali.
+- Continuare ad aggiungere esempi reali al test runner se emergono nuovi input ambigui dall'uso quotidiano.
 
 ### CR-06 - Assenza di test automatici
 
@@ -471,9 +478,12 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-16: estratti filtri, date e aggregazioni statistiche in `app/js/filters.js` e `app/js/stats.js`.
 - Completato parzialmente il 2026-05-16: aggiunti test per filtri e aggregazioni statistiche.
 - Completato parzialmente il 2026-05-18: estratti helper UI e rendering di filtri, timeline e statistiche in `ui-utils.js`, `filter-view.js`, `timeline-view.js` e `stats-view.js`.
+- Completato parzialmente il 2026-05-19: estratta configurazione Chart.js statistiche in `stats-charts.js`.
 - Completato parzialmente il 2026-05-18: estratti rendering dropdown e logica suggerimenti tag in `modal-view.js`.
+- Completato parzialmente il 2026-05-19: estratti eventi dropdown/tag della modale in `modal-interactions.js`.
 - Completato parzialmente il 2026-05-18: estratti rendering impostazioni e preview import in `settings-view.js`.
-- Restano da estrarre/parzialmente rafforzare parsing importo e altre funzioni pure ancora immerse nei flussi UI.
+- Completato parzialmente il 2026-05-19: rafforzato parsing importi nell'inserimento rapido con test sugli input ambigui.
+- Restano da estrarre/parzialmente rafforzare altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
 
 ### Fase 3 - UI stack e mobile behavior
@@ -486,7 +496,7 @@ Stato: completata il 2026-05-15.
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-18: rendering di filtri, timeline, statistiche, dropdown, tag e impostazioni spostato fuori da `app.js`.
+- Completato parzialmente il 2026-05-19: rendering di filtri, timeline, statistiche, dropdown, tag, impostazioni, configurazione grafici e micro-interazioni dropdown/tag modale spostati fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

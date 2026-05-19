@@ -17,12 +17,14 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/filter-view.js` contiene rendering e micro-logica UI del pannello filtri, inclusi chip, riepilogo e soglia slider.
 - `app/js/timeline-view.js` contiene il rendering testabile di riepilogo timeline, gruppi giorno e card spesa.
 - `app/js/stats-view.js` contiene il rendering testabile della pagina statistiche, separato dai grafici Chart.js.
+- `app/js/stats-charts.js` contiene palette, colori tema e configurazione Chart.js per i grafici statistiche.
 - `app/js/modal-view.js` contiene rendering e logica pura per dropdown ricercabili e suggerimenti tag nella modale.
+- `app/js/modal-interactions.js` contiene eventi e micro-stato dei dropdown ricercabili e dell'input tag della modale.
 - `app/js/settings-view.js` contiene rendering della pagina impostazioni e del messaggio di preview import.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
-- `app/js/app.js` contiene stato UI, eventi, orchestrazione dei moduli, grafici Chart.js e workaround mobile.
+- `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, eventi modale, import/export, grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione e rendering di filtri/timeline/statistiche/dropdown/tag/impostazioni in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di molte responsabilita UI: input, apertura/chiusura modale, import/export, istanze grafici e gestione mobile. Le prime estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, configurazione grafici e micro-interazioni della modale in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -83,12 +85,14 @@ Alcuni campi monoriga sono implementati come `textarea` per evitare, su mobile, 
 
 Il parser:
 
-- cerca il primo importo valido;
+- cerca il candidato importo piu affidabile, privilegiando valuta esplicita, decimali e importi a fine frase;
 - rimuove importo e tag dalla descrizione;
 - rileva il metodo di pagamento tramite keyword;
 - rileva la categoria cercando keyword nelle categorie statiche;
 - sceglie la categoria con keyword trovata prima nel testo;
 - usa `carta` come metodo di default e `altro` come categoria di fallback.
+
+Gli input con piu numeri gestiscono casi reali come `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`, scegliendo l'importo finale o quello marcato da valuta invece del primo numero incontrato.
 
 ### Timeline
 
@@ -116,7 +120,7 @@ La modale permette di modificare importo, descrizione, data, ora, categoria, met
 
 Categoria, metodo e tag usano dropdown ricercabili custom. I tag suggeriscono valori gia usati, con preferenza per ultimo uso e frequenza.
 
-Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; `app.js` mantiene gli eventi, focus/blur, history e workaround mobile della modale.
+Il rendering dei dropdown e la logica pura dei suggerimenti tag sono in `app/js/modal-view.js`; eventi, focus/blur e micro-stato di dropdown/tag sono in `app/js/modal-interactions.js`. `app.js` mantiene apertura/chiusura, salvataggio, history/back button e workaround mobile della modale.
 
 ### Navigazione e mobile
 
@@ -155,7 +159,7 @@ Le statistiche usano Chart.js e includono:
 
 I filtri non-data vengono applicati anche alle statistiche.
 
-I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`.
+I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`. La configurazione Chart.js e in `app/js/stats-charts.js`; `app.js` crea e distrugge solo le istanze Chart.
 
 Oggi la pagina statistiche e di sola lettura: da li non si apre direttamente la modale di modifica di una spesa.
 
@@ -193,4 +197,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche e rendering/helper UI estratti, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, filtri, aggregazioni statistiche, rendering/helper UI estratti e configurazione grafici, inclusi dropdown/tag della modale e impostazioni; mancano ancora test automatici su UI mobile, history/back button e interazioni DOM complesse.

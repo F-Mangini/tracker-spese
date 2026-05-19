@@ -1,76 +1,124 @@
 /* ============================================
-   PARSER — Interpreta input in linguaggio naturale
+   PARSER - Interpreta input in linguaggio naturale
    ============================================ */
 
 const Parser = {
-
     parse(input) {
-        input = input.trim();
+        input = String(input || '').trim();
         if (!input) return null;
 
-        let importo = null;
-        let descrizione = input;
+        const amountMatch = this._extractAmount(input);
+        if (!amountMatch) return null;
 
-        /* --- Estrai importo --- */
-        // Ordine di priorità: "€1.50", "1.50€", "1,50 euro", "1.50", "15"
-        const patterns = [
-            /€\s*(\d+[.,]\d{1,2})/,          // €1.50 o € 1,50
-            /(\d+[.,]\d{1,2})\s*€/,          // 1.50€
-            /(\d+[.,]\d{1,2})\s*euro/i,       // 1.50 euro
-            /(\d+[.,]\d{1,2})/,               // 1.50 (numero con decimali)
-            /\b(\d+)\b/                        // 15  (numero intero)
-        ];
+        let descrizione = `${input.slice(0, amountMatch.start)} ${input.slice(amountMatch.end)}`
+            .replace(/\beuro\b/gi, '')
+            .replace(/\u20ac/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        for (const pat of patterns) {
-            const m = input.match(pat);
-            if (m) {
-                importo = parseFloat(m[1].replace(',', '.'));
-                // Rimuovi l'importo dalla descrizione
-                descrizione = input
-                    .replace(m[0], '')
-                    .replace(/\beuro\b/gi, '')
-                    .replace(/€/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                break;
-            }
-        }
-
-        // --- Estrai e rimuovi i tags (iniziano con #) ---
         const tags = [];
-        const tagRegex = /#([\wàèéìòù]+)/gi;
+        const tagRegex = /#([\w\u00e0\u00e8\u00e9\u00ec\u00f2\u00f9]+)/gi;
         let tagMatch;
+
         while ((tagMatch = tagRegex.exec(descrizione)) !== null) {
-            tags.push(tagMatch[1]); // Aggiungiamo il tag al nostro array (senza #)
+            tags.push(tagMatch[1]);
         }
-        // Rimuoviamo i tag trovati dalla descrizione
+
         descrizione = descrizione.replace(tagRegex, '').replace(/\s+/g, ' ').trim();
 
-        // --- Estrai e rimuovi il metodo di pagamento ---
         const paymentInfo = this._detectPaymentInfo(descrizione.toLowerCase());
         const metodo = paymentInfo.id;
+
         if (paymentInfo.keyword) {
-            // Rimuoviamo la keyword di pagamento esatta dal testo
             const pmRegex = new RegExp('\\b' + paymentInfo.keyword + '\\b', 'i');
             descrizione = descrizione.replace(pmRegex, '').replace(/\s+/g, ' ').trim();
         }
 
-        if (!importo || importo <= 0) return null;
         if (!descrizione) descrizione = 'Spesa';
 
-        // Capitalizza prima lettera
         descrizione = descrizione.charAt(0).toUpperCase() + descrizione.slice(1);
 
         return {
-            importo: Math.round(importo * 100) / 100,
+            importo: Math.round(amountMatch.value * 100) / 100,
             descrizione,
-            // Conserviamo la stringa originale 'input' per cercare la categoria (cattura meglio se prima rimuoviamo i pagamenti)
             categoria: this._detectCategory(input.toLowerCase()),
-            metodo: metodo,
+            metodo,
             data: new Date().toISOString(),
-            tags: tags,
+            tags,
             nota: ''
         };
+    },
+
+    _extractAmount(input) {
+        const text = String(input || '');
+        const amountRegex = /(?:\u20ac\s*)?(\d+(?:(?:[.,]\d{3})+)?(?:[.,]\d{1,2})?)(?:\s*(?:\u20ac|euro))?/gi;
+        const candidates = [];
+        let match;
+
+        while ((match = amountRegex.exec(text)) !== null) {
+            const value = this._normalizeAmount(match[1]);
+
+            if (!Number.isFinite(value) || value <= 0) continue;
+
+            candidates.push({
+                value,
+                start: match.index,
+                end: match.index + match[0].length,
+                score: this._scoreAmountCandidate(text, match)
+            });
+        }
+
+        if (candidates.length === 0) return null;
+
+        return candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.start - a.start;
+        })[0];
+    },
+
+    _normalizeAmount(value) {
+        let text = String(value || '').trim().replace(/\s/g, '');
+        const lastComma = text.lastIndexOf(',');
+        const lastDot = text.lastIndexOf('.');
+
+        if (lastComma !== -1 && lastDot !== -1) {
+            if (lastComma > lastDot) {
+                text = text.replace(/\./g, '').replace(',', '.');
+            } else {
+                text = text.replace(/,/g, '');
+            }
+        } else if (lastComma !== -1 || lastDot !== -1) {
+            const separator = lastComma !== -1 ? ',' : '.';
+            const parts = text.split(separator);
+            const looksLikeThousands = parts.length > 1 &&
+                parts[0].length <= 3 &&
+                parts.slice(1).every(part => part.length === 3);
+
+            if (looksLikeThousands) {
+                text = parts.join('');
+            } else if (separator === ',') {
+                text = text.replace(',', '.');
+            }
+        }
+
+        const amount = Number(text);
+        return Number.isFinite(amount) ? amount : NaN;
+    },
+
+    _scoreAmountCandidate(input, match) {
+        const rawAmount = match[1];
+        const matchedText = match[0];
+        const after = input.slice(match.index + matchedText.length).trim();
+        const hasCurrency = /(?:\u20ac|euro)/i.test(matchedText);
+        const hasDecimal = /[.,]\d{1,2}$/.test(rawAmount);
+        const atEnd = after === '';
+
+        let score = 0;
+        if (hasCurrency) score += 100;
+        if (hasDecimal) score += 50;
+        if (atEnd) score += 30;
+
+        return score;
     },
 
     _detectCategory(text) {
@@ -79,30 +127,32 @@ const Parser = {
 
         for (const cat of CATEGORIES) {
             if (cat.id === 'altro') continue;
-            for (const kw of cat.keywords) {
-                const index = text.indexOf(kw);
-                if (index !== -1) {
-                    if (firstMatchIndex === -1 || index < firstMatchIndex) {
-                        firstMatchIndex = index;
-                        matchedCategory = cat.id;
-                    }
+
+            for (const keyword of cat.keywords) {
+                const index = text.indexOf(keyword);
+                if (index !== -1 && (firstMatchIndex === -1 || index < firstMatchIndex)) {
+                    firstMatchIndex = index;
+                    matchedCategory = cat.id;
                 }
             }
         }
+
         return matchedCategory;
     },
 
     _detectPaymentInfo(text) {
-        for (const pm of PAYMENT_METHODS) {
-            if (pm.id === 'altro_pag' || !pm.keywords) continue;
-            for (const kw of pm.keywords) {
-                const regex = new RegExp('\\b' + kw + '\\b', 'i');
+        for (const method of PAYMENT_METHODS) {
+            if (method.id === 'altro_pag' || !method.keywords) continue;
+
+            for (const keyword of method.keywords) {
+                const regex = new RegExp('\\b' + keyword + '\\b', 'i');
                 const match = text.match(regex);
                 if (match) {
-                    return { id: pm.id, keyword: match[0] };
+                    return { id: method.id, keyword: match[0] };
                 }
             }
         }
+
         return { id: 'carta', keyword: null };
     }
 };

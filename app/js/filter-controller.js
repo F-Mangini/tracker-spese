@@ -118,6 +118,12 @@ const FilterController = (() => {
         return FilterView.getSliderMax(spese);
     }
 
+    function getFilterModel(options) {
+        if (options.filterModel) return options.filterModel;
+        if (typeof options.getFilterModel === 'function') return options.getFilterModel();
+        return null;
+    }
+
     function getCloseHistoryAction(options, payload) {
         if (typeof options.getCloseHistoryAction === 'function') return options.getCloseHistoryAction(payload);
         return UIStack.getCloseHistoryAction(payload);
@@ -518,11 +524,16 @@ const FilterController = (() => {
 
     function updateFilterBadge(options = {}) {
         const doc = getDocument(options);
-        const n = countActive(options);
+        const filterModel = getFilterModel(options);
+        const n = filterModel
+            ? Number(filterModel.activeFilterCount || 0)
+            : countActive(options);
         const badge = doc.getElementById('filter-badge');
         const resetBtn = doc.getElementById('btn-filter-reset');
         const info = doc.getElementById('filter-info');
-        const allSpese = getSpese(options);
+        const allSpese = filterModel
+            ? (filterModel.allSpese || [])
+            : getSpese(options);
 
         if (n > 0) {
             if (badge) {
@@ -533,7 +544,9 @@ const FilterController = (() => {
             if (info) {
                 info.textContent = renderFooterInfo(options, {
                     activeCount: n,
-                    filtered: applyFilters(options, allSpese)
+                    filtered: filterModel
+                        ? (filterModel.filteredSpese || [])
+                        : applyFilters(options, allSpese)
                 });
             }
             return n;
@@ -544,7 +557,9 @@ const FilterController = (() => {
         if (info) {
             info.textContent = renderFooterInfo(options, {
                 activeCount: n,
-                quickTotals: getQuickTotals(options, allSpese)
+                quickTotals: filterModel
+                    ? filterModel.quickTotals
+                    : getQuickTotals(options, allSpese)
             });
         }
 

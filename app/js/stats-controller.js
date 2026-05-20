@@ -124,6 +124,7 @@ const StatsController = (() => {
         const offset = Number.isFinite(options.offset) ? options.offset : 0;
         const filters = options.filters || {};
         const allSpese = Array.isArray(options.spese) ? options.spese : [];
+        const statsModel = options.statsModel || null;
         const getCategory = typeof options.getCategory === 'function'
             ? options.getCategory
             : () => ({});
@@ -139,26 +140,36 @@ const StatsController = (() => {
             return { charts, filtered: [] };
         }
 
-        const { start, end, label } = getPeriodDates({
+        const { start, end, label } = statsModel || getPeriodDates({
             period,
             offset,
             filters,
             spese: allSpese
         });
 
-        let filtered = allSpese.filter(spesa => {
-            const date = new Date(spesa.data);
-            return date >= start && date <= end;
-        });
+        let filtered = statsModel
+            ? (statsModel.filteredSpese || [])
+            : allSpese.filter(spesa => {
+                const date = new Date(spesa.data);
+                return date >= start && date <= end;
+            });
 
-        if (typeof options.applyNonDateFilters === 'function') {
+        if (!statsModel && typeof options.applyNonDateFilters === 'function') {
             filtered = options.applyNonDateFilters(filtered);
         }
 
-        const summary = StatsData.summarizeExpenses(filtered, start, end);
-        const canGoNext = offset < 0;
-        const isCustom = period === 'custom';
-        const barChartTitle = getBarChartTitle({ period, start, end });
+        const summary = statsModel
+            ? statsModel.summary
+            : StatsData.summarizeExpenses(filtered, start, end);
+        const canGoNext = statsModel
+            ? !!statsModel.canGoNext
+            : offset < 0;
+        const isCustom = statsModel
+            ? !!statsModel.isCustom
+            : period === 'custom';
+        const barChartTitle = statsModel
+            ? statsModel.barChartTitle
+            : getBarChartTitle({ period, start, end });
 
         container.innerHTML = StatsView.renderPage({
             period,

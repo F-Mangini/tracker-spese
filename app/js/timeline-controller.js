@@ -11,13 +11,25 @@ const TimelineController = (() => {
 
     function render(options = {}) {
         const doc = getDocument(options);
-        const allSpese = Array.isArray(options.spese) ? options.spese : [];
-        const isFiltered = typeof options.hasActiveFilters === 'function'
-            ? options.hasActiveFilters()
-            : false;
-        const filtered = isFiltered && typeof options.applyFilters === 'function'
-            ? options.applyFilters(allSpese)
-            : allSpese;
+        const filterModel = options.filterModel || null;
+        const allSpese = filterModel
+            ? (filterModel.allSpese || [])
+            : (Array.isArray(options.spese) ? options.spese : []);
+        const isFiltered = filterModel
+            ? !!filterModel.hasActiveFilters
+            : (typeof options.hasActiveFilters === 'function'
+                ? options.hasActiveFilters()
+                : false);
+        const filtered = filterModel
+            ? (filterModel.filteredSpese || [])
+            : (isFiltered && typeof options.applyFilters === 'function'
+                ? options.applyFilters(allSpese)
+                : allSpese);
+        const quickTotals = filterModel
+            ? filterModel.quickTotals
+            : (typeof options.getQuickTotals === 'function'
+                ? options.getQuickTotals(allSpese)
+                : StatsData.getQuickTotals(allSpese));
         const content = options.content || doc.getElementById('timeline-content');
         const empty = options.empty || doc.getElementById('timeline-empty');
         const summary = options.summary || doc.getElementById('timeline-summary');
@@ -38,9 +50,7 @@ const TimelineController = (() => {
         summary.innerHTML = TimelineView.renderSummary({
             isFiltered,
             filtered,
-            quickTotals: typeof options.getQuickTotals === 'function'
-                ? options.getQuickTotals(allSpese)
-                : StatsData.getQuickTotals(allSpese)
+            quickTotals
         });
 
         if (filtered.length === 0 && isFiltered) {

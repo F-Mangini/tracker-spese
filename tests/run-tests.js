@@ -84,7 +84,9 @@ function loadUiViews() {
     vm.createContext(context);
 
     const expenseStoreCode = fs.readFileSync(path.join(root, 'app/js/expense-store.js'), 'utf8');
+    const filtersCode = fs.readFileSync(path.join(root, 'app/js/filters.js'), 'utf8');
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
+    const expenseQueryCode = fs.readFileSync(path.join(root, 'app/js/expense-query.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
     const inputBarControllerCode = fs.readFileSync(path.join(root, 'app/js/input-bar-controller.js'), 'utf8');
@@ -115,7 +117,9 @@ function loadUiViews() {
     vm.runInContext(
         [
             expenseStoreCode,
+            filtersCode,
             statsCode,
+            expenseQueryCode,
             expenseActionsCode,
             expenseInputControllerCode,
             inputBarControllerCode,
@@ -143,6 +147,8 @@ function loadUiViews() {
             themeControllerCode,
             toastControllerCode,
             'globalThis.ExpenseStore = ExpenseStore;',
+            'globalThis.ExpenseFilters = ExpenseFilters;',
+            'globalThis.ExpenseQuery = ExpenseQuery;',
             'globalThis.AppUI = AppUI;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
@@ -176,6 +182,7 @@ function loadUiViews() {
     return {
         AppUI: context.AppUI,
         ExpenseStore: context.ExpenseStore,
+        ExpenseQuery: context.ExpenseQuery,
         ExpenseActions: context.ExpenseActions,
         ExpenseInputController: context.ExpenseInputController,
         InputBarController: context.InputBarController,
@@ -485,6 +492,124 @@ test('Store spese centralizza cache e invalidazione senza toccare Storage', () =
     listeners.storage({ key: null });
     assert.equal(ExpenseStore.getSpese()[0].id, 'd');
     assert.equal(reads, 4);
+});
+
+test('Query spese prepara filtri e riepiloghi una sola volta', () => {
+    const { ExpenseQuery } = loadUiViews();
+    const spese = [
+        expense({
+            id: 'match',
+            importo: 10,
+            descrizione: 'Caffe speciale',
+            categoria: 'bar',
+            metodo: 'contanti',
+            data: '2026-05-20T10:00:00.000Z'
+        }),
+        expense({
+            id: 'other',
+            importo: 5,
+            descrizione: 'Pane',
+            categoria: 'alimentari',
+            metodo: 'carta',
+            data: '2026-05-19T10:00:00.000Z'
+        })
+    ];
+    const model = ExpenseQuery.buildFilterModel({
+        spese,
+        filters: {
+            query: 'caffe',
+            categories: new Set(['bar']),
+            methods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '',
+            dateTo: ''
+        },
+        now: new Date('2026-05-20T12:00:00.000Z')
+    });
+
+    assert.equal(model.activeFilterCount, 2);
+    assert.equal(model.hasActiveFilters, true);
+    assert.deepEqual(model.filteredSpese.map(item => item.id), ['match']);
+    assert.equal(model.quickTotals.todayTotal, 10);
+    assert.equal(model.quickTotals.weekTotal, 15);
+    assert.equal(model.quickTotals.monthTotal, 15);
+
+    const emptyFilters = ExpenseQuery.buildFilterModel({ spese, filters: {} });
+    assert.equal(emptyFilters.hasActiveFilters, false);
+    assert.equal(emptyFilters.filteredSpese, emptyFilters.allSpese);
+});
+
+test('Query spese prepara modello statistiche rispettando periodo e filtri non-data', () => {
+    const { ExpenseQuery } = loadUiViews();
+    const spese = [
+        expense({
+            id: 'pizza',
+            importo: 8.5,
+            descrizione: 'Pizza',
+            categoria: 'ristorante',
+            metodo: 'carta',
+            data: '2026-05-20T10:00:00.000Z'
+        }),
+        expense({
+            id: 'caffe',
+            importo: 1.2,
+            descrizione: 'Caffe',
+            categoria: 'bar',
+            metodo: 'contanti',
+            data: '2026-05-20T11:00:00.000Z'
+        }),
+        expense({
+            id: 'aprile',
+            importo: 100,
+            descrizione: 'Affitto',
+            categoria: 'casa',
+            metodo: 'bonifico',
+            data: '2026-04-20T10:00:00.000Z'
+        })
+    ];
+
+    const model = ExpenseQuery.buildStatsModel({
+        spese,
+        filters: {
+            query: 'pizza',
+            categories: new Set(),
+            methods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '2026-05-21',
+            dateTo: '2026-05-21'
+        },
+        period: 'month',
+        offset: 0,
+        now: new Date('2026-05-20T12:00:00.000Z')
+    });
+
+    assert.deepEqual(model.periodSpese.map(item => item.id), ['pizza', 'caffe']);
+    assert.deepEqual(model.filteredSpese.map(item => item.id), ['pizza']);
+    assert.equal(model.summary.total, 8.5);
+    assert.equal(model.barChartTitle, 'Andamento giornaliero');
+    assert.equal(model.canGoNext, false);
+    assert.equal(model.isCustom, false);
+
+    const custom = ExpenseQuery.buildStatsModel({
+        spese,
+        filters: {
+            query: '',
+            categories: new Set(),
+            methods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '2026-05-20',
+            dateTo: '2026-05-20'
+        },
+        period: 'custom',
+        offset: 0,
+        now: new Date('2026-05-20T12:00:00.000Z')
+    });
+
+    assert.equal(custom.isCustom, true);
+    assert.deepEqual(custom.filteredSpese.map(item => item.id), ['pizza', 'caffe']);
 });
 
 test('Controller input rapido collega touch, focus e blur senza dipendere da App', () => {
@@ -945,6 +1070,94 @@ test('Vista filtri calcola slider e footer riepilogo', () => {
     );
 });
 
+test('Controller filtri riusa modello filtrato precomputato', () => {
+    const { FilterController } = loadUiViews();
+    const classes = {};
+    let payloadSeen = null;
+
+    function classList(id) {
+        classes[id] = new Set(['hidden']);
+        return {
+            add(cls) {
+                classes[id].add(cls);
+            },
+            remove(cls) {
+                classes[id].delete(cls);
+            },
+            contains(cls) {
+                return classes[id].has(cls);
+            }
+        };
+    }
+
+    const elements = {
+        'filter-badge': {
+            textContent: '',
+            classList: classList('filter-badge')
+        },
+        'btn-filter-reset': {
+            classList: classList('btn-filter-reset')
+        },
+        'filter-info': {
+            textContent: ''
+        }
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+    const commonOptions = {
+        document: doc,
+        filters: {},
+        countActiveFilters: () => {
+            throw new Error('countActiveFilters non deve essere chiamato');
+        },
+        applyFilters: () => {
+            throw new Error('applyFilters non deve essere chiamato');
+        },
+        getSpese: () => {
+            throw new Error('getSpese non deve essere chiamato');
+        },
+        getQuickTotals: () => {
+            throw new Error('getQuickTotals non deve essere chiamato');
+        },
+        renderFooterInfo: payload => {
+            payloadSeen = payload;
+            return payload.activeCount > 0 ? 'filtrato' : 'totali';
+        }
+    };
+
+    const activeCount = FilterController.updateFilterBadge({
+        ...commonOptions,
+        filterModel: {
+            activeFilterCount: 1,
+            allSpese: [expense({ id: 'a' }), expense({ id: 'b' })],
+            filteredSpese: [expense({ id: 'a' })],
+            quickTotals: { todayTotal: 0 }
+        }
+    });
+
+    assert.equal(activeCount, 1);
+    assert.equal(elements['filter-badge'].textContent, 1);
+    assert.equal(elements['filter-info'].textContent, 'filtrato');
+    assert.equal(payloadSeen.filtered.length, 1);
+
+    const inactiveCount = FilterController.updateFilterBadge({
+        ...commonOptions,
+        filterModel: {
+            activeFilterCount: 0,
+            allSpese: [expense({ id: 'a' })],
+            filteredSpese: [expense({ id: 'a' })],
+            quickTotals: { todayTotal: 3 }
+        }
+    });
+
+    assert.equal(inactiveCount, 0);
+    assert.equal(elements['filter-info'].textContent, 'totali');
+    assert.equal(payloadSeen.quickTotals.todayTotal, 3);
+});
+
 test('Controller filtri coordina pannello, ricerca e slider fuori da App', () => {
     const { FilterController, FilterView } = loadUiViews();
     const calls = [];
@@ -1181,6 +1394,63 @@ test('Vista timeline renderizza riepilogo e card escapando il testo utente', () 
     assert(html.includes('new-card'));
     assert(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!html.includes('<script>alert(1)</script>'));
+});
+
+test('Controller timeline riusa modello filtrato precomputato', () => {
+    const { TimelineController } = loadUiViews();
+    const card = {
+        dataset: { id: 'a' },
+        addEventListener() {}
+    };
+    const elements = {
+        'timeline-content': {
+            innerHTML: '',
+            querySelectorAll(selector) {
+                return selector === '.expense-card' ? [card] : [];
+            }
+        },
+        'timeline-empty': {
+            classList: {
+                add() {},
+                remove() {}
+            }
+        },
+        'timeline-summary': { innerHTML: '' }
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+    const model = {
+        allSpese: [expense({ id: 'a' }), expense({ id: 'b' })],
+        filteredSpese: [expense({ id: 'a' })],
+        hasActiveFilters: true,
+        activeFilterCount: 1,
+        quickTotals: { todayTotal: 1, weekTotal: 2, monthTotal: 3, monthNameCapitalized: 'Maggio' }
+    };
+
+    const result = TimelineController.render({
+        document: doc,
+        filterModel: model,
+        hasActiveFilters: () => {
+            throw new Error('hasActiveFilters non deve essere chiamato');
+        },
+        applyFilters: () => {
+            throw new Error('applyFilters non deve essere chiamato');
+        },
+        getQuickTotals: () => {
+            throw new Error('getQuickTotals non deve essere chiamato');
+        },
+        groupByDay: items => [{ date: '2026-05-20', spese: items }],
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        getMethod: () => ({ emoji: 'm', nome: 'Carta' }),
+        formatDayLabel: date => date
+    });
+
+    assert.equal(result.allSpese.length, 2);
+    assert.equal(result.filtered.length, 1);
+    assert(elements['timeline-summary'].innerHTML.includes('Filtro Attivo'));
 });
 
 test('Controller timeline coordina render e click card fuori da App', () => {
@@ -1490,6 +1760,73 @@ test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
     assert.deepEqual(bar.data.datasets[0].data, [10, 0]);
     assert.deepEqual(bar.data.datasets[0].backgroundColor, ['#10b981cc', '#10b98133']);
     assert.equal(bar.options.scales.y.grid.color, '#dddddd');
+});
+
+test('Controller statistiche riusa modello precomputato', () => {
+    const { StatsController } = loadUiViews();
+    const filtered = [
+        expense({
+            id: 'ready',
+            importo: 12,
+            descrizione: 'Pronta',
+            categoria: 'bar',
+            data: '2026-05-20T10:00:00.000Z'
+        })
+    ];
+    const container = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        querySelector() {
+            return null;
+        }
+    };
+
+    const result = StatsController.render({
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        container,
+        spese: [
+            ...filtered,
+            expense({ id: 'ignored', importo: 99, descrizione: 'Ignorata' })
+        ],
+        statsModel: {
+            filteredSpese: filtered,
+            start: new Date('2026-05-20T00:00:00.000Z'),
+            end: new Date('2026-05-20T23:59:59.999Z'),
+            label: 'Periodo pronto',
+            summary: {
+                total: 12,
+                avg: 12,
+                days: 1,
+                categoryTotals: [['bar', 12]],
+                maxCategory: 12,
+                topExpenses: filtered
+            },
+            barChartTitle: 'Titolo pronto',
+            canGoNext: true,
+            isCustom: false
+        },
+        period: 'month',
+        offset: -1,
+        filters: {},
+        charts: {},
+        ChartClass: null,
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        applyNonDateFilters: () => {
+            throw new Error('applyNonDateFilters non deve essere chiamato');
+        }
+    });
+
+    assert.equal(result.filtered, filtered);
+    assert(container.innerHTML.includes('Periodo pronto'));
+    assert(container.innerHTML.includes('Titolo pronto'));
+    assert(container.innerHTML.includes('Pronta'));
+    assert(!container.innerHTML.includes('Ignorata'));
 });
 
 test('Controller statistiche coordina render, periodo e grafici senza App', () => {

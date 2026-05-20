@@ -210,6 +210,7 @@ const App = {
             getQuickTotals: spese => StatsData.getQuickTotals(spese),
             countActiveFilters: () => ExpenseFilters.countActive(this.filters),
             applyFilters: spese => this.applyFilters(spese),
+            getFilterModel: () => this.getExpenseFilterModel(),
             getFilterOpen: () => this.filterOpen,
             setFilterOpen: value => { this.filterOpen = value; },
             getAdvancedFiltersOpen: () => this.advancedFiltersOpen,
@@ -282,18 +283,23 @@ const App = {
 
     /* --- Filter state --- */
     onFilterChange() {
-        this.updateFilterBadge();
+        const filterModel = this.getExpenseFilterModel();
 
-        if (this.currentPage === 'timeline') this.renderTimeline();
-        if (this.currentPage === 'stats') this.renderStats();
+        this.updateFilterBadge(filterModel);
+
+        if (this.currentPage === 'timeline') this.renderTimeline(filterModel);
+        if (this.currentPage === 'stats') this.renderStats(filterModel);
     },
 
     getActiveFilterCount() {
         return FilterController.getActiveFilterCount(this.getFilterControllerOptions());
     },
 
-    updateFilterBadge() {
-        FilterController.updateFilterBadge(this.getFilterControllerOptions());
+    updateFilterBadge(filterModel = null) {
+        FilterController.updateFilterBadge({
+            ...this.getFilterControllerOptions(),
+            filterModel
+        });
     },
 
     resetFilters() {
@@ -422,10 +428,11 @@ const App = {
     /* =====================
        TIMELINE
        ===================== */
-    renderTimeline() {
+    renderTimeline(filterModel = null) {
         TimelineController.render({
             document,
-            spese: this.getSpese(),
+            spese: filterModel ? filterModel.allSpese : this.getSpese(),
+            filterModel,
             newCardId: this.newCardId,
             hasActiveFilters: () => this.hasActiveFilters(),
             applyFilters: spese => this.applyFilters(spese),
@@ -809,11 +816,14 @@ const App = {
         });
     },
 
-    renderStats() {
+    renderStats(filterModel = null) {
+        const allSpese = filterModel ? filterModel.allSpese : this.getSpese();
+        const statsModel = this.getExpenseStatsModel(allSpese);
         const result = StatsController.render({
             document,
             container: document.getElementById('stats-content'),
-            spese: this.getSpese(),
+            spese: allSpese,
+            statsModel,
             period: this.statsPeriod,
             offset: this.statsOffset,
             filters: this.filters,
@@ -914,6 +924,22 @@ const App = {
 
     getSpese() {
         return ExpenseStore.getSpese();
+    },
+
+    getExpenseFilterModel(spese = this.getSpese()) {
+        return ExpenseQuery.buildFilterModel({
+            spese,
+            filters: this.filters
+        });
+    },
+
+    getExpenseStatsModel(spese = this.getSpese()) {
+        return ExpenseQuery.buildStatsModel({
+            spese,
+            filters: this.filters,
+            period: this.statsPeriod,
+            offset: this.statsOffset
+        });
     },
 
     invalidateSpeseCache() {

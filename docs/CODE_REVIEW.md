@@ -71,6 +71,7 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
 - `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
 - `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
+- `app/js/input-bar-controller.js` contiene il layout mobile della barra input: inset tastiera via `visualViewport`, padding del contenuto, RAF e listener resize.
 - `app/js/filter-view.js` contiene rendering dei chip filtro, testo del riepilogo filtri e calcolo della soglia massima dello slider importo.
 - `app/js/filter-controller.js` contiene wiring del pannello filtri, ricerca, date, chip, slider, badge, reset e apertura/chiusura filtri base/avanzati.
 - `app/js/timeline-view.js` contiene rendering di riepilogo timeline, empty state filtrato, gruppi giorno e card spesa.
@@ -90,10 +91,10 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/ui-stack.js` contiene le decisioni pure dell'ordine di chiusura `popstate`/back button.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/ui-stack-controller.js` contiene il glue applicativo dello stack UI/back button e applica le azioni `popstate` tramite hook verso `app.js`.
-- `app.js` ha metodi piu piccoli per navigazione, gestione popstate, input rapido, azioni spesa, filtri, timeline, toast, statistiche e form modale.
+- `app.js` ha metodi piu piccoli per navigazione, gestione popstate, input rapido, barra input mobile, azioni spesa, filtri, timeline, toast, statistiche e form modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
-- `tests/run-tests.js` copre anche helper UI, rendering/controller estratti di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
+- `tests/run-tests.js` copre anche helper UI, controller barra input mobile, rendering/controller estratti di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
 - Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
 - Le decisioni di priorita del back button e le azioni push/back simmetriche sono coperte da test unitari tramite `UIStack`; l'esecuzione reale di `history` passa da `app.js#runHistoryAction`.
 - L'applicazione delle azioni `popstate` passa da `UIStackController`; `app.js` mantiene gli hook concreti e `runHistoryAction`.
@@ -102,14 +103,14 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - La timeline passa da `TimelineController`; `app.js` mantiene storage, stato `newCardId`, apertura modale e hook dati.
 - La pagina statistiche passa da `StatsController`; `app.js` mantiene solo stato periodo/offset e riferimenti alle istanze Chart.
 - I flussi impostazioni/import-export sono coperti da `SettingsActions` e il wiring pagina da `SettingsController`; FileReader, download reale e aggiornamento UI post-commit restano hook di `app.js`.
-- Input rapido, modifica ed eliminazione passano da `ExpenseActions`; il wiring dell'input rapido passa da `ExpenseInputController`, mentre `app.js` mantiene refresh, history e hook mobile.
+- Input rapido, modifica ed eliminazione passano da `ExpenseActions`; il wiring dell'input rapido passa da `ExpenseInputController` e il layout mobile della barra passa da `InputBarController`, mentre `app.js` mantiene refresh, history e flag condivisi tramite hook.
 - Il form di modifica passa da `ModalFormController`; `app.js` mantiene apertura/chiusura, history e workaround mobile della modale.
 - Il dialog scelte/conferme e in `ConfirmDialog`, con wrapper sottili in `app.js` per history/back button.
 - Il tema e in `ThemeController`, mantenendo il toggle header temporaneo e la preferenza persistente nelle impostazioni.
 - I toast sono in `ToastController`, con wrapper sottile in `app.js` per leggere lo stato dell'input rapido.
 - I cleanup DOM piu piccoli collegati a `popstate` sono in `UIStackEffects` e coperti da test.
 
-Restano aperti: UI stack/back button completo con ulteriori dettagli DOM/mobile da centralizzare gradualmente, test automatici DOM o E2E per i flussi mobile piu fragili.
+Restano aperti: UI stack/back button completo con ulteriori dettagli DOM/mobile da centralizzare gradualmente, test automatici DOM o E2E per i flussi mobile reali piu fragili.
 
 ## Findings Principali
 
@@ -186,14 +187,14 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora molto: apertura/chiusura modale, wrapper conferme/history e workaround mobile. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, azioni spesa, input rapido, tema, toast, micro-interazioni della modale, dialog conferma, decisioni/glue dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
+`App` contiene ancora molto: apertura/chiusura modale, wrapper conferme/history e alcuni workaround mobile. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, azioni spesa, input rapido, layout della barra input mobile, tema, toast, micro-interazioni della modale, dialog conferma, decisioni/glue dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
 - Ogni modifica rischia regressioni laterali.
 - Stato UI e dominio sono mescolati.
 - Le funzioni sono difficili da testare perche leggono/scrivono DOM e `localStorage`.
-- I workaround mobile non sono isolati e diventano difficili da rimuovere.
+- Alcuni workaround mobile non sono ancora isolati e diventano difficili da rimuovere.
 
 Direzione di fix:
 
@@ -264,7 +265,7 @@ Direzione di fix:
 
 Problema:
 
-Esiste un test harness leggero Node, ma il refactor tocchera ancora parti fragili non coperte automaticamente: history, modali, tastiera mobile e interazioni DOM.
+Esiste un test harness leggero Node, incluso un test del controller barra input mobile con `visualViewport` simulato, ma il refactor tocchera ancora parti fragili non coperte automaticamente: history reale, modali, tastiera mobile su device e interazioni DOM.
 
 Direzione di fix:
 
@@ -531,6 +532,7 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-19: spostato in `timeline-controller.js` il wiring della timeline, inclusi empty state, riepilogo, applicazione filtri e click card.
 - Completato parzialmente il 2026-05-19: spostate in `expense-actions.js` le operazioni testabili per input rapido, modifica ed eliminazione spesa.
 - Completato parzialmente il 2026-05-19: spostato in `expense-input-controller.js` il wiring dell'input rapido, mantenendo in `app.js` gli hook history/mobile.
+- Completato parzialmente il 2026-05-19: spostato in `input-bar-controller.js` il layout mobile della barra input, inclusi inset tastiera, padding contenuto, RAF e listener resize.
 - Completato parzialmente il 2026-05-19: spostati in `modal-form-controller.js` popolamento, lettura e micro-eventi dei campi del form modale.
 - Restano da estrarre/parzialmente rafforzare altre funzioni pure ancora immerse nei flussi UI.
 - Ridurre letture ripetute di `localStorage`.
@@ -543,12 +545,13 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-19: centralizzata la decisione del `popstate` in `ui-stack.js`.
 - Completato parzialmente il 2026-05-19: rimosse le chiamate dirette a `history` dai flussi UI, lasciandole concentrate in `runHistoryAction`.
 - Completato parzialmente il 2026-05-19: spostati i cleanup DOM piu piccoli del popstate in `ui-stack-effects.js`.
+- Completato parzialmente il 2026-05-19: spostata fuori da `app.js` la logica di posizione/padding della barra input durante tastiera mobile e filtri.
 - Verificare ogni passaggio su Android.
 
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-19: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, input rapido, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, stack UI/back button, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
+- Completato parzialmente il 2026-05-19: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, impostazioni, input rapido, barra input mobile, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, stack UI/back button, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

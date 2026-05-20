@@ -14,6 +14,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: wiring navigazione principale spostato in `app/js/navigation-controller.js`.
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
+- In corso dal 2026-05-19: layout mobile della barra input spostato in `app/js/input-bar-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
 - In corso dal 2026-05-19: wiring pannello filtri spostato in `app/js/filter-controller.js`.
 - In corso dal 2026-05-19: wiring timeline spostato in `app/js/timeline-controller.js`.
@@ -45,6 +46,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: toast e timer relativo spostati in `app/js/toast-controller.js`.
 - Completato parzialmente il 2026-05-19: input rapido, modifica ed eliminazione spesa passano da `app/js/expense-actions.js`.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
+- Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.
 
 Priorita della fase attuale:
@@ -53,7 +55,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: proseguire con moduli UI ad alto impatto ma isolabili, come input rapido o wrapper modale, continuando a evitare schema dati e workaround mobile non coperti.
+- Prossimo passo consigliato: proseguire con moduli UI ad alto impatto ma isolabili, come wrapper modale o ulteriori dettagli mobile, continuando a evitare schema dati e workaround non verificati.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

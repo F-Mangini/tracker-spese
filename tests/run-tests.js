@@ -86,6 +86,7 @@ function loadUiViews() {
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
+    const inputBarControllerCode = fs.readFileSync(path.join(root, 'app/js/input-bar-controller.js'), 'utf8');
     const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const filterControllerCode = fs.readFileSync(path.join(root, 'app/js/filter-controller.js'), 'utf8');
@@ -113,6 +114,7 @@ function loadUiViews() {
             statsCode,
             expenseActionsCode,
             expenseInputControllerCode,
+            inputBarControllerCode,
             uiCode,
             filterViewCode,
             filterControllerCode,
@@ -137,6 +139,7 @@ function loadUiViews() {
             'globalThis.AppUI = AppUI;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
+            'globalThis.InputBarController = InputBarController;',
             'globalThis.FilterView = FilterView;',
             'globalThis.FilterController = FilterController;',
             'globalThis.TimelineView = TimelineView;',
@@ -165,6 +168,7 @@ function loadUiViews() {
         AppUI: context.AppUI,
         ExpenseActions: context.ExpenseActions,
         ExpenseInputController: context.ExpenseInputController,
+        InputBarController: context.InputBarController,
         FilterView: context.FilterView,
         FilterController: context.FilterController,
         TimelineView: context.TimelineView,
@@ -548,6 +552,158 @@ test('Controller input rapido collega touch, focus e blur senza dipendere da App
         ['active', false],
         'update-padding',
         'consume-input'
+    ]);
+});
+
+test('Controller barra input isola padding e watch tastiera da App', () => {
+    const { InputBarController } = loadUiViews();
+    const events = [];
+    const frameCallbacks = [];
+    const timerCallbacks = [];
+
+    function classListWith(items = []) {
+        const classes = new Set(items);
+        return {
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    const main = { style: {}, classList: classListWith() };
+    const panel = { offsetHeight: 96, classList: classListWith() };
+    const inputBar = { style: { bottom: '', transform: '' } };
+    const elements = {
+        'app-main': main,
+        'filter-panel': panel,
+        'input-bar': inputBar
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    let active = true;
+    let filterSearch = false;
+    let filterOpen = true;
+    let rafId = null;
+    let resizeHandler = null;
+    let windowResizeHandler = null;
+    let viewportResizeHandler = null;
+    let nextRaf = 0;
+
+    const win = {
+        innerHeight: 800,
+        visualViewport: {
+            height: 500,
+            offsetTop: 0,
+            addEventListener(event, handler, options) {
+                viewportResizeHandler = handler;
+                events.push(['vv-add', event, options.passive]);
+            },
+            removeEventListener(event, handler) {
+                events.push(['vv-remove', event, handler === viewportResizeHandler]);
+            }
+        },
+        addEventListener(event, handler, options) {
+            windowResizeHandler = handler;
+            events.push(['win-add', event, options.passive]);
+        },
+        removeEventListener(event, handler) {
+            events.push(['win-remove', event, handler === windowResizeHandler]);
+        }
+    };
+    const options = {
+        document: doc,
+        window: win,
+        isExpenseInputActive: () => active,
+        isFilterSearchActive: () => filterSearch,
+        isFilterOpen: () => filterOpen,
+        getRafId: () => rafId,
+        setRafId: value => { rafId = value; },
+        getResizeHandler: () => resizeHandler,
+        setResizeHandler: value => { resizeHandler = value; },
+        requestAnimationFrame: callback => {
+            frameCallbacks.push(callback);
+            nextRaf += 1;
+            return nextRaf;
+        },
+        cancelAnimationFrame: id => events.push(['cancel', id]),
+        setTimeout: (callback, ms) => {
+            timerCallbacks.push({ callback, ms });
+            return timerCallbacks.length;
+        }
+    };
+
+    assert.equal(InputBarController.getKeyboardInset(options), 300);
+
+    InputBarController.updateAppMainPadding(options);
+    assert.equal(
+        main.style.paddingBottom,
+        'calc(var(--input-h) + var(--nav-h) + var(--safe-bottom) + 300px - var(--nav-h) + 96px)'
+    );
+
+    InputBarController.updatePosition(options, true);
+    assert.equal(inputBar.style.bottom, '300px');
+    assert.equal(inputBar.style.transform, 'none');
+
+    InputBarController.schedulePositionUpdate(options);
+    InputBarController.schedulePositionUpdate(options);
+    assert.equal(rafId, 2);
+    assert.deepEqual(events.slice(-1), [['cancel', 1]]);
+
+    frameCallbacks[1]();
+    assert.equal(rafId, null);
+
+    active = false;
+    InputBarController.updatePosition(options, true);
+    assert.equal(inputBar.style.bottom, '');
+    assert.equal(inputBar.style.transform, '');
+
+    active = true;
+    filterSearch = true;
+    filterOpen = false;
+    events.length = 0;
+    frameCallbacks.length = 0;
+    timerCallbacks.length = 0;
+    nextRaf = 0;
+
+    InputBarController.startWatch(options);
+
+    assert.equal(resizeHandler, windowResizeHandler);
+    assert.equal(resizeHandler, viewportResizeHandler);
+    assert.deepEqual(events.slice(0, 2), [
+        ['win-add', 'resize', true],
+        ['vv-add', 'resize', true]
+    ]);
+    assert.deepEqual(timerCallbacks.map(timer => timer.ms), [60, 160, 320]);
+    assert.equal(rafId, 1);
+
+    resizeHandler();
+    assert.equal(rafId, 2);
+    assert.deepEqual(events.slice(-1), [['cancel', 1]]);
+
+    frameCallbacks[1]();
+    assert.equal(rafId, null);
+
+    timerCallbacks[0].callback();
+    assert.equal(rafId, 3);
+
+    active = false;
+    timerCallbacks[1].callback();
+    assert.equal(rafId, 3);
+
+    InputBarController.stopWatch(options);
+
+    assert.equal(rafId, null);
+    assert.equal(resizeHandler, null);
+    assert.equal(inputBar.style.bottom, '');
+    assert.equal(inputBar.style.transform, '');
+    assert.deepEqual(events.slice(-3), [
+        ['cancel', 3],
+        ['win-remove', 'resize', true],
+        ['vv-remove', 'resize', true]
     ]);
 });
 

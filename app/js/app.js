@@ -312,145 +312,45 @@ const App = {
         return ExpenseFilters.hasActive(this.filters);
     },
 
+    getInputBarControllerOptions() {
+        return {
+            document,
+            window,
+            isExpenseInputActive: () => this._expenseInputActive,
+            isFilterSearchActive: () => this._filterSearchActive,
+            isFilterOpen: () => this.filterOpen,
+            getRafId: () => this._expenseInputBarRaf,
+            setRafId: value => { this._expenseInputBarRaf = value; },
+            getResizeHandler: () => this._expenseInputResizeHandler,
+            setResizeHandler: value => { this._expenseInputResizeHandler = value; },
+            requestAnimationFrame: callback => requestAnimationFrame(callback),
+            cancelAnimationFrame: id => cancelAnimationFrame(id),
+            setTimeout: (callback, delay) => setTimeout(callback, delay)
+        };
+    },
+
     updateAppMainPadding() {
-        const main = document.getElementById('app-main');
-        if (!main) return;
-
-        let paddingCalc = 'calc(';
-        if (main.classList.contains('no-input-bar')) {
-            paddingCalc += 'var(--nav-h) + var(--safe-bottom)';
-        } else {
-            paddingCalc += 'var(--input-h) + var(--nav-h) + var(--safe-bottom)';
-        }
-
-        if (this._expenseInputActive || this._filterSearchActive) {
-            const inset = this.getExpenseInputKeyboardInset();
-            if (inset > 0) {
-                paddingCalc += ` + ${inset}px - var(--nav-h)`;
-            }
-        }
-
-        if (this.filterOpen) {
-            const panel = document.getElementById('filter-panel');
-            if (panel && !panel.classList.contains('hidden')) {
-                const h = panel.offsetHeight;
-                paddingCalc += ` + ${h}px`;
-            }
-        }
-
-        paddingCalc += ')';
-        main.style.paddingBottom = paddingCalc;
+        InputBarController.updateAppMainPadding(this.getInputBarControllerOptions());
     },
 
     getExpenseInputKeyboardInset() {
-        const vv = window.visualViewport;
-
-        if (!vv || !Number.isFinite(vv.height)) return 0;
-
-        const inset = window.innerHeight - (vv.offsetTop + vv.height);
-        return Math.max(0, Math.round(inset));
+        return InputBarController.getKeyboardInset(this.getInputBarControllerOptions());
     },
 
     updateExpenseInputBarPosition(force = false) {
-        this.updateAppMainPadding();
-        const inputBar = document.getElementById('input-bar');
-        if (!inputBar) return;
-
-        const main = document.getElementById('app-main');
-
-        if (!this._expenseInputActive) {
-            inputBar.style.bottom = '';
-            inputBar.style.transform = '';
-            return;
-        }
-
-        const inset = this.getExpenseInputKeyboardInset();
-
-        // Finché la tastiera non è davvero aperta, lasciamo la barra
-        // nella posizione CSS normale sopra la bottom nav.
-        if (inset <= 0) {
-            if (!force && inputBar.style.bottom === '' && inputBar.style.transform === '') {
-                return;
-            }
-            inputBar.style.bottom = '';
-            inputBar.style.transform = '';
-            return;
-        }
-
-        const nextBottom = `${inset}px`;
-
-        if (!force && inputBar.style.bottom === nextBottom && inputBar.style.transform === 'none') {
-            return;
-        }
-
-        inputBar.style.bottom = nextBottom;
-        inputBar.style.transform = 'none';
+        InputBarController.updatePosition(this.getInputBarControllerOptions(), force);
     },
 
     scheduleExpenseInputBarPositionUpdate(force = false) {
-        if (this._expenseInputBarRaf) {
-            cancelAnimationFrame(this._expenseInputBarRaf);
-        }
-
-        this._expenseInputBarRaf = requestAnimationFrame(() => {
-            this._expenseInputBarRaf = null;
-            this.updateExpenseInputBarPosition(force);
-        });
+        InputBarController.schedulePositionUpdate(this.getInputBarControllerOptions(), force);
     },
 
     startExpenseInputBarWatch() {
-        this.stopExpenseInputBarWatch();
-
-        this._expenseInputResizeHandler = () => {
-            this.scheduleExpenseInputBarPositionUpdate();
-        };
-
-        // Ascoltiamo solo i resize della viewport/tastiera
-        window.addEventListener('resize', this._expenseInputResizeHandler, { passive: true });
-
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', this._expenseInputResizeHandler, { passive: true });
-        }
-
-        // Primo sync: se inset = 0 la barra resta dov'è.
-        this.scheduleExpenseInputBarPositionUpdate(true);
-
-        setTimeout(() => {
-            if (this._expenseInputActive) this.scheduleExpenseInputBarPositionUpdate(true);
-        }, 60);
-
-        setTimeout(() => {
-            if (this._expenseInputActive) this.scheduleExpenseInputBarPositionUpdate(true);
-        }, 160);
-
-        setTimeout(() => {
-            if (this._expenseInputActive) this.scheduleExpenseInputBarPositionUpdate(true);
-        }, 320);
+        InputBarController.startWatch(this.getInputBarControllerOptions());
     },
 
     stopExpenseInputBarWatch() {
-        if (this._expenseInputBarRaf) {
-            cancelAnimationFrame(this._expenseInputBarRaf);
-            this._expenseInputBarRaf = null;
-        }
-
-        if (this._expenseInputResizeHandler) {
-            window.removeEventListener('resize', this._expenseInputResizeHandler);
-
-            if (window.visualViewport) {
-                window.visualViewport.removeEventListener('resize', this._expenseInputResizeHandler);
-            }
-
-            this._expenseInputResizeHandler = null;
-        }
-
-        const inputBar = document.getElementById('input-bar');
-        if (inputBar) {
-            inputBar.style.bottom = '';
-            inputBar.style.transform = '';
-        }
-
-        this.updateAppMainPadding();
+        InputBarController.stopWatch(this.getInputBarControllerOptions());
     },
 
     /* =====================

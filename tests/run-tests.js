@@ -87,6 +87,7 @@ function loadUiViews() {
     const filtersCode = fs.readFileSync(path.join(root, 'app/js/filters.js'), 'utf8');
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
     const expenseQueryCode = fs.readFileSync(path.join(root, 'app/js/expense-query.js'), 'utf8');
+    const appRefreshCode = fs.readFileSync(path.join(root, 'app/js/app-refresh.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
     const inputBarControllerCode = fs.readFileSync(path.join(root, 'app/js/input-bar-controller.js'), 'utf8');
@@ -120,6 +121,7 @@ function loadUiViews() {
             filtersCode,
             statsCode,
             expenseQueryCode,
+            appRefreshCode,
             expenseActionsCode,
             expenseInputControllerCode,
             inputBarControllerCode,
@@ -149,6 +151,7 @@ function loadUiViews() {
             'globalThis.ExpenseStore = ExpenseStore;',
             'globalThis.ExpenseFilters = ExpenseFilters;',
             'globalThis.ExpenseQuery = ExpenseQuery;',
+            'globalThis.AppRefresh = AppRefresh;',
             'globalThis.AppUI = AppUI;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
@@ -183,6 +186,7 @@ function loadUiViews() {
         AppUI: context.AppUI,
         ExpenseStore: context.ExpenseStore,
         ExpenseQuery: context.ExpenseQuery,
+        AppRefresh: context.AppRefresh,
         ExpenseActions: context.ExpenseActions,
         ExpenseInputController: context.ExpenseInputController,
         InputBarController: context.InputBarController,
@@ -610,6 +614,39 @@ test('Query spese prepara modello statistiche rispettando periodo e filtri non-d
 
     assert.equal(custom.isCustom, true);
     assert.deepEqual(custom.filteredSpese.map(item => item.id), ['pizza', 'caffe']);
+});
+
+test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
+    const { AppRefresh } = loadUiViews();
+    const calls = [];
+
+    AppRefresh.refreshExpenseViews({
+        invalidateSpeseCache: () => calls.push('invalidate'),
+        updateFilterSlider: true,
+        isFilterOpen: () => true,
+        recalcSliderMax: () => calls.push('recalc-slider'),
+        getCurrentPage: () => 'stats',
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        includeSettings: true,
+        renderSettings: () => calls.push('settings')
+    });
+
+    assert.deepEqual(calls, ['invalidate', 'recalc-slider', 'timeline', 'stats', 'settings']);
+
+    calls.length = 0;
+    AppRefresh.refreshExpenseViews({
+        invalidateSpeseCache: () => calls.push('invalidate'),
+        updateFilterSlider: true,
+        isFilterOpen: () => false,
+        recalcSliderMax: () => calls.push('recalc-slider'),
+        getCurrentPage: () => 'timeline',
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings')
+    });
+
+    assert.deepEqual(calls, ['invalidate', 'timeline']);
 });
 
 test('Controller input rapido collega touch, focus e blur senza dipendere da App', () => {

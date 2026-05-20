@@ -410,16 +410,12 @@ const App = {
         }
 
         const spesa = result.spesa;
-        this.invalidateSpeseCache();
         this.newCardId = spesa.id;
         input.value = '';
         try { input.blur(); } catch (_) { }
         try { document.activeElement.blur(); } catch (_) { }
 
-        if (this.filterOpen) this.recalcSliderMax();
-
-        this.renderTimeline();
-        if (this.currentPage === 'stats') this.renderStats();
+        this.refreshExpenseViews({ updateFilterSlider: true });
 
         const cat = this.getCat(spesa.categoria);
         this.showToast(`${cat.emoji} ${spesa.descrizione} · €${spesa.importo.toFixed(2)}`, 'success');
@@ -566,33 +562,21 @@ const App = {
                 const instance = this._sdInstances[id];
                 return instance ? instance.getValue() : fallback;
             },
-            updateExpense: data => {
-                const result = ExpenseActions.updateExpense({
-                    id: this.editingId,
-                    data,
-                    storage: Storage
-                });
-                if (result.success) this.invalidateSpeseCache();
-                return result;
-            },
-            deleteExpense: () => {
-                const result = ExpenseActions.deleteExpense({
-                    id: this.editingId,
-                    storage: Storage
-                });
-                if (result.success) this.invalidateSpeseCache();
-                return result;
-            },
-            isFilterOpen: () => this.filterOpen,
-            recalcSliderMax: () => this.recalcSliderMax(),
+            updateExpense: data => ExpenseActions.updateExpense({
+                id: this.editingId,
+                data,
+                storage: Storage
+            }),
+            deleteExpense: () => ExpenseActions.deleteExpense({
+                id: this.editingId,
+                storage: Storage
+            }),
+            refreshAfterExpenseChange: () => this.refreshExpenseViews({ updateFilterSlider: true }),
             closeModal: fromPopstate => this.closeModal(fromPopstate),
             saveEdit: () => this.saveEdit(),
             showConfirm: (message, onYes) => this.showConfirm(message, onYes),
             closeConfirm: () => this.closeConfirm(),
             showToast: (message, type) => this.showToast(message, type),
-            renderTimeline: () => this.renderTimeline(),
-            getCurrentPage: () => this.currentPage,
-            renderStats: () => this.renderStats(),
             bindNonStickyNativePicker: el => this.bindNonStickyNativePicker(el),
             handleModalViewportChange: () => this.handleModalViewportChange(),
             handlePopstate: () => this.handlePopstate(),
@@ -891,12 +875,7 @@ const App = {
             showConfirm: (message, onYes) => this.showConfirm(message, onYes),
             applyTheme: theme => this.applyTheme(theme),
             refreshSettings: () => this.renderSettings(),
-            refreshAfterDataChange: () => {
-                this.invalidateSpeseCache();
-                this.renderTimeline();
-                if (this.currentPage === 'stats') this.renderStats();
-                this.renderSettings();
-            }
+            refreshAfterDataChange: () => this.refreshExpenseViews({ includeSettings: true })
         });
     },
 
@@ -908,6 +887,20 @@ const App = {
             document,
             window,
             isExpenseInputActive: () => this._expenseInputActive
+        });
+    },
+
+    refreshExpenseViews(options = {}) {
+        AppRefresh.refreshExpenseViews({
+            invalidateSpeseCache: () => this.invalidateSpeseCache(),
+            updateFilterSlider: !!options.updateFilterSlider,
+            isFilterOpen: () => this.filterOpen,
+            recalcSliderMax: () => this.recalcSliderMax(),
+            getCurrentPage: () => this.currentPage,
+            renderTimeline: () => this.renderTimeline(),
+            renderStats: () => this.renderStats(),
+            includeSettings: !!options.includeSettings,
+            renderSettings: () => this.renderSettings()
         });
     },
 

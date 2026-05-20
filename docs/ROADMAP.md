@@ -15,6 +15,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
 - In corso dal 2026-05-20: cache letture spese della UI spostata in `app/js/expense-store.js`.
 - In corso dal 2026-05-20: modelli filtrati/statistiche/riepiloghi spostati in `app/js/expense-query.js`.
+- In corso dal 2026-05-20: policy refresh viste dopo cambio dati spostata in `app/js/app-refresh.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-19: layout mobile della barra input spostato in `app/js/input-bar-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
@@ -52,6 +53,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-20: timeline, statistiche, filtri e suggerimenti tag leggono le spese tramite cache in `app/js/expense-store.js`, invalidata dopo cambi dati.
 - Completato parzialmente il 2026-05-20: badge filtri e timeline riusano il modello filtrato/riepiloghi di `app/js/expense-query.js` invece di ricalcolare separatamente.
 - Completato parzialmente il 2026-05-20: la pagina statistiche riceve da `app/js/expense-query.js` modello periodo, filtri non-data, riepilogo e titolo grafico gia preparati.
+- Completato parzialmente il 2026-05-20: input rapido, modale e impostazioni riusano `app/js/app-refresh.js` per invalidare cache e aggiornare viste dopo cambi dati.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.

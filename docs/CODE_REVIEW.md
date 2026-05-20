@@ -72,6 +72,7 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
 - `app/js/expense-store.js` contiene cache e invalidazione delle letture spese lato UI, senza cambiare il formato dati in `Storage`.
 - `app/js/expense-query.js` contiene i modelli filtrati/statistiche/riepiloghi derivati dalle spese, riusati da badge filtri, timeline e pagina statistiche.
+- `app/js/app-refresh.js` contiene la policy di refresh viste dopo cambi dati, riusata da input rapido, modale e impostazioni.
 - `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
 - `app/js/input-bar-controller.js` contiene il layout mobile della barra input: inset tastiera via `visualViewport`, padding del contenuto, RAF e listener resize.
 - `app/js/filter-view.js` contiene rendering dei chip filtro, testo del riepilogo filtri e calcolo della soglia massima dello slider importo.
@@ -98,7 +99,7 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - `app.js` ha metodi piu piccoli per navigazione, gestione popstate, input rapido, cache spese, barra input mobile, azioni spesa, filtri, timeline, toast, statistiche e modale.
 - La chiusura dei filtri avanzati ora consuma lo stato history creato all'apertura; chiudere il pannello filtri mentre l'avanzato e aperto consuma entrambi gli stati.
 - La pagina statistiche senza spese usa un empty state dedicato per non finire sotto la trasparenza della testata sticky.
-- `tests/run-tests.js` copre anche helper UI, cache letture spese, query filtri/statistiche/riepiloghi, controller barra input mobile, controller lifecycle/mobile modale, rendering/controller estratti di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
+- `tests/run-tests.js` copre anche helper UI, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, controller barra input mobile, controller lifecycle/mobile modale, rendering/controller estratti di filtri/timeline/statistiche/dropdown/tag/impostazioni e configurazione grafici.
 - Il parser importi ora valuta piu candidati e preferisce valuta esplicita, decimali e importi finali; i test coprono `pizza 4 formaggi 8`, `pizza 4 formaggi 8 euro` e `2 caffe 3 euro`.
 - Le decisioni di priorita del back button e le azioni push/back simmetriche sono coperte da test unitari tramite `UIStack`; l'esecuzione reale di `history` passa da `app.js#runHistoryAction`.
 - L'applicazione delle azioni `popstate` passa da `UIStackController`; `app.js` mantiene gli hook concreti e `runHistoryAction`.
@@ -107,7 +108,7 @@ La seconda parte della separazione progressiva di `app.js` e stata implementata:
 - La timeline passa da `TimelineController`; `app.js` mantiene stato `newCardId`, apertura modale e hook dati tramite `ExpenseStore`/`ExpenseQuery`.
 - La pagina statistiche passa da `StatsController`; `app.js` mantiene stato periodo/offset, lettura cache spese, preparazione del modello `ExpenseQuery` e riferimenti alle istanze Chart.
 - I flussi impostazioni/import-export sono coperti da `SettingsActions` e il wiring pagina da `SettingsController`; FileReader, download reale e aggiornamento UI post-commit restano hook di `app.js`.
-- Input rapido, modifica ed eliminazione passano da `ExpenseActions`; il wiring dell'input rapido passa da `ExpenseInputController` e il layout mobile della barra passa da `InputBarController`, mentre `app.js` mantiene refresh, history e flag condivisi tramite hook.
+- Input rapido, modifica ed eliminazione passano da `ExpenseActions`; il wiring dell'input rapido passa da `ExpenseInputController`, il refresh viste post-commit da `AppRefresh` e il layout mobile della barra da `InputBarController`, mentre `app.js` mantiene history e flag condivisi tramite hook.
 - Il form di modifica passa da `ModalFormController`; focus, picker e watcher viewport/tastiera della modale passano da `ModalMobileController`; apertura/chiusura, salvataggio e conferma eliminazione passano da `ModalController`; `app.js` mantiene stato, storage, rendering e hook history.
 - Il dialog scelte/conferme e in `ConfirmDialog`, con wrapper sottili in `app.js` per history/back button.
 - Il tema e in `ThemeController`, mantenendo il toggle header temporaneo e la preferenza persistente nelle impostazioni.
@@ -191,7 +192,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora wrapper conferme/history, stato condiviso, refresh UI e orchestrazione generale. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, focus/mobile e lifecycle della modale, impostazioni, azioni spesa, cache letture spese, query filtri/statistiche/riepiloghi, input rapido, layout della barra input mobile, tema, toast, micro-interazioni della modale, dialog conferma, decisioni/glue dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
+`App` contiene ancora wrapper conferme/history, stato condiviso e orchestrazione generale. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, focus/mobile e lifecycle della modale, impostazioni, azioni spesa, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, input rapido, layout della barra input mobile, tema, toast, micro-interazioni della modale, dialog conferma, decisioni/glue dello stack UI, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati.
 
 Conseguenze:
 
@@ -405,6 +406,7 @@ Aggiornamento 2026-05-20:
 - Le letture UI delle spese passano da `app/js/expense-store.js`, che mantiene una cache in memoria e la invalida dopo scritture, import/cancellazione ed evento `storage` sulla stessa chiave o su pulizia completa.
 - Il modello filtrato/riepiloghi passa da `app/js/expense-query.js`: `onFilterChange()` lo calcola una volta e lo riusa per badge filtri e timeline.
 - Anche il modello statistiche/periodo passa da `app/js/expense-query.js`, cosi `StatsController` puo ricevere lista filtrata, riepilogo e titolo grafico gia preparati senza ricalcolare il ciclo filtro/summary.
+- Il refresh viste dopo cambi dati passa da `app/js/app-refresh.js`, cosi input rapido, modale e impostazioni usano la stessa policy per invalidare cache e aggiornare timeline/statistiche/impostazioni.
 
 Direzione di fix:
 
@@ -544,6 +546,7 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-20: spostata in `expense-store.js` la cache delle letture spese usate dalla UI.
 - Completato parzialmente il 2026-05-20: spostato in `expense-query.js` il modello filtrato/riepiloghi riusato da badge filtri e timeline.
 - Completato parzialmente il 2026-05-20: spostato in `expense-query.js` il modello statistiche/periodo riusato da `stats-controller.js`.
+- Completato parzialmente il 2026-05-20: spostata in `app-refresh.js` la policy di refresh viste dopo cambi dati.
 - Completato parzialmente il 2026-05-19: spostato in `expense-input-controller.js` il wiring dell'input rapido, mantenendo in `app.js` gli hook history/mobile.
 - Completato parzialmente il 2026-05-19: spostato in `input-bar-controller.js` il layout mobile della barra input, inclusi inset tastiera, padding contenuto, RAF e listener resize.
 - Completato parzialmente il 2026-05-19: spostati in `modal-form-controller.js` popolamento, lettura e micro-eventi dei campi del form modale.
@@ -568,7 +571,7 @@ Stato: completata il 2026-05-15.
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-20: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form/focus mobile/lifecycle modale, impostazioni, input rapido, cache letture spese, query filtri/statistiche/riepiloghi, barra input mobile, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, stack UI/back button, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
+- Completato parzialmente il 2026-05-20: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form/focus mobile/lifecycle modale, impostazioni, input rapido, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, barra input mobile, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog conferma, stack UI/back button, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

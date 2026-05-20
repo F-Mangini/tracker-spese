@@ -56,11 +56,8 @@ const ModalController = (() => {
                     return;
                 }
 
-                if (options.isFilterOpen()) options.recalcSliderMax();
-
                 options.closeModal();
-                options.renderTimeline();
-                if (options.getCurrentPage() === 'stats') options.renderStats();
+                refreshAfterExpenseChange(options);
                 options.showToast('Spesa eliminata', 'info');
             });
         });
@@ -171,6 +168,31 @@ const ModalController = (() => {
         });
     }
 
+    function refreshAfterExpenseChange(options = {}) {
+        if (typeof options.refreshAfterExpenseChange === 'function') {
+            options.refreshAfterExpenseChange();
+            return;
+        }
+
+        if (
+            typeof options.isFilterOpen === 'function' &&
+            options.isFilterOpen() &&
+            typeof options.recalcSliderMax === 'function'
+        ) {
+            options.recalcSliderMax();
+        }
+
+        if (typeof options.renderTimeline === 'function') options.renderTimeline();
+
+        if (
+            typeof options.getCurrentPage === 'function' &&
+            options.getCurrentPage() === 'stats' &&
+            typeof options.renderStats === 'function'
+        ) {
+            options.renderStats();
+        }
+    }
+
     function save(options = {}) {
         const form = readForm(options);
         if (!form.success) {
@@ -185,11 +207,8 @@ const ModalController = (() => {
             return false;
         }
 
-        if (options.isFilterOpen()) options.recalcSliderMax();
-
         options.closeModal();
-        options.renderTimeline();
-        if (options.getCurrentPage() === 'stats') options.renderStats();
+        refreshAfterExpenseChange(options);
         options.showToast('Spesa modificata \u2713', 'success');
         return true;
     }

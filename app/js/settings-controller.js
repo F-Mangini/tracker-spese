@@ -3,9 +3,22 @@
    ============================================ */
 
 const SettingsController = (() => {
-    function getRenderModel(storage) {
+    function normalizeOptions(optionsOrStorage = {}) {
+        return optionsOrStorage.storage
+            ? optionsOrStorage
+            : { storage: optionsOrStorage };
+    }
+
+    function getSpese(options = {}) {
+        if (typeof options.getSpese === 'function') return options.getSpese();
+        return options.storage.getSpese();
+    }
+
+    function getRenderModel(optionsOrStorage) {
+        const options = normalizeOptions(optionsOrStorage);
+        const storage = options.storage;
         const settings = storage.getSettings();
-        const spese = storage.getSpese();
+        const spese = getSpese(options);
 
         return {
             settings,
@@ -75,7 +88,7 @@ const SettingsController = (() => {
     }
 
     function showImportChoice(preview, content, options = {}) {
-        const hasSpese = options.storage.getSpese().length > 0;
+        const hasSpese = getSpese(options).length > 0;
         const msg = SettingsView.renderImportPreviewMessage(preview, hasSpese);
         const choices = createImportChoices(preview, content, hasSpese, options);
 
@@ -184,7 +197,7 @@ const SettingsController = (() => {
         const { container, storage } = options;
         if (!container || !storage) return;
 
-        container.innerHTML = SettingsView.renderPage(getRenderModel(storage));
+        container.innerHTML = SettingsView.renderPage(getRenderModel(options));
         bindEvents(container, options);
     }
 

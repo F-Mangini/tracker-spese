@@ -12,6 +12,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/categories.js` contiene categorie e metodi di pagamento statici.
 - `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
 - `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
+- `app/js/expense-store.js` contiene una cache leggera delle letture spese per la UI, invalidata dopo scritture, import/cancellazione e cambi `storage` da altri contesti.
 - `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
 - `app/js/input-bar-controller.js` contiene il layout mobile della barra di inserimento: inset tastiera da `visualViewport`, padding del contenuto, RAF e listener resize.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
@@ -42,7 +43,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di orchestrazione generale, stato condiviso, storage, refresh UI e history concreta. Le estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog conferma, decisioni/glue dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di orchestrazione generale, stato condiviso, storage, refresh UI e history concreta. Le estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, cache letture spese, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog conferma, decisioni/glue dello stack UI e cleanup DOM puntuali in moduli separati.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -83,6 +84,8 @@ Una spesa contiene normalmente:
 
 `storage.js` normalizza le spese lette o importate prima di salvarle: importi numerici, date valide, tag senza `#`, impostazioni con fallback e id duplicati rigenerati. Le operazioni di scrittura ritornano risultati espliciti `{ success, ... }`; la UI mostra successo solo se il commit in `localStorage` e riuscito.
 
+La UI legge le spese tramite `app/js/expense-store.js`, che mantiene una cache in memoria della lista gia normalizzata da `Storage.getSpese()`. La cache viene invalidata dopo inserimento, modifica, eliminazione, import/cancellazione dati e quando il browser segnala un evento `storage` sulla stessa chiave o una pulizia completa. Questo riduce letture ripetute di `localStorage` senza cambiare il formato dati.
+
 Se il JSON salvato in `localStorage` e corrotto o incompatibile, i nuovi salvataggi vengono bloccati per evitare sovrascritture silenziose. In impostazioni compare un guardrail per esportare i dati grezzi prima di intervenire.
 
 JSON e il formato di backup completo dello stato oggi esistente, incluse le `impostazioni`. CSV e pensato per interoperabilita con fogli di calcolo; ora esporta anche `id`, `tags`, `creatoIl` e `modificatoIl`, pur restando meno espressivo del JSON per futuri dati complessi.
@@ -99,7 +102,7 @@ La dettatura vocale e supportata quando il browser espone `SpeechRecognition` o 
 
 Alcuni campi monoriga sono implementati come `textarea` per evitare, su mobile, la sezione invasiva di suggerimenti/autofill della tastiera.
 
-Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`. Il wiring touch/click, invio da tastiera, focus/blur e dettatura vocale e in `app/js/expense-input-controller.js`. Il posizionamento mobile della barra e il padding del contenuto durante tastiera/filtri sono in `app/js/input-bar-controller.js`; `app.js` mantiene refresh timeline/statistiche, feedback visivo, stato history e flag condivisi tramite hook.
+Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`. Il wiring touch/click, invio da tastiera, focus/blur e dettatura vocale e in `app/js/expense-input-controller.js`. Il posizionamento mobile della barra e il padding del contenuto durante tastiera/filtri sono in `app/js/input-bar-controller.js`; `app.js` invalida la cache spese dopo il commit e mantiene refresh timeline/statistiche, feedback visivo, stato history e flag condivisi tramite hook.
 
 ### Parser e classificazione
 
@@ -120,7 +123,7 @@ La timeline mostra le spese raggruppate per giorno, ordinate dalla piu recente. 
 
 Le spese sono apribili in modifica tramite click/tap sulla card.
 
-Rendering e template della timeline sono in `app/js/timeline-view.js`; orchestrazione DOM, empty state, applicazione filtri, nuova card evidenziata e binding click card sono in `app/js/timeline-controller.js`. `app.js` mantiene stato condiviso, storage, hook di apertura modale e hook di refresh.
+Rendering e template della timeline sono in `app/js/timeline-view.js`; orchestrazione DOM, empty state, applicazione filtri, nuova card evidenziata e binding click card sono in `app/js/timeline-controller.js`. `app.js` mantiene stato condiviso, hook di lettura cache spese, hook di apertura modale e hook di refresh.
 
 ### Filtri
 
@@ -181,7 +184,7 @@ Le statistiche usano Chart.js e includono:
 
 I filtri non-data vengono applicati anche alle statistiche.
 
-I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`. La configurazione Chart.js e in `app/js/stats-charts.js`; wiring pagina, bottoni periodo e creazione/distruzione grafici sono in `app/js/stats-controller.js`. `app.js` mantiene solo stato periodo/offset e riferimenti alle istanze Chart.
+I calcoli di periodo, totale, media giornaliera, dettaglio categorie, top spese e dati per grafici a barre sono centralizzati in `app/js/stats.js`. La configurazione Chart.js e in `app/js/stats-charts.js`; wiring pagina, bottoni periodo e creazione/distruzione grafici sono in `app/js/stats-controller.js`. `app.js` mantiene solo stato periodo/offset, hook di lettura cache spese e riferimenti alle istanze Chart.
 
 Oggi la pagina statistiche e di sola lettura: da li non si apre direttamente la modale di modifica di una spesa.
 
@@ -219,4 +222,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, parser, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni/controller stack UI/back button, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile reale, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, cache letture spese, parser, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni/controller stack UI/back button, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile reale, history/back button reale e interazioni DOM complesse.

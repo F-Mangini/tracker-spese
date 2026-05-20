@@ -13,6 +13,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
 - In corso dal 2026-05-19: wiring navigazione principale spostato in `app/js/navigation-controller.js`.
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
+- In corso dal 2026-05-20: cache letture spese della UI spostata in `app/js/expense-store.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-19: layout mobile della barra input spostato in `app/js/input-bar-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
@@ -47,6 +48,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: render statistiche, cambio periodo e creazione/distruzione grafici passano da `app/js/stats-controller.js`.
 - Completato parzialmente il 2026-05-19: toast e timer relativo spostati in `app/js/toast-controller.js`.
 - Completato parzialmente il 2026-05-19: input rapido, modifica ed eliminazione spesa passano da `app/js/expense-actions.js`.
+- Completato parzialmente il 2026-05-20: timeline, statistiche, filtri e suggerimenti tag leggono le spese tramite cache in `app/js/expense-store.js`, invalidata dopo cambi dati.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.
@@ -59,7 +61,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: proseguire con piccoli wrapper di orchestrazione rimasti e ridurre le letture ripetute di `localStorage`, continuando a evitare schema dati e workaround non verificati.
+- Prossimo passo consigliato: proseguire con piccoli wrapper di orchestrazione rimasti e ridurre i ricalcoli duplicati nei cicli filtri/render, continuando a evitare schema dati e workaround non verificati.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

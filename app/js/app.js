@@ -60,6 +60,7 @@ const App = {
             return;
         }
 
+        ExpenseStore.init({ storage: Storage, window });
         this.initTheme();
         this.initNavigation();
         this.initInput();
@@ -202,7 +203,7 @@ const App = {
             filters: this.filters,
             categories: CATEGORIES,
             methods: PAYMENT_METHODS,
-            getSpese: () => Storage.getSpese(),
+            getSpese: () => this.getSpese(),
             getSliderMax: spese => FilterView.getSliderMax(spese),
             renderChips: items => FilterView.renderChips(items),
             renderFooterInfo: payload => FilterView.renderFooterInfo(payload),
@@ -403,6 +404,7 @@ const App = {
         }
 
         const spesa = result.spesa;
+        this.invalidateSpeseCache();
         this.newCardId = spesa.id;
         input.value = '';
         try { input.blur(); } catch (_) { }
@@ -423,7 +425,7 @@ const App = {
     renderTimeline() {
         TimelineController.render({
             document,
-            spese: Storage.getSpese(),
+            spese: this.getSpese(),
             newCardId: this.newCardId,
             hasActiveFilters: () => this.hasActiveFilters(),
             applyFilters: spese => this.applyFilters(spese),
@@ -532,7 +534,7 @@ const App = {
             getModalMobileOptions: () => this.getModalMobileControllerOptions(),
             getEditingId: () => this.editingId,
             setEditingId: id => { this.editingId = id; },
-            getExpenses: () => Storage.getSpese(),
+            getExpenses: () => this.getSpese(),
             categories: CATEGORIES,
             methods: PAYMENT_METHODS,
             setEditTags: tags => { this._editTags = tags; },
@@ -557,15 +559,23 @@ const App = {
                 const instance = this._sdInstances[id];
                 return instance ? instance.getValue() : fallback;
             },
-            updateExpense: data => ExpenseActions.updateExpense({
-                id: this.editingId,
-                data,
-                storage: Storage
-            }),
-            deleteExpense: () => ExpenseActions.deleteExpense({
-                id: this.editingId,
-                storage: Storage
-            }),
+            updateExpense: data => {
+                const result = ExpenseActions.updateExpense({
+                    id: this.editingId,
+                    data,
+                    storage: Storage
+                });
+                if (result.success) this.invalidateSpeseCache();
+                return result;
+            },
+            deleteExpense: () => {
+                const result = ExpenseActions.deleteExpense({
+                    id: this.editingId,
+                    storage: Storage
+                });
+                if (result.success) this.invalidateSpeseCache();
+                return result;
+            },
             isFilterOpen: () => this.filterOpen,
             recalcSliderMax: () => this.recalcSliderMax(),
             closeModal: fromPopstate => this.closeModal(fromPopstate),
@@ -691,8 +701,8 @@ const App = {
             chipsId: 'tag-chips',
             getTags: () => this._editTags,
             setTags: tags => { this._editTags = tags; },
-            getAllTags: () => ModalView.getAllTags(Storage.getSpese()),
-            getTagStats: () => ModalView.getTagStats(Storage.getSpese())
+            getAllTags: () => ModalView.getAllTags(this.getSpese()),
+            getTagStats: () => ModalView.getTagStats(this.getSpese())
         });
     },
 
@@ -803,7 +813,7 @@ const App = {
         const result = StatsController.render({
             document,
             container: document.getElementById('stats-content'),
-            spese: Storage.getSpese(),
+            spese: this.getSpese(),
             period: this.statsPeriod,
             offset: this.statsOffset,
             filters: this.filters,
@@ -862,6 +872,7 @@ const App = {
         SettingsController.render({
             container: document.getElementById('settings-content'),
             storage: Storage,
+            getSpese: () => this.getSpese(),
             FileReaderClass: FileReader,
             dateStamp: () => this.dateStamp(),
             download: (content, filename, mime) => this.download(content, filename, mime),
@@ -871,6 +882,7 @@ const App = {
             applyTheme: theme => this.applyTheme(theme),
             refreshSettings: () => this.renderSettings(),
             refreshAfterDataChange: () => {
+                this.invalidateSpeseCache();
                 this.renderTimeline();
                 if (this.currentPage === 'stats') this.renderStats();
                 this.renderSettings();
@@ -898,6 +910,14 @@ const App = {
 
     getMet(id) {
         return AppUI.getMethod(id, PAYMENT_METHODS);
+    },
+
+    getSpese() {
+        return ExpenseStore.getSpese();
+    },
+
+    invalidateSpeseCache() {
+        ExpenseStore.invalidate();
     },
 
     groupByDay(spese) {

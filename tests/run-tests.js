@@ -83,6 +83,7 @@ function loadUiViews() {
     const context = { console };
     vm.createContext(context);
 
+    const expenseStoreCode = fs.readFileSync(path.join(root, 'app/js/expense-store.js'), 'utf8');
     const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
@@ -113,6 +114,7 @@ function loadUiViews() {
 
     vm.runInContext(
         [
+            expenseStoreCode,
             statsCode,
             expenseActionsCode,
             expenseInputControllerCode,
@@ -140,6 +142,7 @@ function loadUiViews() {
             confirmDialogCode,
             themeControllerCode,
             toastControllerCode,
+            'globalThis.ExpenseStore = ExpenseStore;',
             'globalThis.AppUI = AppUI;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
@@ -172,6 +175,7 @@ function loadUiViews() {
 
     return {
         AppUI: context.AppUI,
+        ExpenseStore: context.ExpenseStore,
         ExpenseActions: context.ExpenseActions,
         ExpenseInputController: context.ExpenseInputController,
         InputBarController: context.InputBarController,
@@ -425,6 +429,62 @@ test('Azioni spesa isolano parser e storage dall input rapido', () => {
         ['update', 'saved', 'Caffe corretto'],
         ['delete', 'saved']
     ]);
+});
+
+test('Store spese centralizza cache e invalidazione senza toccare Storage', () => {
+    const { ExpenseStore } = loadUiViews();
+    const listeners = {};
+    let reads = 0;
+    let source = [
+        expense({ id: 'a', descrizione: 'Caffe' })
+    ];
+    const storage = {
+        KEY: 'test-storage',
+        getSpese() {
+            reads += 1;
+            return JSON.parse(JSON.stringify(source));
+        }
+    };
+    const win = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        },
+        removeEventListener() {}
+    };
+
+    ExpenseStore.init({ storage, window: win });
+
+    const first = ExpenseStore.getSpese();
+    first[0].descrizione = 'Mutata fuori';
+
+    assert.equal(ExpenseStore.getSpese()[0].descrizione, 'Caffe');
+    assert.equal(reads, 1);
+
+    source = [
+        expense({ id: 'b', descrizione: 'Pranzo' })
+    ];
+    assert.equal(ExpenseStore.getSpese()[0].id, 'a');
+
+    ExpenseStore.invalidate();
+    assert.equal(ExpenseStore.getSpese()[0].id, 'b');
+    assert.equal(reads, 2);
+
+    source = [
+        expense({ id: 'c', descrizione: 'Cena' })
+    ];
+    listeners.storage({ key: 'other-storage' });
+    assert.equal(ExpenseStore.getSpese()[0].id, 'b');
+
+    listeners.storage({ key: 'test-storage' });
+    assert.equal(ExpenseStore.getSpese()[0].id, 'c');
+    assert.equal(reads, 3);
+
+    source = [
+        expense({ id: 'd', descrizione: 'Gelato' })
+    ];
+    listeners.storage({ key: null });
+    assert.equal(ExpenseStore.getSpese()[0].id, 'd');
+    assert.equal(reads, 4);
 });
 
 test('Controller input rapido collega touch, focus e blur senza dipendere da App', () => {
@@ -2428,6 +2488,13 @@ test('Controller impostazioni prepara modello e callback senza dipendere da App'
     assert.equal(model.sizeKB, 4.2);
     assert(/10\/0?5\/2026/.test(model.dateRange));
     assert(/12\/0?5\/2026/.test(model.dateRange));
+
+    const cachedModel = SettingsController.getRenderModel({
+        storage,
+        getSpese: () => [expense({ id: 'cached', data: '2026-05-13T10:00:00.000Z' })]
+    });
+    assert.equal(cachedModel.spese[0].id, 'cached');
+    assert(/13\/0?5\/2026/.test(cachedModel.dateRange));
 
     const exportChoices = SettingsController.createExportChoices({
         storage,

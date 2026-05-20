@@ -454,217 +454,74 @@ const App = {
         return !!overlay && !overlay.classList.contains('hidden') && this.editingId !== null;
     },
 
+    getModalMobileControllerOptions() {
+        return {
+            document,
+            window,
+            formController: ModalFormController,
+            isModalOpen: () => this.isModalOpen(),
+            isFilterOpen: () => this.filterOpen,
+            getCurrentPage: () => this.currentPage,
+            getLastViewportHeight: () => this._lastViewportHeight,
+            setLastViewportHeight: value => { this._lastViewportHeight = value; },
+            getKeyboardWatchTimer: () => this._keyboardWatchTimer,
+            setKeyboardWatchTimer: value => { this._keyboardWatchTimer = value; },
+            isInteractionActive: () => this._modalInteractionActive,
+            setInteractionActive: value => { this._modalInteractionActive = value; },
+            pushUiState: state => this.pushUiState(state),
+            consumeUiState: () => this.consumeUiState(),
+            clearSelection: () => this.clearModalSelection(),
+            setTimeout: (callback, delay) => setTimeout(callback, delay),
+            setInterval: (callback, delay) => setInterval(callback, delay),
+            clearInterval: id => clearInterval(id)
+        };
+    },
+
     getViewportHeight() {
-        if (window.visualViewport && Number.isFinite(window.visualViewport.height)) {
-            return window.visualViewport.height;
-        }
-        return window.innerHeight || document.documentElement.clientHeight || 0;
+        return ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions());
     },
 
     getOpenModalDropdown() {
-        return document.querySelector('#edit-modal .searchable-dropdown.open');
+        return ModalMobileController.getOpenDropdown(this.getModalMobileControllerOptions());
     },
 
     getActivePlainModalField() {
-        const modal = document.getElementById('edit-modal');
-        const el = document.activeElement;
-
-        if (!this.isModalOpen() || !modal || !el || !modal.contains(el)) return null;
-        if (el.closest('.searchable-dropdown')) return null;
-
-        if (el.matches('input[type="date"], input[type="time"]')) return null;
-        return el.matches('input, textarea, select') ? el : null;
+        return ModalMobileController.getActivePlainField(this.getModalMobileControllerOptions());
     },
 
     bindNonStickyNativePicker(el) {
-        if (!el || typeof el.showPicker !== 'function') return;
-
-        let openedProgrammatically = false;
-
-        const openPicker = (e) => {
-            openedProgrammatically = true;
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (typeof this.clearModalSelection === 'function') {
-                this.clearModalSelection();
-            }
-
-            try {
-                if (document.activeElement === el) el.blur();
-            } catch (_) { }
-
-            try {
-                el.classList.add('picker-open');
-                el.showPicker();
-            } catch (_) {
-                openedProgrammatically = false;
-                el.classList.remove('picker-open');
-                try { el.focus(); } catch (_) { }
-                return;
-            }
-
-            setTimeout(() => {
-                if (document.activeElement === el) {
-                    try { el.blur(); } catch (_) { }
-                }
-                openedProgrammatically = false;
-            }, 0);
-        };
-
-        el.addEventListener('pointerdown', openPicker);
-
-        const closeVisuals = (e) => {
-            if (e.target !== el) {
-                el.classList.remove('picker-open');
-            }
-        };
-        document.addEventListener('pointerdown', closeVisuals, { passive: true });
-        window.addEventListener('focus', () => el.classList.remove('picker-open'));
-
-        el.addEventListener('focus', (e) => {
-            if (!openedProgrammatically) {
-                try { el.blur(); } catch (_) { }
-                el.classList.remove('picker-open');
-                return;
-            }
-
-            setTimeout(() => {
-                if (document.activeElement === el) {
-                    try { el.blur(); } catch (_) { }
-                }
-            }, 0);
-        });
-
-        el.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (typeof el.showPicker !== 'function') return;
-                e.preventDefault();
-
-                if (typeof this.clearModalSelection === 'function') {
-                    this.clearModalSelection();
-                }
-
-                try {
-                    el.classList.add('picker-open');
-                    el.showPicker();
-                } catch (_) {
-                    el.classList.remove('picker-open');
-                }
-                setTimeout(() => {
-                    if (document.activeElement === el) {
-                        try { el.blur(); } catch (_) { }
-                    }
-                }, 0);
-            } else if (e.key === 'Escape') {
-                el.classList.remove('picker-open');
-                try { el.blur(); } catch (_) { }
-            }
-        });
+        ModalMobileController.bindNonStickyNativePicker(
+            el,
+            this.getModalMobileControllerOptions()
+        );
     },
 
     pushModalHistoryState() {
-        this.pushUiState({ panel: 'modal' });
+        ModalMobileController.pushHistoryState(this.getModalMobileControllerOptions());
     },
 
     ensureModalInteractionState() {
-        if (!this.isModalOpen() || this._modalInteractionActive) return;
-
-        this._modalInteractionActive = true;
-
-        this.pushUiState({ panel: 'modal-interaction' });
+        ModalMobileController.ensureInteractionState(this.getModalMobileControllerOptions());
     },
 
     releaseModalInteractionState() {
-        if (!this._modalInteractionActive) return;
-
-        this._modalInteractionActive = false;
-        this.consumeUiState();
+        ModalMobileController.releaseInteractionState(this.getModalMobileControllerOptions());
     },
 
     clearModalSelection() {
-        const dropdown = this.getOpenModalDropdown();
-        if (dropdown) {
-            const sdInput = dropdown.querySelector('.sd-input');
-            if (sdInput) {
-                try { sdInput.blur(); } catch (_) { }
-            } else {
-                dropdown.classList.remove('open');
-            }
-        }
-
-        const active = this.getActivePlainModalField();
-        if (active) {
-            try { active.blur(); } catch (_) { }
-        }
-
-        ['edit-data', 'edit-ora'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.remove('picker-open');
-        });
-
-        const sel = window.getSelection ? window.getSelection() : null;
-        if (sel && sel.rangeCount > 0) {
-            try { sel.removeAllRanges(); } catch (_) { }
-        }
+        ModalMobileController.clearSelection(this.getModalMobileControllerOptions());
     },
 
     handleModalViewportChange() {
-        const currentHeight = this.getViewportHeight();
-        const prevHeight = this._lastViewportHeight;
-        const delta = prevHeight > 0 ? (currentHeight - prevHeight) : 0;
-
-        if (prevHeight > 0) {
-            if (this.isModalOpen()) {
-                const active = this.getActivePlainModalField();
-
-                if (active) {
-                    const type = (active.type || '').toLowerCase();
-                    const isTextLike =
-                        active.tagName === 'TEXTAREA' ||
-                        ['text', 'number', 'search', 'email', 'tel', 'url', 'password'].includes(type);
-                    const isPicker = type === 'date' || type === 'time';
-
-                    // Blur solo quando la viewport aumenta molto:
-                    // tipico caso di chiusura tastiera/picker, non apertura.
-                    if ((isTextLike || isPicker) && delta > 100) {
-                        try { active.blur(); } catch (_) { }
-                    }
-                }
-            }
-
-            if (this.filterOpen) {
-                const searchInput = document.getElementById('search-input');
-                if (searchInput && document.activeElement === searchInput && delta > 100) {
-                    try { searchInput.blur(); } catch (_) { }
-                }
-            }
-
-            if (this.currentPage === 'timeline') {
-                const expenseInput = document.getElementById('expense-input');
-                if (expenseInput && document.activeElement === expenseInput && delta > 100) {
-                    try { expenseInput.blur(); } catch (_) { }
-                }
-            }
-        }
-
-        this._lastViewportHeight = currentHeight;
+        ModalMobileController.handleViewportChange(this.getModalMobileControllerOptions());
     },
 
     startModalViewportWatch() {
-        this.stopModalViewportWatch();
-        this._lastViewportHeight = this.getViewportHeight();
-
-        this._keyboardWatchTimer = setInterval(() => {
-            this.handleModalViewportChange();
-        }, 120);
+        ModalMobileController.startViewportWatch(this.getModalMobileControllerOptions());
     },
 
     stopModalViewportWatch() {
-        if (this._keyboardWatchTimer) {
-            clearInterval(this._keyboardWatchTimer);
-            this._keyboardWatchTimer = null;
-        }
+        ModalMobileController.stopViewportWatch(this.getModalMobileControllerOptions());
     },
 
     initModal() {
@@ -719,21 +576,7 @@ const App = {
         }
 
         const blurPickerOnReturn = () => {
-            ModalFormController.clearPickerVisuals(document);
-
-            if (!this.isModalOpen()) return;
-
-            const active = this.getActivePlainModalField();
-            if (!active) return;
-
-            const type = (active.type || '').toLowerCase();
-            if (type === 'date' || type === 'time') {
-                setTimeout(() => {
-                    if (document.activeElement === active) {
-                        try { active.blur(); } catch (_) { }
-                    }
-                }, 0);
-            }
+            ModalMobileController.blurPickerOnReturn(this.getModalMobileControllerOptions());
         };
 
         window.addEventListener('focus', blurPickerOnReturn);

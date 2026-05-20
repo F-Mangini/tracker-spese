@@ -98,6 +98,7 @@ function loadUiViews() {
     const statsControllerCode = fs.readFileSync(path.join(root, 'app/js/stats-controller.js'), 'utf8');
     const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
     const modalFormControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-form-controller.js'), 'utf8');
+    const modalMobileControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-mobile-controller.js'), 'utf8');
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
     const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
@@ -126,6 +127,7 @@ function loadUiViews() {
             statsControllerCode,
             modalViewCode,
             modalFormControllerCode,
+            modalMobileControllerCode,
             modalInteractionsCode,
             settingsViewCode,
             settingsActionsCode,
@@ -150,6 +152,7 @@ function loadUiViews() {
             'globalThis.StatsController = StatsController;',
             'globalThis.ModalView = ModalView;',
             'globalThis.ModalFormController = ModalFormController;',
+            'globalThis.ModalMobileController = ModalMobileController;',
             'globalThis.ModalInteractions = ModalInteractions;',
             'globalThis.SettingsView = SettingsView;',
             'globalThis.SettingsActions = SettingsActions;',
@@ -179,6 +182,7 @@ function loadUiViews() {
         StatsController: context.StatsController,
         ModalView: context.ModalView,
         ModalFormController: context.ModalFormController,
+        ModalMobileController: context.ModalMobileController,
         ModalInteractions: context.ModalInteractions,
         SettingsView: context.SettingsView,
         SettingsActions: context.SettingsActions,
@@ -1705,6 +1709,251 @@ test('Controller form modale popola campi, legge dati e collega micro-eventi', (
     assert(calls.some(call => call[0] === 'bind-picker' && call[1] === 'edit-data'));
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
+});
+
+test('Controller mobile modale isola focus, picker e viewport da App', () => {
+    const { ModalMobileController } = loadUiViews();
+    const calls = [];
+    const timeouts = [];
+    const intervals = [];
+    const clearedIntervals = [];
+    const pushedStates = [];
+    const consumedStates = [];
+    const docListeners = {};
+    const winListeners = {};
+
+    function classList(id, initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+                calls.push(['add-class', id, cls]);
+            },
+            remove(cls) {
+                classes.delete(cls);
+                calls.push(['remove-class', id, cls]);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function makeElement(id, options = {}) {
+        const el = {
+            id,
+            type: options.type || 'text',
+            tagName: options.tagName || 'INPUT',
+            inModal: !!options.inModal,
+            inDropdown: !!options.inDropdown,
+            listeners: {},
+            classList: classList(id, options.classes || []),
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            },
+            blur() {
+                calls.push(['blur', id]);
+                if (activeElement === el) activeElement = null;
+            },
+            focus() {
+                calls.push(['focus', id]);
+                activeElement = el;
+            },
+            matches(selector) {
+                if (selector === 'input[type="date"], input[type="time"]') {
+                    return this.tagName === 'INPUT' && ['date', 'time'].includes(this.type);
+                }
+                if (selector === 'input, textarea, select') {
+                    return ['INPUT', 'TEXTAREA', 'SELECT'].includes(this.tagName);
+                }
+                return false;
+            },
+            closest(selector) {
+                return selector === '.searchable-dropdown' && this.inDropdown ? {} : null;
+            },
+            showPicker() {
+                calls.push(['show-picker', id]);
+            }
+        };
+        return el;
+    }
+
+    const sdInput = makeElement('sd-input', { inModal: true, inDropdown: true });
+    const dropdown = {
+        classList: classList('dropdown', ['open']),
+        querySelector(selector) {
+            return selector === '.sd-input' ? sdInput : null;
+        }
+    };
+    const modal = { contains: el => !!(el && el.inModal) };
+    const editDesc = makeElement('edit-descrizione', { inModal: true, tagName: 'TEXTAREA' });
+    const editData = makeElement('edit-data', { inModal: true, type: 'date', classes: ['picker-open'] });
+    const editOra = makeElement('edit-ora', { inModal: true, type: 'time', classes: ['picker-open'] });
+    const searchInput = makeElement('search-input');
+    const expenseInput = makeElement('expense-input');
+    let activeElement = editDesc;
+    let modalOpen = true;
+    let filterOpen = false;
+    let currentPage = 'timeline';
+    let lastViewportHeight = 400;
+    let timerId = null;
+    let interactionActive = false;
+    let nextIntervalId = 0;
+    const selection = {
+        rangeCount: 1,
+        removeAllRanges() {
+            calls.push('remove-ranges');
+            this.rangeCount = 0;
+        }
+    };
+    const elements = {
+        'edit-modal': modal,
+        'edit-data': editData,
+        'edit-ora': editOra,
+        'search-input': searchInput,
+        'expense-input': expenseInput
+    };
+    const doc = {
+        documentElement: { clientHeight: 620 },
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return elements[id] || null;
+        },
+        querySelector(selector) {
+            return selector === '#edit-modal .searchable-dropdown.open' ? dropdown : null;
+        },
+        addEventListener(event, handler) {
+            docListeners[event] = handler;
+        }
+    };
+    const win = {
+        innerHeight: 640,
+        visualViewport: { height: 500 },
+        getSelection: () => selection,
+        addEventListener(event, handler) {
+            winListeners[event] = handler;
+        }
+    };
+    const options = {
+        document: doc,
+        window: win,
+        isModalOpen: () => modalOpen,
+        isFilterOpen: () => filterOpen,
+        getCurrentPage: () => currentPage,
+        getLastViewportHeight: () => lastViewportHeight,
+        setLastViewportHeight: value => { lastViewportHeight = value; },
+        getKeyboardWatchTimer: () => timerId,
+        setKeyboardWatchTimer: value => { timerId = value; },
+        isInteractionActive: () => interactionActive,
+        setInteractionActive: value => { interactionActive = value; },
+        pushUiState: state => pushedStates.push(state),
+        consumeUiState: () => consumedStates.push('consume'),
+        clearSelection: () => calls.push('clear-selection'),
+        setTimeout: (callback, ms) => {
+            timeouts.push({ callback, ms });
+            return timeouts.length;
+        },
+        setInterval: (callback, ms) => {
+            intervals.push({ callback, ms });
+            nextIntervalId += 1;
+            return nextIntervalId;
+        },
+        clearInterval: id => clearedIntervals.push(id)
+    };
+
+    assert.equal(ModalMobileController.getViewportHeight(options), 500);
+    assert.equal(ModalMobileController.getOpenDropdown(options), dropdown);
+    assert.equal(ModalMobileController.getActivePlainField(options), editDesc);
+
+    ModalMobileController.clearSelection(options);
+
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'sd-input'));
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
+    assert(calls.some(call => call[0] === 'remove-class' && call[1] === 'edit-data' && call[2] === 'picker-open'));
+    assert(calls.includes('remove-ranges'));
+
+    activeElement = editDesc;
+    lastViewportHeight = 300;
+    win.visualViewport.height = 450;
+    ModalMobileController.handleViewportChange(options);
+
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
+    assert.equal(lastViewportHeight, 450);
+
+    modalOpen = false;
+    filterOpen = true;
+    activeElement = searchInput;
+    lastViewportHeight = 300;
+    ModalMobileController.handleViewportChange(options);
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'search-input'));
+
+    filterOpen = false;
+    activeElement = expenseInput;
+    lastViewportHeight = 300;
+    ModalMobileController.handleViewportChange(options);
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'expense-input'));
+
+    modalOpen = true;
+    ModalMobileController.pushHistoryState(options);
+    ModalMobileController.ensureInteractionState(options);
+    assert.equal(interactionActive, true);
+    assert.deepEqual(pushedStates, [
+        { panel: 'modal' },
+        { panel: 'modal-interaction' }
+    ]);
+
+    ModalMobileController.releaseInteractionState(options);
+    assert.equal(interactionActive, false);
+    assert.deepEqual(consumedStates, ['consume']);
+
+    ModalMobileController.startViewportWatch(options);
+    assert.equal(timerId, 1);
+    assert.equal(intervals[0].ms, 120);
+    ModalMobileController.stopViewportWatch(options);
+    assert.equal(timerId, null);
+    assert.deepEqual(clearedIntervals, [1]);
+
+    activeElement = editData;
+    ModalMobileController.bindNonStickyNativePicker(editData, options);
+    let pointerPrevented = false;
+    let pointerStopped = false;
+    editData.listeners.pointerdown({
+        preventDefault() {
+            pointerPrevented = true;
+        },
+        stopPropagation() {
+            pointerStopped = true;
+        }
+    });
+
+    assert.equal(pointerPrevented, true);
+    assert.equal(pointerStopped, true);
+    assert(calls.some(call => call[0] === 'show-picker' && call[1] === 'edit-data'));
+    assert.equal(timeouts[0].ms, 0);
+    timeouts[0].callback();
+
+    let enterPrevented = false;
+    activeElement = editData;
+    editData.listeners.keydown({
+        key: 'Enter',
+        preventDefault() {
+            enterPrevented = true;
+        }
+    });
+
+    assert.equal(enterPrevented, true);
+    assert(calls.includes('clear-selection'));
+
+    editData.listeners.keydown({
+        key: 'Escape',
+        preventDefault() { }
+    });
+
+    assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
+    assert.equal(typeof docListeners.pointerdown, 'function');
+    assert.equal(typeof winListeners.focus, 'function');
 });
 
 test('Vista impostazioni renderizza info, guardrail e preview import escapata', () => {

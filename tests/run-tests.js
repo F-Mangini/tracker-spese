@@ -100,6 +100,7 @@ function loadUiViews() {
     const modalFormControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-form-controller.js'), 'utf8');
     const modalMobileControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-mobile-controller.js'), 'utf8');
     const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
+    const modalControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-controller.js'), 'utf8');
     const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
     const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
     const settingsControllerCode = fs.readFileSync(path.join(root, 'app/js/settings-controller.js'), 'utf8');
@@ -129,6 +130,7 @@ function loadUiViews() {
             modalFormControllerCode,
             modalMobileControllerCode,
             modalInteractionsCode,
+            modalControllerCode,
             settingsViewCode,
             settingsActionsCode,
             settingsControllerCode,
@@ -154,6 +156,7 @@ function loadUiViews() {
             'globalThis.ModalFormController = ModalFormController;',
             'globalThis.ModalMobileController = ModalMobileController;',
             'globalThis.ModalInteractions = ModalInteractions;',
+            'globalThis.ModalController = ModalController;',
             'globalThis.SettingsView = SettingsView;',
             'globalThis.SettingsActions = SettingsActions;',
             'globalThis.SettingsController = SettingsController;',
@@ -184,6 +187,7 @@ function loadUiViews() {
         ModalFormController: context.ModalFormController,
         ModalMobileController: context.ModalMobileController,
         ModalInteractions: context.ModalInteractions,
+        ModalController: context.ModalController,
         SettingsView: context.SettingsView,
         SettingsActions: context.SettingsActions,
         SettingsController: context.SettingsController,
@@ -1954,6 +1958,261 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
     assert.equal(typeof docListeners.pointerdown, 'function');
     assert.equal(typeof winListeners.focus, 'function');
+});
+
+test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {
+    const { ModalController } = loadUiViews();
+    const calls = [];
+    const docListeners = {};
+    const winListeners = {};
+    const timers = [];
+
+    function classList(id, initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+                calls.push(['add-class', id, cls]);
+            },
+            remove(cls) {
+                classes.delete(cls);
+                calls.push(['remove-class', id, cls]);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function element(id, initialClasses = []) {
+        return {
+            id,
+            listeners: {},
+            classList: classList(id, initialClasses),
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            }
+        };
+    }
+
+    const elements = {
+        'modal-close': element('modal-close'),
+        'modal-overlay': element('modal-overlay', ['hidden']),
+        'btn-save': element('btn-save'),
+        'btn-delete': element('btn-delete')
+    };
+    const body = {
+        classList: classList('body')
+    };
+    const doc = {
+        body,
+        visibilityState: 'visible',
+        getElementById(id) {
+            return elements[id] || null;
+        },
+        addEventListener(event, handler) {
+            docListeners[event] = handler;
+        }
+    };
+    const win = {
+        visualViewport: {
+            addEventListener(event, handler) {
+                winListeners[`vv:${event}`] = handler;
+            }
+        },
+        addEventListener(event, handler) {
+            winListeners[event] = handler;
+        }
+    };
+    const spese = [
+        expense({
+            id: 'expense-a',
+            descrizione: 'Pranzo',
+            categoria: 'ristorante',
+            metodo: 'carta',
+            tags: ['lavoro']
+        })
+    ];
+    let editingId = null;
+    let editTags = [];
+    let interactionActive = false;
+    let suspended = false;
+    let currentPage = 'stats';
+    let filterOpen = true;
+    let readResult = {
+        success: true,
+        data: { descrizione: 'Pranzo corretto', importo: 12.5 }
+    };
+    let updateResult = { success: true };
+    let deleteResult = { success: true };
+    let confirmCallback = null;
+
+    const formController = {
+        fillForm(payload) {
+            calls.push(['fill-form', payload.spesa.id]);
+        },
+        readForm(payload) {
+            calls.push(['read-form', payload.getTags().join('|')]);
+            return readResult;
+        },
+        bindPickerFields(payload) {
+            calls.push('bind-picker-fields');
+            payload.bindPicker({ id: 'edit-data' });
+        },
+        bindPlainFieldEnterBlur() {
+            calls.push('bind-plain-fields');
+        }
+    };
+    const mobileController = {
+        blurPickerOnReturn(payload) {
+            calls.push(['blur-picker-return', !!payload]);
+        }
+    };
+    const options = {
+        document: doc,
+        window: win,
+        formController,
+        mobileController,
+        getModalMobileOptions: () => ({ from: 'modal-mobile' }),
+        getEditingId: () => editingId,
+        setEditingId: id => {
+            editingId = id;
+            calls.push(['editing', id]);
+        },
+        getExpenses: () => spese,
+        categories: [{ id: 'ristorante' }],
+        methods: [{ id: 'carta' }],
+        setEditTags: tags => {
+            editTags = tags;
+            calls.push(['tags', tags.join('|')]);
+        },
+        getEditTags: () => editTags,
+        initSearchableDropdown: (containerId, items, currentValue) => {
+            calls.push(['dropdown', containerId, currentValue, items.length]);
+        },
+        initTagInput: () => calls.push('tag-input'),
+        isModalInteractionActive: () => interactionActive,
+        setModalInteractionActive: value => {
+            interactionActive = value;
+            calls.push(['interaction', value]);
+        },
+        setModalInteractionReleaseSuspended: value => {
+            suspended = value;
+            calls.push(['suspend', value]);
+        },
+        getViewportHeight: () => 700,
+        setLastViewportHeight: value => calls.push(['viewport', value]),
+        startModalViewportWatch: () => calls.push('start-watch'),
+        stopModalViewportWatch: () => calls.push('stop-watch'),
+        pushModalHistoryState: () => calls.push('push-modal-history'),
+        clearModalSelection: () => calls.push('clear-selection'),
+        runHistoryAction: action => calls.push(['history', action]),
+        getCloseHistoryAction: payload => ({ type: 'close-history', payload }),
+        parseAmountInput: value => Number(value),
+        getDropdownValue: (_id, fallback) => fallback,
+        updateExpense: data => {
+            calls.push(['update-expense', data.descrizione]);
+            return updateResult;
+        },
+        deleteExpense: () => {
+            calls.push(['delete-expense', editingId]);
+            return deleteResult;
+        },
+        isFilterOpen: () => filterOpen,
+        recalcSliderMax: () => calls.push('recalc-slider'),
+        closeModal: fromPopstate => calls.push(['close-modal', fromPopstate]),
+        saveEdit: () => calls.push('save-edit'),
+        showConfirm: (_message, onYes) => {
+            confirmCallback = onYes;
+            calls.push('confirm');
+        },
+        closeConfirm: () => calls.push('close-confirm'),
+        showToast: (message, type) => calls.push(['toast', type, message]),
+        renderTimeline: () => calls.push('render-timeline'),
+        getCurrentPage: () => currentPage,
+        renderStats: () => calls.push('render-stats'),
+        bindNonStickyNativePicker: el => calls.push(['bind-picker', el.id]),
+        handleModalViewportChange: () => calls.push('viewport-change'),
+        handlePopstate: () => calls.push('popstate'),
+        toInputDate: () => '2026-05-20',
+        toInputTime: () => '12:00',
+        setTimeout: (callback, ms) => {
+            timers.push({ callback, ms });
+            return timers.length;
+        }
+    };
+
+    assert.equal(ModalController.isOpen(options), false);
+
+    ModalController.init(options);
+
+    assert.equal(typeof elements['modal-close'].listeners.click, 'function');
+    assert.equal(typeof elements['modal-overlay'].listeners.click, 'function');
+    assert.equal(typeof elements['btn-save'].listeners.click, 'function');
+    assert.equal(typeof elements['btn-delete'].listeners.click, 'function');
+    assert.equal(typeof docListeners.keydown, 'function');
+    assert.equal(typeof winListeners.resize, 'function');
+    assert.equal(typeof winListeners['vv:resize'], 'function');
+    assert(calls.includes('bind-picker-fields'));
+    assert(calls.includes('bind-plain-fields'));
+
+    elements['btn-delete'].listeners.click();
+    assert.equal(typeof confirmCallback, 'function');
+    confirmCallback();
+
+    assert(calls.includes('confirm'));
+    assert(calls.some(call => call[0] === 'delete-expense'));
+    assert(calls.includes('recalc-slider'));
+    assert(calls.some(call => call[0] === 'close-modal'));
+    assert(calls.includes('render-timeline'));
+    assert(calls.includes('render-stats'));
+
+    assert.equal(ModalController.open(options, 'missing'), false);
+    assert.equal(ModalController.open(options, 'expense-a'), true);
+    assert.equal(editingId, 'expense-a');
+    assert.deepEqual(editTags, ['lavoro']);
+    assert.equal(ModalController.isOpen(options), true);
+    assert(calls.some(call => call[0] === 'fill-form' && call[1] === 'expense-a'));
+    assert(calls.some(call => call[0] === 'dropdown' && call[1] === 'sd-categoria'));
+    assert(calls.some(call => call[0] === 'dropdown' && call[1] === 'sd-metodo'));
+    assert(calls.includes('tag-input'));
+    assert(calls.includes('start-watch'));
+    assert(calls.includes('push-modal-history'));
+
+    assert.equal(ModalController.save(options), true);
+    assert(calls.some(call => call[0] === 'read-form'));
+    assert(calls.some(call => call[0] === 'update-expense' && call[1] === 'Pranzo corretto'));
+
+    readResult = { success: false, error: 'Importo non valido' };
+    assert.equal(ModalController.save(options), false);
+    assert(calls.some(call => call[0] === 'toast' && call[2] === 'Importo non valido'));
+
+    readResult = {
+        success: true,
+        data: { descrizione: 'Errore', importo: 1 }
+    };
+    updateResult = { success: false, error: 'Nope' };
+    assert.equal(ModalController.save(options), false);
+    assert(calls.some(call => call[0] === 'toast' && call[2] === 'Nope'));
+
+    interactionActive = true;
+    editingId = 'expense-a';
+    ModalController.close(options, false);
+
+    assert.equal(editingId, null);
+    assert.equal(interactionActive, false);
+    assert.equal(suspended, false);
+    assert(calls.includes('clear-selection'));
+    assert(calls.includes('stop-watch'));
+    assert.equal(timers[timers.length - 1].ms, 280);
+    assert(calls.some(call =>
+        call[0] === 'history' &&
+        call[1].payload.steps === 2 &&
+        call[1].payload.fromPopstate === false
+    ));
+
+    timers[timers.length - 1].callback();
+    assert(elements['modal-overlay'].classList.contains('hidden'));
 });
 
 test('Vista impostazioni renderizza info, guardrail e preview import escapata', () => {

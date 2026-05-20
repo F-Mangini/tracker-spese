@@ -450,8 +450,7 @@ const App = {
        EDIT MODAL
        ===================== */
     isModalOpen() {
-        const overlay = document.getElementById('modal-overlay');
-        return !!overlay && !overlay.classList.contains('hidden') && this.editingId !== null;
+        return ModalController.isOpen(this.getModalControllerOptions());
     },
 
     getModalMobileControllerOptions() {
@@ -524,71 +523,70 @@ const App = {
         ModalMobileController.stopViewportWatch(this.getModalMobileControllerOptions());
     },
 
-    initModal() {
-        document.getElementById('modal-close').addEventListener('click', () => this.closeModal());
-
-        document.getElementById('modal-overlay').addEventListener('click', e => {
-            if (e.target.id === 'modal-overlay') this.closeModal();
-        });
-
-        document.getElementById('btn-save').addEventListener('click', () => this.saveEdit());
-
-        document.getElementById('btn-delete').addEventListener('click', () => {
-            this.showConfirm('Eliminare questa spesa?', () => {
-                const result = ExpenseActions.deleteExpense({
-                    id: this.editingId,
-                    storage: Storage
-                });
-
-                if (!result.success) {
-                    this.showToast(result.error || 'Eliminazione non riuscita', 'error');
-                    return;
-                }
-
-                if (this.filterOpen) this.recalcSliderMax();
-
-                this.closeModal();
-                this.renderTimeline();
-                if (this.currentPage === 'stats') this.renderStats();
-                this.showToast('Spesa eliminata', 'info');
-            });
-        });
-
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') {
-                this.closeModal();
-                this.closeConfirm();
-            }
-        });
-
-        ModalFormController.bindPickerFields({
+    getModalControllerOptions() {
+        return {
             document,
-            bindPicker: el => this.bindNonStickyNativePicker(el),
+            window,
+            formController: ModalFormController,
+            mobileController: ModalMobileController,
+            getModalMobileOptions: () => this.getModalMobileControllerOptions(),
+            getEditingId: () => this.editingId,
+            setEditingId: id => { this.editingId = id; },
+            getExpenses: () => Storage.getSpese(),
+            categories: CATEGORIES,
+            methods: PAYMENT_METHODS,
+            setEditTags: tags => { this._editTags = tags; },
+            getEditTags: () => this._editTags,
+            initSearchableDropdown: (containerId, items, currentValue) => {
+                this.initSearchableDropdown(containerId, items, currentValue);
+            },
+            initTagInput: () => this.initTagInput(),
+            isModalInteractionActive: () => this._modalInteractionActive,
+            setModalInteractionActive: value => { this._modalInteractionActive = value; },
+            setModalInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; },
             getViewportHeight: () => this.getViewportHeight(),
-            setLastViewportHeight: value => { this._lastViewportHeight = value; }
-        });
-
-        const handleViewportResize = () => this.handleModalViewportChange();
-
-        window.addEventListener('resize', handleViewportResize);
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', handleViewportResize);
-        }
-
-        const blurPickerOnReturn = () => {
-            ModalMobileController.blurPickerOnReturn(this.getModalMobileControllerOptions());
+            setLastViewportHeight: value => { this._lastViewportHeight = value; },
+            startModalViewportWatch: () => this.startModalViewportWatch(),
+            stopModalViewportWatch: () => this.stopModalViewportWatch(),
+            pushModalHistoryState: () => this.pushModalHistoryState(),
+            clearModalSelection: () => this.clearModalSelection(),
+            runHistoryAction: action => this.runHistoryAction(action),
+            getCloseHistoryAction: payload => UIStack.getCloseHistoryAction(payload),
+            parseAmountInput: value => this.parseAmountInput(value),
+            getDropdownValue: (id, fallback) => {
+                const instance = this._sdInstances[id];
+                return instance ? instance.getValue() : fallback;
+            },
+            updateExpense: data => ExpenseActions.updateExpense({
+                id: this.editingId,
+                data,
+                storage: Storage
+            }),
+            deleteExpense: () => ExpenseActions.deleteExpense({
+                id: this.editingId,
+                storage: Storage
+            }),
+            isFilterOpen: () => this.filterOpen,
+            recalcSliderMax: () => this.recalcSliderMax(),
+            closeModal: fromPopstate => this.closeModal(fromPopstate),
+            saveEdit: () => this.saveEdit(),
+            showConfirm: (message, onYes) => this.showConfirm(message, onYes),
+            closeConfirm: () => this.closeConfirm(),
+            showToast: (message, type) => this.showToast(message, type),
+            renderTimeline: () => this.renderTimeline(),
+            getCurrentPage: () => this.currentPage,
+            renderStats: () => this.renderStats(),
+            bindNonStickyNativePicker: el => this.bindNonStickyNativePicker(el),
+            handleModalViewportChange: () => this.handleModalViewportChange(),
+            handlePopstate: () => this.handlePopstate(),
+            toInputDate: date => this.toInputDate(date),
+            toInputTime: date => this.toInputTime(date),
+            setTimeout: (callback, delay) => setTimeout(callback, delay)
         };
+    },
 
-        window.addEventListener('focus', blurPickerOnReturn);
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                blurPickerOnReturn();
-            }
-        });
-
-        window.addEventListener('popstate', () => this.handlePopstate());
-
-        ModalFormController.bindPlainFieldEnterBlur({ document });
+    initModal() {
+        ModalController.init(this.getModalControllerOptions());
     },
 
     getUiStackControllerOptions() {
@@ -703,96 +701,19 @@ const App = {
     },
 
     openEditModal(id) {
-        const spesa = Storage.getSpese().find(s => s.id === id);
-        if (!spesa) return;
-
-        this.editingId = id;
-
-        ModalFormController.fillForm({
-            document,
-            spesa,
-            toInputDate: date => this.toInputDate(date),
-            toInputTime: date => this.toInputTime(date)
-        });
-
-        this.initSearchableDropdown('sd-categoria', CATEGORIES, spesa.categoria || 'altro');
-        this.initSearchableDropdown('sd-metodo', PAYMENT_METHODS, spesa.metodo || 'carta');
-
-        this._editTags = Array.isArray(spesa.tags) ? [...spesa.tags] : [];
-        this.initTagInput();
-
-        this._modalInteractionActive = false;
-        this._suspendInteractionRelease = false;
-        this._lastViewportHeight = this.getViewportHeight();
-
-        document.getElementById('modal-overlay').classList.remove('hidden');
-        document.body.classList.add('no-scroll');
-        this.startModalViewportWatch();
-        this.pushModalHistoryState();
+        ModalController.open(this.getModalControllerOptions(), id);
     },
 
     closeModal(fromPopstate = false) {
-        const hadInteractionState = this._modalInteractionActive;
-
-        this._suspendInteractionRelease = true;
-        this.clearModalSelection();
-        this._suspendInteractionRelease = false;
-
-        const overlay = document.getElementById('modal-overlay');
-        overlay.classList.add('closing');
-        document.body.classList.remove('no-scroll');
-        this.editingId = null;
-        this._modalInteractionActive = false;
-        this.stopModalViewportWatch();
-
-        setTimeout(() => {
-            overlay.classList.remove('closing');
-            overlay.classList.add('hidden');
-        }, 280);
-
-        this.runHistoryAction(UIStack.getCloseHistoryAction({
-            fromPopstate,
-            wasOpen: true,
-            steps: hadInteractionState ? 2 : 1
-        }));
+        ModalController.close(this.getModalControllerOptions(), fromPopstate);
     },
 
     readEditFormData() {
-        return ModalFormController.readForm({
-            document,
-            parseAmountInput: value => this.parseAmountInput(value),
-            getDropdownValue: (id, fallback) => {
-                const instance = this._sdInstances[id];
-                return instance ? instance.getValue() : fallback;
-            },
-            getTags: () => this._editTags
-        });
+        return ModalController.readForm(this.getModalControllerOptions());
     },
 
     saveEdit() {
-        const form = this.readEditFormData();
-        if (!form.success) {
-            this.showToast(form.error, 'error');
-            return;
-        }
-
-        const result = ExpenseActions.updateExpense({
-            id: this.editingId,
-            data: form.data,
-            storage: Storage
-        });
-
-        if (!result.success) {
-            this.showToast(result.error || 'Salvataggio non riuscito', 'error');
-            return;
-        }
-
-        if (this.filterOpen) this.recalcSliderMax();
-
-        this.closeModal();
-        this.renderTimeline();
-        if (this.currentPage === 'stats') this.renderStats();
-        this.showToast('Spesa modificata ✓', 'success');
+        ModalController.save(this.getModalControllerOptions());
     },
 
     /* =====================

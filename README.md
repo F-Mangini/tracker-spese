@@ -64,6 +64,7 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
         +-- modal-form-controller.js
         +-- modal-mobile-controller.js
         +-- modal-interactions.js
+        +-- modal-controller.js
         +-- navigation-controller.js
         +-- parser.js
         +-- settings-actions.js
@@ -117,7 +118,7 @@ Test leggeri disponibili:
 node tests/run-tests.js
 ```
 
-Il runner copre guardrail iniziali su storage, parser base e importi ambigui, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, configurazione grafici, stack UI/back button/controller, cleanup DOM collegati al popstate, form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog conferma e rendering/helper UI estratti.
+Il runner copre guardrail iniziali su storage, parser base e importi ambigui, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, configurazione grafici, stack UI/back button/controller, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog conferma e rendering/helper UI estratti.
 
 ## Deploy
 

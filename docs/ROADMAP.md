@@ -27,6 +27,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: form modifica spostato in `app/js/modal-form-controller.js`.
 - In corso dal 2026-05-20: focus, picker nativi e watcher viewport/tastiera della modale spostati in `app/js/modal-mobile-controller.js`.
 - In corso dal 2026-05-19: eventi dropdown/tag della modale spostati in `app/js/modal-interactions.js`.
+- In corso dal 2026-05-20: lifecycle della modale di modifica spostato in `app/js/modal-controller.js`.
 - In corso dal 2026-05-18: rendering impostazioni e preview import spostati in `app/js/settings-view.js`.
 - In corso dal 2026-05-19: wiring pagina impostazioni spostato in `app/js/settings-controller.js`.
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
@@ -50,6 +51,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.
 - Completato parzialmente il 2026-05-20: focus, picker nativi, selection cleanup, stato history di interazione e watcher viewport/tastiera della modale passano da `app/js/modal-mobile-controller.js`.
+- Completato parzialmente il 2026-05-20: apertura, chiusura, salvataggio e conferma eliminazione della modale passano da `app/js/modal-controller.js`.
 
 Priorita della fase attuale:
 
@@ -57,7 +59,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: proseguire con moduli UI ad alto impatto ma isolabili, come apertura/chiusura modale o piccoli wrapper di orchestrazione, continuando a evitare schema dati e workaround non verificati.
+- Prossimo passo consigliato: proseguire con piccoli wrapper di orchestrazione rimasti e ridurre le letture ripetute di `localStorage`, continuando a evitare schema dati e workaround non verificati.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

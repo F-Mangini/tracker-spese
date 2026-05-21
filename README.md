@@ -55,9 +55,12 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
         +-- confirm-dialog.js
         +-- config.js
         +-- expense-actions.js
+        +-- expense-submit-controller.js
         +-- expense-store.js
         +-- expense-query.js
         +-- app-refresh.js
+        +-- history-controller.js
+        +-- download-controller.js
         +-- expense-input-controller.js
         +-- input-bar-controller.js
         +-- filters.js
@@ -121,7 +124,7 @@ Test leggeri disponibili:
 node tests/run-tests.js
 ```
 
-Il runner copre guardrail iniziali su storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser base e importi ambigui, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, configurazione grafici, stack UI/back button/controller, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog conferma e rendering/helper UI estratti.
+Il runner copre guardrail iniziali su storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser base e importi ambigui, azioni spesa, submit input rapido, download file, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, configurazione grafici, stack UI/back button/controller, esecuzione history, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog conferma e rendering/helper UI estratti.
 
 ## Deploy
 

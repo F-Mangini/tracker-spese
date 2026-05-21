@@ -13,9 +13,11 @@ Stato della fase iniziale:
 - In corso dal 2026-05-16: separazione progressiva di `app.js`, con logica filtri in `app/js/filters.js` e logica statistiche/date/aggregazioni in `app/js/stats.js`.
 - In corso dal 2026-05-19: wiring navigazione principale spostato in `app/js/navigation-controller.js`.
 - In corso dal 2026-05-19: operazioni spesa di input rapido, modifica ed eliminazione spostate in `app/js/expense-actions.js`.
+- In corso dal 2026-05-21: submit dell'input rapido spostato in `app/js/expense-submit-controller.js`.
 - In corso dal 2026-05-20: cache letture spese della UI spostata in `app/js/expense-store.js`.
 - In corso dal 2026-05-20: modelli filtrati/statistiche/riepiloghi spostati in `app/js/expense-query.js`.
 - In corso dal 2026-05-20: policy refresh viste dopo cambio dati spostata in `app/js/app-refresh.js`.
+- In corso dal 2026-05-21: download reale dei file esportati spostato in `app/js/download-controller.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-19: layout mobile della barra input spostato in `app/js/input-bar-controller.js`.
 - In corso dal 2026-05-18: rendering di filtri, timeline e statistiche spostato in `app/js/filter-view.js`, `app/js/timeline-view.js` e `app/js/stats-view.js`, con helper comuni in `app/js/ui-utils.js`.
@@ -26,6 +28,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: gestione tema spostata in `app/js/theme-controller.js`.
 - In corso dal 2026-05-19: gestione toast spostata in `app/js/toast-controller.js`.
 - In corso dal 2026-05-19: glue `popstate`/back button spostato in `app/js/ui-stack-controller.js`.
+- In corso dal 2026-05-20: esecuzione history spostata in `app/js/history-controller.js`.
 - In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
 - In corso dal 2026-05-19: form modifica spostato in `app/js/modal-form-controller.js`.
 - In corso dal 2026-05-20: focus, picker nativi e watcher viewport/tastiera della modale spostati in `app/js/modal-mobile-controller.js`.
@@ -36,7 +39,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 - Completato parzialmente il 2026-05-19: parser importi rafforzato per frasi con piu numeri, valuta esplicita e importi finali.
 - Completato parzialmente il 2026-05-19: decisione `popstate`/back button centralizzata in `app/js/ui-stack.js` e coperta da test.
-- Completato parzialmente il 2026-05-19: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da un solo helper in `app.js`.
+- Completato parzialmente il 2026-05-20: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da `app/js/history-controller.js` tramite un wrapper sottile in `app.js`.
 - Completato parzialmente il 2026-05-19: applicazione delle azioni `popstate`/back button spostata in `app/js/ui-stack-controller.js` tramite hook verso `app.js`.
 - Completato parzialmente il 2026-05-19: decisioni import/export impostazioni spostate in `app/js/settings-actions.js`.
 - Completato parzialmente il 2026-05-19: cleanup DOM minimi collegati al `popstate` spostati in `app/js/ui-stack-effects.js`.
@@ -50,10 +53,15 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: render statistiche, cambio periodo e creazione/distruzione grafici passano da `app/js/stats-controller.js`.
 - Completato parzialmente il 2026-05-19: toast e timer relativo spostati in `app/js/toast-controller.js`.
 - Completato parzialmente il 2026-05-19: input rapido, modifica ed eliminazione spesa passano da `app/js/expense-actions.js`.
+- Completato parzialmente il 2026-05-21: pulizia campo, blur mobile, refresh viste e toast del submit rapido passano da `app/js/expense-submit-controller.js`.
 - Completato parzialmente il 2026-05-20: timeline, statistiche, filtri e suggerimenti tag leggono le spese tramite cache in `app/js/expense-store.js`, invalidata dopo cambi dati.
 - Completato parzialmente il 2026-05-20: badge filtri e timeline riusano il modello filtrato/riepiloghi di `app/js/expense-query.js` invece di ricalcolare separatamente.
 - Completato parzialmente il 2026-05-20: la pagina statistiche riceve da `app/js/expense-query.js` modello periodo, filtri non-data, riepilogo e titolo grafico gia preparati.
 - Completato parzialmente il 2026-05-20: input rapido, modale e impostazioni riusano `app/js/app-refresh.js` per invalidare cache e aggiornare viste dopo cambi dati.
+- Completato parzialmente il 2026-05-20: `HistoryController` esegue push/replace/back/go generati dallo stack UI e conserva il fallback `go` -> `back`.
+- Completato parzialmente il 2026-05-21: `DownloadController` gestisce il download reale dei file esportati e `app.js` non contiene piu il helper Blob/link temporaneo.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper puri ridondanti verso `AppUI`, `StatsData`, `ExpenseStore` ed `ExpenseQuery` nei flussi di timeline, statistiche, modale e impostazioni.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper pass-through non usati verso controller gia estratti e lo stato morto `_expenseScrollLockY`.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.

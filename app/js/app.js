@@ -43,7 +43,6 @@ const App = {
     _lastViewportHeight: 0,
     _expenseInputBarRaf: null,
     _expenseInputResizeHandler: null,
-    _expenseScrollLockY: 0,
 
     /* --- Searchable dropdown instances --- */
     _sdInstances: {},
@@ -66,7 +65,6 @@ const App = {
         this.initInput();
         this.initModal();
         this.initFilters();
-        this.populateDropdowns();
         this.renderTimeline();
         this._lastViewportHeight = this.getViewportHeight();
 
@@ -129,44 +127,12 @@ const App = {
         NavigationController.init(this.getNavigationControllerOptions());
     },
 
-    rememberCurrentPageScroll() {
-        NavigationController.rememberCurrentPageScroll(this.getNavigationControllerOptions());
-    },
-
-    restorePageScroll(page) {
-        NavigationController.restorePageScroll(this.getNavigationControllerOptions(), page);
-    },
-
-    syncPageDom(page) {
-        NavigationController.syncPageDom(this.getNavigationControllerOptions(), page);
-    },
-
-    syncPageContent(page) {
-        NavigationController.syncPageContent(this.getNavigationControllerOptions(), page);
-    },
-
     runHistoryAction(action) {
-        if (!action || action.type === UIStack.HISTORY_ACTIONS.NONE) return;
-
-        if (action.suppressPopstate) {
-            this._suppressNextPopstate = true;
-        }
-
-        try {
-            if (action.type === UIStack.HISTORY_ACTIONS.PUSH) {
-                history.pushState(action.state || {}, '');
-            } else if (action.type === UIStack.HISTORY_ACTIONS.REPLACE) {
-                history.replaceState(action.state || {}, '');
-            } else if (action.type === UIStack.HISTORY_ACTIONS.BACK) {
-                history.back();
-            } else if (action.type === UIStack.HISTORY_ACTIONS.GO) {
-                history.go(action.delta || -1);
-            }
-        } catch (_) {
-            if (action.type === UIStack.HISTORY_ACTIONS.GO) {
-                try { history.back(); } catch (__) { }
-            }
-        }
+        HistoryController.run(action, {
+            stack: UIStack,
+            history,
+            setSuppressPopstate: value => { this._suppressNextPopstate = value; }
+        });
     },
 
     pushUiState(state) {
@@ -175,14 +141,6 @@ const App = {
 
     consumeUiState(steps = 1) {
         this.runHistoryAction(UIStack.consumeState({ steps }));
-    },
-
-    updateNavigationHistory(page, fromPopstate) {
-        NavigationController.updateNavigationHistory(
-            this.getNavigationControllerOptions(),
-            page,
-            fromPopstate
-        );
     },
 
     navigateTo(page, fromPopstate = false) {
@@ -203,13 +161,13 @@ const App = {
             filters: this.filters,
             categories: CATEGORIES,
             methods: PAYMENT_METHODS,
-            getSpese: () => this.getSpese(),
+            getSpese: () => ExpenseStore.getSpese(),
             getSliderMax: spese => FilterView.getSliderMax(spese),
             renderChips: items => FilterView.renderChips(items),
             renderFooterInfo: payload => FilterView.renderFooterInfo(payload),
             getQuickTotals: spese => StatsData.getQuickTotals(spese),
             countActiveFilters: () => ExpenseFilters.countActive(this.filters),
-            applyFilters: spese => this.applyFilters(spese),
+            applyFilters: spese => ExpenseFilters.apply(spese, this.filters),
             getFilterModel: () => this.getExpenseFilterModel(),
             getFilterOpen: () => this.filterOpen,
             setFilterOpen: value => { this.filterOpen = value; },
@@ -240,41 +198,13 @@ const App = {
         FilterController.init(this.getFilterControllerOptions());
     },
 
-    toggleAdvancedFilters() {
-        FilterController.toggleAdvancedFilters(this.getFilterControllerOptions());
-    },
-
-    openAdvancedFilters() {
-        FilterController.openAdvancedFilters(this.getFilterControllerOptions());
-    },
-
     closeAdvancedFilters(fromPopstate = false) {
         FilterController.closeAdvancedFilters(this.getFilterControllerOptions(), fromPopstate);
     },
 
-    buildChips(containerId, items, targetSet) {
-        FilterController.buildChips(this.getFilterControllerOptions(), containerId, items, targetSet);
-    },
-
-    syncFilterUI() {
-        FilterController.syncFilterUI(this.getFilterControllerOptions());
-    },
-
     /* --- Dual Range Slider --- */
-    initSlider() {
-        FilterController.initSlider(this.getFilterControllerOptions());
-    },
-
     recalcSliderMax() {
         FilterController.recalcSliderMax(this.getFilterControllerOptions());
-    },
-
-    updateSliderUI(lo, hi) {
-        FilterController.updateSliderUI(this.getFilterControllerOptions(), lo, hi);
-    },
-
-    openFilterPanel() {
-        FilterController.openFilterPanel(this.getFilterControllerOptions());
     },
 
     closeFilterPanel(fromPopstate) {
@@ -291,32 +221,11 @@ const App = {
         if (this.currentPage === 'stats') this.renderStats(filterModel);
     },
 
-    getActiveFilterCount() {
-        return FilterController.getActiveFilterCount(this.getFilterControllerOptions());
-    },
-
     updateFilterBadge(filterModel = null) {
         FilterController.updateFilterBadge({
             ...this.getFilterControllerOptions(),
             filterModel
         });
-    },
-
-    resetFilters() {
-        FilterController.resetFilters(this.getFilterControllerOptions());
-    },
-
-    /* --- Apply filters --- */
-    applyFilters(spese) {
-        return ExpenseFilters.apply(spese, this.filters);
-    },
-
-    applyNonDateFilters(spese) {
-        return ExpenseFilters.applyNonDate(spese, this.filters);
-    },
-
-    hasActiveFilters() {
-        return ExpenseFilters.hasActive(this.filters);
     },
 
     getInputBarControllerOptions() {
@@ -338,14 +247,6 @@ const App = {
 
     updateAppMainPadding() {
         InputBarController.updateAppMainPadding(this.getInputBarControllerOptions());
-    },
-
-    getExpenseInputKeyboardInset() {
-        return InputBarController.getKeyboardInset(this.getInputBarControllerOptions());
-    },
-
-    updateExpenseInputBarPosition(force = false) {
-        InputBarController.updatePosition(this.getInputBarControllerOptions(), force);
     },
 
     scheduleExpenseInputBarPositionUpdate(force = false) {
@@ -387,38 +288,17 @@ const App = {
     },
 
     submitExpense() {
-        const input = document.getElementById('expense-input');
-        const result = ExpenseActions.addFromText({
-            text: input.value,
+        ExpenseSubmitController.submit({
+            document,
+            actions: ExpenseActions,
             parser: Parser,
-            storage: Storage
+            storage: Storage,
+            categories: CATEGORIES,
+            ui: AppUI,
+            setNewCardId: id => { this.newCardId = id; },
+            refreshAfterAdd: () => this.refreshExpenseViews({ updateFilterSlider: true }),
+            showToast: (message, type) => this.showToast(message, type)
         });
-
-        if (result.reason === 'empty') {
-            this.showToast('Scrivi una spesa prima di inviare', 'error');
-            return;
-        }
-
-        if (result.reason === 'parse') {
-            this.showToast('Non ho capito l\'importo. Prova: "caffè 1.50"', 'error');
-            return;
-        }
-
-        if (!result.success) {
-            this.showToast(result.error || 'Salvataggio non riuscito', 'error');
-            return;
-        }
-
-        const spesa = result.spesa;
-        this.newCardId = spesa.id;
-        input.value = '';
-        try { input.blur(); } catch (_) { }
-        try { document.activeElement.blur(); } catch (_) { }
-
-        this.refreshExpenseViews({ updateFilterSlider: true });
-
-        const cat = this.getCat(spesa.categoria);
-        this.showToast(`${cat.emoji} ${spesa.descrizione} · €${spesa.importo.toFixed(2)}`, 'success');
     },
 
     /* =====================
@@ -427,28 +307,19 @@ const App = {
     renderTimeline(filterModel = null) {
         TimelineController.render({
             document,
-            spese: filterModel ? filterModel.allSpese : this.getSpese(),
+            spese: filterModel ? filterModel.allSpese : ExpenseStore.getSpese(),
             filterModel,
             newCardId: this.newCardId,
-            hasActiveFilters: () => this.hasActiveFilters(),
-            applyFilters: spese => this.applyFilters(spese),
+            hasActiveFilters: () => ExpenseFilters.hasActive(this.filters),
+            applyFilters: spese => ExpenseFilters.apply(spese, this.filters),
             getQuickTotals: spese => StatsData.getQuickTotals(spese),
-            groupByDay: spese => this.groupByDay(spese),
-            getCategory: id => this.getCat(id),
-            getMethod: id => this.getMet(id),
-            formatDayLabel: date => this.formatDayLabel(date),
+            groupByDay: spese => StatsData.groupByDay(spese),
+            getCategory: id => AppUI.getCategory(id, CATEGORIES),
+            getMethod: id => AppUI.getMethod(id, PAYMENT_METHODS),
+            formatDayLabel: date => AppUI.formatDayLabel(date),
             clearNewCardId: () => { this.newCardId = null; },
             openEditModal: id => this.openEditModal(id)
         });
-    },
-
-    createCard(s) {
-        return TimelineController.renderCard(s, {
-            newCardId: this.newCardId,
-            getCategory: id => this.getCat(id),
-            getMethod: id => this.getMet(id),
-            clearNewCardId: () => { this.newCardId = null; }
-        }).html;
     },
 
     /* =====================
@@ -537,7 +408,7 @@ const App = {
             getModalMobileOptions: () => this.getModalMobileControllerOptions(),
             getEditingId: () => this.editingId,
             setEditingId: id => { this.editingId = id; },
-            getExpenses: () => this.getSpese(),
+            getExpenses: () => ExpenseStore.getSpese(),
             categories: CATEGORIES,
             methods: PAYMENT_METHODS,
             setEditTags: tags => { this._editTags = tags; },
@@ -557,7 +428,7 @@ const App = {
             clearModalSelection: () => this.clearModalSelection(),
             runHistoryAction: action => this.runHistoryAction(action),
             getCloseHistoryAction: payload => UIStack.getCloseHistoryAction(payload),
-            parseAmountInput: value => this.parseAmountInput(value),
+            parseAmountInput: value => AppUI.parseAmountInput(value),
             getDropdownValue: (id, fallback) => {
                 const instance = this._sdInstances[id];
                 return instance ? instance.getValue() : fallback;
@@ -580,8 +451,8 @@ const App = {
             bindNonStickyNativePicker: el => this.bindNonStickyNativePicker(el),
             handleModalViewportChange: () => this.handleModalViewportChange(),
             handlePopstate: () => this.handlePopstate(),
-            toInputDate: date => this.toInputDate(date),
-            toInputTime: date => this.toInputTime(date),
+            toInputDate: date => AppUI.toInputDate(date),
+            toInputTime: date => AppUI.toInputTime(date),
             setTimeout: (callback, delay) => setTimeout(callback, delay)
         };
     },
@@ -622,44 +493,8 @@ const App = {
         };
     },
 
-    getUiStackSnapshot() {
-        return UIStackController.getUiStackSnapshot(this.getUiStackControllerOptions());
-    },
-
-    applyPopstateAction(action) {
-        UIStackController.applyPopstateAction(this.getUiStackControllerOptions(), action);
-    },
-
     handlePopstate() {
         UIStackController.handlePopstate(this.getUiStackControllerOptions());
-    },
-
-    closeFilterSearchInteraction() {
-        UIStackController.closeFilterSearchInteraction(this.getUiStackControllerOptions());
-    },
-
-    closeExpenseInputInteraction() {
-        UIStackController.closeExpenseInputInteraction(this.getUiStackControllerOptions());
-    },
-
-    getModalStackSnapshot() {
-        return UIStackController.getModalStackSnapshot(this.getUiStackControllerOptions());
-    },
-
-    applyModalPopstateAction(action) {
-        UIStackController.applyModalPopstateAction(this.getUiStackControllerOptions(), action);
-    },
-
-    handleModalPopstate() {
-        UIStackController.handleModalPopstate(this.getUiStackControllerOptions());
-    },
-
-    clearModalInteractionFromPopstate() {
-        UIStackController.clearModalInteractionFromPopstate(this.getUiStackControllerOptions());
-    },
-
-    clearModalFieldFromPopstate() {
-        UIStackController.clearModalFieldFromPopstate(this.getUiStackControllerOptions());
     },
 
     getModalInteractionHooks() {
@@ -692,13 +527,9 @@ const App = {
             chipsId: 'tag-chips',
             getTags: () => this._editTags,
             setTags: tags => { this._editTags = tags; },
-            getAllTags: () => ModalView.getAllTags(this.getSpese()),
-            getTagStats: () => ModalView.getTagStats(this.getSpese())
+            getAllTags: () => ModalView.getAllTags(ExpenseStore.getSpese()),
+            getTagStats: () => ModalView.getTagStats(ExpenseStore.getSpese())
         });
-    },
-
-    populateDropdowns() {
-        // Dropdowns are now initialized per-open in openEditModal
     },
 
     openEditModal(id) {
@@ -707,10 +538,6 @@ const App = {
 
     closeModal(fromPopstate = false) {
         ModalController.close(this.getModalControllerOptions(), fromPopstate);
-    },
-
-    readEditFormData() {
-        return ModalController.readForm(this.getModalControllerOptions());
     },
 
     saveEdit() {
@@ -763,45 +590,8 @@ const App = {
     /* =============================================
        STATS
        ============================================= */
-    getDataBounds(spese) {
-        return StatsData.getDataBounds(spese);
-    },
-
-    getPeriodDates(allSpese = []) {
-        return StatsController.getPeriodDates({
-            period: this.statsPeriod,
-            offset: this.statsOffset,
-            filters: this.filters,
-            spese: allSpese
-        });
-    },
-
-    getActualPeriodEnd(end) {
-        return StatsData.getActualPeriodEnd(end);
-    },
-
-    getRangeDays(start, end) {
-        return StatsData.getRangeDays(start, end);
-    },
-
-    getBarAggregation(start, end) {
-        return StatsController.getBarAggregation({
-            period: this.statsPeriod,
-            start,
-            end
-        });
-    },
-
-    getBarChartTitle(start, end) {
-        return StatsController.getBarChartTitle({
-            period: this.statsPeriod,
-            start,
-            end
-        });
-    },
-
     renderStats(filterModel = null) {
-        const allSpese = filterModel ? filterModel.allSpese : this.getSpese();
+        const allSpese = filterModel ? filterModel.allSpese : ExpenseStore.getSpese();
         const statsModel = this.getExpenseStatsModel(allSpese);
         const result = StatsController.render({
             document,
@@ -816,8 +606,8 @@ const App = {
                 bar: this.chartBar
             },
             ChartClass: typeof Chart === 'undefined' ? null : Chart,
-            getCategory: id => this.getCat(id),
-            applyNonDateFilters: spese => this.applyNonDateFilters(spese),
+            getCategory: id => AppUI.getCategory(id, CATEGORIES),
+            applyNonDateFilters: spese => ExpenseFilters.applyNonDate(spese, this.filters),
             setPeriod: period => { this.statsPeriod = period; },
             setOffset: offset => { this.statsOffset = offset; },
             rerender: () => this.renderStats()
@@ -828,48 +618,20 @@ const App = {
     },
 
     /* =====================
-       CHARTS
-       ===================== */
-    renderCharts(filtered, start, end) {
-        const charts = StatsController.renderCharts({
-            document,
-            ChartClass: typeof Chart === 'undefined' ? null : Chart,
-            charts: {
-                doughnut: this.chartDoughnut,
-                bar: this.chartBar
-            },
-            filtered,
-            start,
-            end,
-            period: this.statsPeriod,
-            getCategory: id => this.getCat(id)
-        });
-
-        this.chartDoughnut = charts.doughnut;
-        this.chartBar = charts.bar;
-    },
-
-    destroyCharts() {
-        const charts = StatsController.destroyCharts({
-            doughnut: this.chartDoughnut,
-            bar: this.chartBar
-        });
-
-        this.chartDoughnut = charts.doughnut;
-        this.chartBar = charts.bar;
-    },
-
-    /* =====================
        SETTINGS
        ===================== */
     renderSettings() {
         SettingsController.render({
             container: document.getElementById('settings-content'),
             storage: Storage,
-            getSpese: () => this.getSpese(),
+            getSpese: () => ExpenseStore.getSpese(),
             FileReaderClass: FileReader,
-            dateStamp: () => this.dateStamp(),
-            download: (content, filename, mime) => this.download(content, filename, mime),
+            dateStamp: () => AppUI.dateStamp(),
+            download: (content, filename, mime) => DownloadController.download(content, filename, mime, {
+                document,
+                URL,
+                Blob
+            }),
             showToast: (message, type) => this.showToast(message, type),
             showChoices: (message, choices) => this.showChoices(message, choices),
             showConfirm: (message, onYes) => this.showConfirm(message, onYes),
@@ -892,7 +654,7 @@ const App = {
 
     refreshExpenseViews(options = {}) {
         AppRefresh.refreshExpenseViews({
-            invalidateSpeseCache: () => this.invalidateSpeseCache(),
+            invalidateSpeseCache: () => ExpenseStore.invalidate(),
             updateFilterSlider: !!options.updateFilterSlider,
             isFilterOpen: () => this.filterOpen,
             recalcSliderMax: () => this.recalcSliderMax(),
@@ -907,83 +669,20 @@ const App = {
     /* =====================
        HELPERS
        ===================== */
-    getCat(id) {
-        return AppUI.getCategory(id, CATEGORIES);
-    },
-
-    getMet(id) {
-        return AppUI.getMethod(id, PAYMENT_METHODS);
-    },
-
-    getSpese() {
-        return ExpenseStore.getSpese();
-    },
-
-    getExpenseFilterModel(spese = this.getSpese()) {
+    getExpenseFilterModel(spese = ExpenseStore.getSpese()) {
         return ExpenseQuery.buildFilterModel({
             spese,
             filters: this.filters
         });
     },
 
-    getExpenseStatsModel(spese = this.getSpese()) {
+    getExpenseStatsModel(spese = ExpenseStore.getSpese()) {
         return ExpenseQuery.buildStatsModel({
             spese,
             filters: this.filters,
             period: this.statsPeriod,
             offset: this.statsOffset
         });
-    },
-
-    invalidateSpeseCache() {
-        ExpenseStore.invalidate();
-    },
-
-    groupByDay(spese) {
-        return StatsData.groupByDay(spese);
-    },
-
-    dateKey(d) {
-        return StatsData.dateKey(d);
-    },
-
-    formatDayLabel(dateKey) {
-        return AppUI.formatDayLabel(dateKey);
-    },
-
-    toInputDate(d) {
-        return AppUI.toInputDate(d);
-    },
-
-    toInputTime(d) {
-        return AppUI.toInputTime(d);
-    },
-
-    dateStamp() {
-        return AppUI.dateStamp();
-    },
-
-    download(content, filename, mime) {
-        const blob = new Blob([content], { type: mime });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        URL.revokeObjectURL(url);
-    },
-
-    parseAmountInput(value) {
-        return AppUI.parseAmountInput(value);
-    },
-
-    esc(str) {
-        return AppUI.escapeHtml(str);
     }
 };
 

@@ -12,9 +12,11 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/categories.js` contiene categorie e metodi di pagamento statici.
 - `app/js/confirm-dialog.js` contiene rendering e wiring del dialog riusabile per scelte e conferme.
 - `app/js/expense-actions.js` contiene operazioni spesa testabili per input rapido, modifica ed eliminazione tramite adapter `Parser`/`Storage`.
+- `app/js/expense-submit-controller.js` contiene il flusso di submit dell'input rapido: messaggi di errore, pulizia campo, blur mobile, refresh viste e toast di successo.
 - `app/js/expense-store.js` contiene una cache leggera delle letture spese per la UI, invalidata dopo scritture, import/cancellazione e cambi `storage` da altri contesti.
 - `app/js/expense-query.js` contiene modelli derivati testabili per filtri, statistiche e riepiloghi, cosi badge filtri, timeline e pagina statistiche possono riusare gli stessi calcoli preparati.
 - `app/js/app-refresh.js` contiene la policy di aggiornamento viste dopo cambi dati: invalidazione cache, slider filtri, timeline, statistiche e impostazioni quando richieste.
+- `app/js/download-controller.js` contiene il download reale dei file esportati tramite link temporaneo, `Blob` e URL revocato.
 - `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
 - `app/js/input-bar-controller.js` contiene il layout mobile della barra di inserimento: inset tastiera da `visualViewport`, padding del contenuto, RAF e listener resize.
 - `app/js/parser.js` interpreta l'input testuale e crea una spesa.
@@ -40,12 +42,13 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/settings-actions.js` contiene decisioni e orchestrazione testabile dei flussi impostazioni, usando `Storage` come adapter passato da `app.js`.
 - `app/js/settings-controller.js` contiene wiring della pagina impostazioni e collega view, actions e hook di `app.js`.
 - `app/js/ui-stack.js` contiene le decisioni pure per l'ordine di chiusura `popstate`/back button.
+- `app/js/history-controller.js` esegue le azioni history generate dallo stack UI: push, replace, back, go e flag di soppressione del prossimo `popstate`.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/ui-stack-controller.js` contiene il glue applicativo dello stack UI/back button: snapshot stato, applicazione azioni `popstate` e stati interni modale tramite hook verso `app.js`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
 - `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di orchestrazione generale, stato condiviso, storage e history concreta. Le estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, cache letture spese, query filtrate/statistiche/riepiloghi, refresh viste dopo cambio dati, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog conferma, decisioni/glue dello stack UI e cleanup DOM puntuali in moduli separati.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di orchestrazione generale, stato condiviso, storage e hook history. Le estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, submit dell'input rapido, cache letture spese, query filtrate/statistiche/riepiloghi, refresh viste dopo cambio dati, download file, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog conferma, decisioni/glue dello stack UI, esecuzione concreta delle azioni history e cleanup DOM puntuali in moduli separati. Alcuni wrapper puri e pass-through ridondanti sono stati rimossi da `app.js`, che ora chiama direttamente i moduli estratti nei punti di wiring quando non serve mantenere un hook applicativo.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -104,7 +107,7 @@ La dettatura vocale e supportata quando il browser espone `SpeechRecognition` o 
 
 Alcuni campi monoriga sono implementati come `textarea` per evitare, su mobile, la sezione invasiva di suggerimenti/autofill della tastiera.
 
-Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`. Il wiring touch/click, invio da tastiera, focus/blur e dettatura vocale e in `app/js/expense-input-controller.js`. Il posizionamento mobile della barra e il padding del contenuto durante tastiera/filtri sono in `app/js/input-bar-controller.js`; `app/js/app-refresh.js` applica il refresh di cache/timeline/statistiche dopo il commit, mentre `app.js` mantiene feedback visivo, stato history e flag condivisi tramite hook.
+Le decisioni di input vuoto, parsing non riuscito e commit su storage dell'inserimento rapido sono isolate in `app/js/expense-actions.js`. Il flusso di submit che collega risultato, pulizia campo, blur mobile, refresh viste e toast e in `app/js/expense-submit-controller.js`. Il wiring touch/click, invio da tastiera, focus/blur e dettatura vocale e in `app/js/expense-input-controller.js`. Il posizionamento mobile della barra e il padding del contenuto durante tastiera/filtri sono in `app/js/input-bar-controller.js`; `app/js/app-refresh.js` applica il refresh di cache/timeline/statistiche dopo il commit, mentre `app.js` mantiene stato history e flag condivisi tramite hook.
 
 ### Parser e classificazione
 
@@ -157,7 +160,7 @@ La navigazione principale e composta da:
 - Statistiche;
 - Impostazioni.
 
-`app.js` gestisce diversi casi legati al tasto indietro del telefono, usando `app/js/ui-stack.js` per decidere l'ordine di priorita e mantenendo in `app.js` le azioni concrete:
+`app.js` gestisce diversi casi legati al tasto indietro del telefono, usando `app/js/ui-stack.js` per decidere l'ordine di priorita e `app/js/history-controller.js` per eseguire le azioni concrete sulla history del browser:
 
 - chiusura conferma eliminazione;
 - chiusura o pulizia interazioni della modale;
@@ -169,9 +172,9 @@ La navigazione principale e composta da:
 
 La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history creato all'apertura; se si chiude tutto il pannello mentre i filtri avanzati sono aperti, vengono consumati entrambi gli stati sovrapposti.
 
-Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso. Questo wiring e in `app/js/navigation-controller.js`; `app.js` mantiene lo stato pagina corrente e l'esecuzione history tramite `runHistoryAction`.
+Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso. Questo wiring e in `app/js/navigation-controller.js`; `app.js` mantiene lo stato pagina corrente e delega l'esecuzione history a `HistoryController` tramite `runHistoryAction`.
 
-Il layout della barra di inserimento durante tastiera mobile e filtri usa `input-bar-controller.js`, che legge `visualViewport`, aggiorna il padding di `app-main` e gestisce RAF/listener resize tramite hook di `app.js`. I workaround di focus/picker/viewport della modale sono in `modal-mobile-controller.js`; il lifecycle della modale e in `modal-controller.js`, tramite hook verso stato, storage, rendering e history di `app.js`. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`; il glue che applica le azioni tramite hook vive in `ui-stack-controller.js`, mentre `app.js` mantiene l'esecuzione concreta tramite `runHistoryAction`.
+Il layout della barra di inserimento durante tastiera mobile e filtri usa `input-bar-controller.js`, che legge `visualViewport`, aggiorna il padding di `app-main` e gestisce RAF/listener resize tramite hook di `app.js`. I workaround di focus/picker/viewport della modale sono in `modal-mobile-controller.js`; il lifecycle della modale e in `modal-controller.js`, tramite hook verso stato, storage, rendering e history di `app.js`. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; l'esecuzione push/replace/back/go e in `history-controller.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`; il glue che applica le azioni tramite hook vive in `ui-stack-controller.js`, mentre `app.js` mantiene flag e wrapper sottili.
 
 ### Statistiche
 
@@ -208,7 +211,7 @@ La roadmap prevede anche che eventuali personalizzazioni future, oltre alle impo
 
 Il toggle tema nell'header e pensato come cambio temporaneo; la preferenza stabile del tema si modifica dalle impostazioni. Applicazione del tema, tema automatico e toggle temporaneo sono in `app/js/theme-controller.js`. I toast sono gestiti da `app/js/toast-controller.js`, incluso il posizionamento sopra la barra di inserimento quando l'input rapido e attivo.
 
-Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export, salvataggio tema persistente e cancellazione completa sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. Il wiring DOM della pagina e in `app/js/settings-controller.js`; dopo import o cancellazione, il refresh di cache/timeline/statistiche/impostazioni passa da `app/js/app-refresh.js`. `app.js` mantiene lettura file, download reale e hook di navigazione/toast/conferma.
+Il rendering della pagina impostazioni e del messaggio di preview import e in `app/js/settings-view.js`; formato file, opzioni import/export, nomi download, preview e commit import/export, salvataggio tema persistente e cancellazione completa sono orchestrati in `app/js/settings-actions.js` tramite adapter `Storage`. Il wiring DOM della pagina e in `app/js/settings-controller.js`; il download reale dei file passa da `app/js/download-controller.js`; dopo import o cancellazione, il refresh di cache/timeline/statistiche/impostazioni passa da `app/js/app-refresh.js`. `app.js` mantiene lettura file e hook di navigazione/toast/conferma.
 
 ## Limiti Noti
 
@@ -224,4 +227,4 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Il CSV preserva i campi principali attuali, inclusi tag e timestamp, ma resta meno adatto del JSON come backup completo per futuri dati complessi.
 - La compatibilita iOS ha problemi UI noti ed e priorita bassa rispetto ad Android.
 - Il browser desktop e usabile ma non e ancora rifinito quanto l'esperienza mobile.
-- Esiste un test runner Node (`node tests/run-tests.js`) per storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser, azioni spesa, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni/controller stack UI/back button, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile reale, history/back button reale e interazioni DOM complesse.
+- Esiste un test runner Node (`node tests/run-tests.js`) per storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser, azioni spesa, submit input rapido, download file, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, rendering/helper UI estratti, configurazione grafici, decisioni/controller stack UI/back button, esecuzione history, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast e dialog conferma; mancano ancora test automatici su UI mobile reale, history/back button reale e interazioni DOM complesse.

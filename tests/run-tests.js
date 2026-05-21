@@ -89,9 +89,11 @@ function loadUiViews() {
     const expenseQueryCode = fs.readFileSync(path.join(root, 'app/js/expense-query.js'), 'utf8');
     const appRefreshCode = fs.readFileSync(path.join(root, 'app/js/app-refresh.js'), 'utf8');
     const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
+    const expenseSubmitControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-submit-controller.js'), 'utf8');
     const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
     const inputBarControllerCode = fs.readFileSync(path.join(root, 'app/js/input-bar-controller.js'), 'utf8');
     const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
+    const downloadControllerCode = fs.readFileSync(path.join(root, 'app/js/download-controller.js'), 'utf8');
     const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
     const filterControllerCode = fs.readFileSync(path.join(root, 'app/js/filter-controller.js'), 'utf8');
     const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
@@ -109,6 +111,7 @@ function loadUiViews() {
     const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
     const settingsControllerCode = fs.readFileSync(path.join(root, 'app/js/settings-controller.js'), 'utf8');
     const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
+    const historyControllerCode = fs.readFileSync(path.join(root, 'app/js/history-controller.js'), 'utf8');
     const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
     const uiStackControllerCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-controller.js'), 'utf8');
     const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
@@ -123,9 +126,11 @@ function loadUiViews() {
             expenseQueryCode,
             appRefreshCode,
             expenseActionsCode,
+            expenseSubmitControllerCode,
             expenseInputControllerCode,
             inputBarControllerCode,
             uiCode,
+            downloadControllerCode,
             filterViewCode,
             filterControllerCode,
             timelineViewCode,
@@ -143,6 +148,7 @@ function loadUiViews() {
             settingsActionsCode,
             settingsControllerCode,
             uiStackCode,
+            historyControllerCode,
             uiStackEffectsCode,
             uiStackControllerCode,
             confirmDialogCode,
@@ -153,7 +159,9 @@ function loadUiViews() {
             'globalThis.ExpenseQuery = ExpenseQuery;',
             'globalThis.AppRefresh = AppRefresh;',
             'globalThis.AppUI = AppUI;',
+            'globalThis.DownloadController = DownloadController;',
             'globalThis.ExpenseActions = ExpenseActions;',
+            'globalThis.ExpenseSubmitController = ExpenseSubmitController;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
             'globalThis.InputBarController = InputBarController;',
             'globalThis.FilterView = FilterView;',
@@ -173,6 +181,7 @@ function loadUiViews() {
             'globalThis.SettingsActions = SettingsActions;',
             'globalThis.SettingsController = SettingsController;',
             'globalThis.UIStack = UIStack;',
+            'globalThis.HistoryController = HistoryController;',
             'globalThis.UIStackEffects = UIStackEffects;',
             'globalThis.UIStackController = UIStackController;',
             'globalThis.ConfirmDialog = ConfirmDialog;',
@@ -184,10 +193,12 @@ function loadUiViews() {
 
     return {
         AppUI: context.AppUI,
+        DownloadController: context.DownloadController,
         ExpenseStore: context.ExpenseStore,
         ExpenseQuery: context.ExpenseQuery,
         AppRefresh: context.AppRefresh,
         ExpenseActions: context.ExpenseActions,
+        ExpenseSubmitController: context.ExpenseSubmitController,
         ExpenseInputController: context.ExpenseInputController,
         InputBarController: context.InputBarController,
         FilterView: context.FilterView,
@@ -207,6 +218,7 @@ function loadUiViews() {
         SettingsActions: context.SettingsActions,
         SettingsController: context.SettingsController,
         UIStack: context.UIStack,
+        HistoryController: context.HistoryController,
         UIStackEffects: context.UIStackEffects,
         UIStackController: context.UIStackController,
         ConfirmDialog: context.ConfirmDialog,
@@ -647,6 +659,120 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
     });
 
     assert.deepEqual(calls, ['invalidate', 'timeline']);
+});
+
+test('Controller submit input rapido pulisce input e aggiorna viste dopo salvataggio', () => {
+    const { ExpenseSubmitController } = loadUiViews();
+    const calls = [];
+    let newCardId = null;
+    const input = {
+        value: 'caffe 1.50',
+        blurred: false,
+        blur() {
+            this.blurred = true;
+            calls.push('input-blur');
+        }
+    };
+    const activeElement = {
+        blur() {
+            calls.push('active-blur');
+        }
+    };
+    const doc = {
+        activeElement,
+        getElementById(id) {
+            return id === 'expense-input' ? input : null;
+        }
+    };
+    const savedExpense = expense({
+        id: 'new-expense',
+        descrizione: 'Caffe',
+        importo: 1.5,
+        categoria: 'bar'
+    });
+
+    const result = ExpenseSubmitController.submit({
+        document: doc,
+        actions: {
+            addFromText(payload) {
+                calls.push(['add', payload.text]);
+                return { success: true, spesa: savedExpense };
+            }
+        },
+        parser: { parse() {} },
+        storage: {},
+        categories: [{ id: 'bar', emoji: 'B', nome: 'Bar' }],
+        ui: {
+            getCategory(id, categories) {
+                return categories.find(category => category.id === id);
+            }
+        },
+        setNewCardId: id => { newCardId = id; },
+        refreshAfterAdd: () => calls.push('refresh'),
+        showToast: (message, type) => calls.push(['toast', message, type])
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(input.value, '');
+    assert.equal(input.blurred, true);
+    assert.equal(newCardId, 'new-expense');
+    assert(calls.includes('refresh'));
+    assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'add'), ['add', 'caffe 1.50']);
+    assert.deepEqual(
+        calls.find(call => Array.isArray(call) && call[0] === 'toast'),
+        ['toast', 'B Caffe \u00b7 \u20ac1.50', 'success']
+    );
+});
+
+test('Controller submit input rapido mostra errori senza refresh', () => {
+    const { ExpenseSubmitController } = loadUiViews();
+    const cases = [
+        {
+            result: { success: false, reason: 'empty' },
+            expected: 'Scrivi una spesa prima di inviare'
+        },
+        {
+            result: { success: false, reason: 'parse' },
+            expected: 'Non ho capito l\'importo. Prova: "caff\u00e8 1.50"'
+        },
+        {
+            result: { success: false, reason: 'storage', error: 'Quota piena' },
+            expected: 'Quota piena'
+        }
+    ];
+
+    cases.forEach(({ result, expected }) => {
+        const calls = [];
+        const input = {
+            value: 'test',
+            blur() {
+                calls.push('blur');
+            }
+        };
+        const doc = {
+            activeElement: input,
+            getElementById(id) {
+                return id === 'expense-input' ? input : null;
+            }
+        };
+
+        const submitResult = ExpenseSubmitController.submit({
+            document: doc,
+            actions: {
+                addFromText() {
+                    return result;
+                }
+            },
+            refreshAfterAdd: () => calls.push('refresh'),
+            showToast: (message, type) => calls.push(['toast', message, type])
+        });
+
+        assert.equal(submitResult, result);
+        assert.equal(input.value, 'test');
+        assert(!calls.includes('refresh'));
+        assert(!calls.includes('blur'));
+        assert.deepEqual(calls, [['toast', expected, 'error']]);
+    });
 });
 
 test('Controller input rapido collega touch, focus e blur senza dipendere da App', () => {
@@ -1091,6 +1217,71 @@ test('Helper UI normalizzano importi e formattano denaro senza DOM', () => {
     assert.equal(AppUI.parseAmountInput('€1,50'), 1.5);
     assert.equal(AppUI.parseAmountInput('1.234,56 euro'), 1234.56);
     assert.equal(AppUI.money(3), '€3.00');
+});
+
+test('Controller download isola link temporaneo e revoca URL senza App', () => {
+    const { DownloadController } = loadUiViews();
+    const calls = [];
+    const body = {
+        appendChild(element) {
+            calls.push(['append', element.tagName]);
+            element.parentNode = body;
+        },
+        removeChild(element) {
+            calls.push(['remove', element.tagName]);
+            element.parentNode = null;
+        }
+    };
+    const documentMock = {
+        body,
+        createElement(tagName) {
+            calls.push(['create', tagName]);
+            return {
+                tagName,
+                href: '',
+                download: '',
+                parentNode: null,
+                click() {
+                    calls.push(['click', this.href, this.download]);
+                }
+            };
+        }
+    };
+    class FakeBlob {
+        constructor(parts, options) {
+            this.parts = parts;
+            this.options = options;
+        }
+    }
+    const urlApi = {
+        createObjectURL(blob) {
+            calls.push(['create-url', blob.parts, blob.options.type]);
+            return 'blob:test-download';
+        },
+        revokeObjectURL(url) {
+            calls.push(['revoke', url]);
+        }
+    };
+
+    const result = DownloadController.download('contenuto', 'spese.txt', 'text/plain', {
+        document: documentMock,
+        URL: urlApi,
+        Blob: FakeBlob
+    });
+
+    assert.deepEqual(result, {
+        filename: 'spese.txt',
+        mime: 'text/plain',
+        url: 'blob:test-download'
+    });
+    assert.deepEqual(calls, [
+        ['create-url', ['contenuto'], 'text/plain'],
+        ['create', 'a'],
+        ['append', 'a'],
+        ['click', 'blob:test-download', 'spese.txt'],
+        ['remove', 'a'],
+        ['revoke', 'blob:test-download']
+    ]);
 });
 
 test('Vista filtri calcola slider e footer riepilogo', () => {
@@ -3160,6 +3351,70 @@ test('UI stack descrive push/back simmetrici senza toccare history', () => {
         UIStack.getCloseHistoryAction({ fromPopstate: true, wasOpen: true }).type,
         UIStack.HISTORY_ACTIONS.NONE
     );
+});
+
+test('History controller esegue azioni history e fallback senza App', () => {
+    const { HistoryController, UIStack } = loadUiViews();
+    const calls = [];
+    let suppress = false;
+    const historyTarget = {
+        pushState(state, title) {
+            calls.push(['push', state, title]);
+        },
+        replaceState(state, title) {
+            calls.push(['replace', state, title]);
+        },
+        back() {
+            calls.push(['back']);
+        },
+        go(delta) {
+            calls.push(['go', delta]);
+        }
+    };
+    const options = {
+        stack: UIStack,
+        history: historyTarget,
+        setSuppressPopstate: value => { suppress = value; }
+    };
+
+    assert.equal(HistoryController.run(null, options), false);
+    assert.equal(HistoryController.run({ type: UIStack.HISTORY_ACTIONS.NONE }, options), false);
+    assert.equal(HistoryController.run({
+        type: UIStack.HISTORY_ACTIONS.PUSH,
+        state: { page: 'stats' },
+        suppressPopstate: true
+    }, options), true);
+    assert.equal(suppress, true);
+    assert.equal(HistoryController.run({
+        type: UIStack.HISTORY_ACTIONS.REPLACE,
+        state: { page: 'settings' }
+    }, options), true);
+    assert.equal(HistoryController.run({ type: UIStack.HISTORY_ACTIONS.BACK }, options), true);
+    assert.equal(HistoryController.run({ type: UIStack.HISTORY_ACTIONS.GO, delta: -2 }, options), true);
+
+    assert.deepEqual(calls, [
+        ['push', { page: 'stats' }, ''],
+        ['replace', { page: 'settings' }, ''],
+        ['back'],
+        ['go', -2]
+    ]);
+
+    const fallbackCalls = [];
+    const fallbackHistory = {
+        go() {
+            fallbackCalls.push('go');
+            throw new Error('go failed');
+        },
+        back() {
+            fallbackCalls.push('back');
+        }
+    };
+
+    assert.equal(HistoryController.run(
+        { type: UIStack.HISTORY_ACTIONS.GO },
+        { stack: UIStack, history: fallbackHistory }
+    ), true);
+    assert.deepEqual(fallbackCalls, ['go', 'back']);
 });
 
 test('UI stack effects isolano cleanup DOM usati dal popstate', () => {

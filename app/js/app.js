@@ -66,7 +66,7 @@ const App = {
         this.initModal();
         this.initFilters();
         this.renderTimeline();
-        this._lastViewportHeight = this.getViewportHeight();
+        this._lastViewportHeight = ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions());
 
         const storageStatus = Storage.getStatus();
         if (!storageStatus.ok) {
@@ -113,8 +113,8 @@ const App = {
             getNavigationHistoryAction: payload => UIStack.getNavigationHistoryAction(payload),
             runHistoryAction: action => this.runHistoryAction(action),
             isFilterOpen: () => this.filterOpen,
-            closeFilterPanel: () => this.closeFilterPanel(),
-            updateAppMainPadding: () => this.updateAppMainPadding(),
+            closeFilterPanel: () => FilterController.closeFilterPanel(this.getFilterControllerOptions()),
+            updateAppMainPadding: () => InputBarController.updateAppMainPadding(this.getInputBarControllerOptions()),
             renderTimeline: () => this.renderTimeline(),
             renderStats: () => this.renderStats(),
             renderSettings: () => this.renderSettings(),
@@ -168,7 +168,10 @@ const App = {
             getQuickTotals: spese => StatsData.getQuickTotals(spese),
             countActiveFilters: () => ExpenseFilters.countActive(this.filters),
             applyFilters: spese => ExpenseFilters.apply(spese, this.filters),
-            getFilterModel: () => this.getExpenseFilterModel(),
+            getFilterModel: () => ExpenseQuery.buildFilterModel({
+                spese: ExpenseStore.getSpese(),
+                filters: this.filters
+            }),
             getFilterOpen: () => this.filterOpen,
             setFilterOpen: value => { this.filterOpen = value; },
             getAdvancedFiltersOpen: () => this.advancedFiltersOpen,
@@ -180,14 +183,14 @@ const App = {
             getSliderMaxValue: () => this.sliderMax,
             setSliderMaxValue: value => { this.sliderMax = value; },
             setLastViewportHeight: value => { this._lastViewportHeight = value; },
-            getViewportHeight: () => this.getViewportHeight(),
-            startExpenseInputBarWatch: () => this.startExpenseInputBarWatch(),
-            stopExpenseInputBarWatch: () => this.stopExpenseInputBarWatch(),
+            getViewportHeight: () => ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions()),
+            startExpenseInputBarWatch: () => InputBarController.startWatch(this.getInputBarControllerOptions()),
+            stopExpenseInputBarWatch: () => InputBarController.stopWatch(this.getInputBarControllerOptions()),
             pushUiState: state => this.pushUiState(state),
             consumeUiState: () => this.consumeUiState(),
             runHistoryAction: action => this.runHistoryAction(action),
             getCloseHistoryAction: payload => UIStack.getCloseHistoryAction(payload),
-            updateAppMainPadding: () => this.updateAppMainPadding(),
+            updateAppMainPadding: () => InputBarController.updateAppMainPadding(this.getInputBarControllerOptions()),
             onFilterChange: () => this.onFilterChange(),
             showToast: (message, type) => this.showToast(message, type),
             requestAnimationFrame: callback => requestAnimationFrame(callback)
@@ -198,34 +201,20 @@ const App = {
         FilterController.init(this.getFilterControllerOptions());
     },
 
-    closeAdvancedFilters(fromPopstate = false) {
-        FilterController.closeAdvancedFilters(this.getFilterControllerOptions(), fromPopstate);
-    },
-
-    /* --- Dual Range Slider --- */
-    recalcSliderMax() {
-        FilterController.recalcSliderMax(this.getFilterControllerOptions());
-    },
-
-    closeFilterPanel(fromPopstate) {
-        FilterController.closeFilterPanel(this.getFilterControllerOptions(), fromPopstate);
-    },
-
     /* --- Filter state --- */
     onFilterChange() {
-        const filterModel = this.getExpenseFilterModel();
+        const filterModel = ExpenseQuery.buildFilterModel({
+            spese: ExpenseStore.getSpese(),
+            filters: this.filters
+        });
 
-        this.updateFilterBadge(filterModel);
-
-        if (this.currentPage === 'timeline') this.renderTimeline(filterModel);
-        if (this.currentPage === 'stats') this.renderStats(filterModel);
-    },
-
-    updateFilterBadge(filterModel = null) {
         FilterController.updateFilterBadge({
             ...this.getFilterControllerOptions(),
             filterModel
         });
+
+        if (this.currentPage === 'timeline') this.renderTimeline(filterModel);
+        if (this.currentPage === 'stats') this.renderStats(filterModel);
     },
 
     getInputBarControllerOptions() {
@@ -245,22 +234,6 @@ const App = {
         };
     },
 
-    updateAppMainPadding() {
-        InputBarController.updateAppMainPadding(this.getInputBarControllerOptions());
-    },
-
-    scheduleExpenseInputBarPositionUpdate(force = false) {
-        InputBarController.schedulePositionUpdate(this.getInputBarControllerOptions(), force);
-    },
-
-    startExpenseInputBarWatch() {
-        InputBarController.startWatch(this.getInputBarControllerOptions());
-    },
-
-    stopExpenseInputBarWatch() {
-        InputBarController.stopWatch(this.getInputBarControllerOptions());
-    },
-
     /* =====================
        INPUT
        ===================== */
@@ -272,14 +245,14 @@ const App = {
             onVoiceError: () => this.showToast('Non ho capito. Riprova.', 'error'),
             isInputActive: () => this._expenseInputActive,
             setInputActive: value => { this._expenseInputActive = value; },
-            getViewportHeight: () => this.getViewportHeight(),
+            getViewportHeight: () => ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions()),
             setLastViewportHeight: value => { this._lastViewportHeight = value; },
             pushInputState: () => this.pushUiState({ panel: 'expense-input' }),
             consumeInputState: () => this.consumeUiState(),
-            startInputBarWatch: () => this.startExpenseInputBarWatch(),
-            stopInputBarWatch: () => this.stopExpenseInputBarWatch(),
-            scheduleInputBarPositionUpdate: force => this.scheduleExpenseInputBarPositionUpdate(force),
-            updateAppMainPadding: () => this.updateAppMainPadding()
+            startInputBarWatch: () => InputBarController.startWatch(this.getInputBarControllerOptions()),
+            stopInputBarWatch: () => InputBarController.stopWatch(this.getInputBarControllerOptions()),
+            scheduleInputBarPositionUpdate: force => InputBarController.schedulePositionUpdate(this.getInputBarControllerOptions(), force),
+            updateAppMainPadding: () => InputBarController.updateAppMainPadding(this.getInputBarControllerOptions())
         });
 
         if (controller && controller.recognition) {
@@ -318,23 +291,19 @@ const App = {
             getMethod: id => AppUI.getMethod(id, PAYMENT_METHODS),
             formatDayLabel: date => AppUI.formatDayLabel(date),
             clearNewCardId: () => { this.newCardId = null; },
-            openEditModal: id => this.openEditModal(id)
+            openEditModal: id => ModalController.open(this.getModalControllerOptions(), id)
         });
     },
 
     /* =====================
        EDIT MODAL
        ===================== */
-    isModalOpen() {
-        return ModalController.isOpen(this.getModalControllerOptions());
-    },
-
     getModalMobileControllerOptions() {
         return {
             document,
             window,
             formController: ModalFormController,
-            isModalOpen: () => this.isModalOpen(),
+            isModalOpen: () => ModalController.isOpen(this.getModalControllerOptions()),
             isFilterOpen: () => this.filterOpen,
             getCurrentPage: () => this.currentPage,
             getLastViewportHeight: () => this._lastViewportHeight,
@@ -345,58 +314,11 @@ const App = {
             setInteractionActive: value => { this._modalInteractionActive = value; },
             pushUiState: state => this.pushUiState(state),
             consumeUiState: () => this.consumeUiState(),
-            clearSelection: () => this.clearModalSelection(),
+            clearSelection: () => ModalMobileController.clearSelection(this.getModalMobileControllerOptions()),
             setTimeout: (callback, delay) => setTimeout(callback, delay),
             setInterval: (callback, delay) => setInterval(callback, delay),
             clearInterval: id => clearInterval(id)
         };
-    },
-
-    getViewportHeight() {
-        return ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions());
-    },
-
-    getOpenModalDropdown() {
-        return ModalMobileController.getOpenDropdown(this.getModalMobileControllerOptions());
-    },
-
-    getActivePlainModalField() {
-        return ModalMobileController.getActivePlainField(this.getModalMobileControllerOptions());
-    },
-
-    bindNonStickyNativePicker(el) {
-        ModalMobileController.bindNonStickyNativePicker(
-            el,
-            this.getModalMobileControllerOptions()
-        );
-    },
-
-    pushModalHistoryState() {
-        ModalMobileController.pushHistoryState(this.getModalMobileControllerOptions());
-    },
-
-    ensureModalInteractionState() {
-        ModalMobileController.ensureInteractionState(this.getModalMobileControllerOptions());
-    },
-
-    releaseModalInteractionState() {
-        ModalMobileController.releaseInteractionState(this.getModalMobileControllerOptions());
-    },
-
-    clearModalSelection() {
-        ModalMobileController.clearSelection(this.getModalMobileControllerOptions());
-    },
-
-    handleModalViewportChange() {
-        ModalMobileController.handleViewportChange(this.getModalMobileControllerOptions());
-    },
-
-    startModalViewportWatch() {
-        ModalMobileController.startViewportWatch(this.getModalMobileControllerOptions());
-    },
-
-    stopModalViewportWatch() {
-        ModalMobileController.stopViewportWatch(this.getModalMobileControllerOptions());
     },
 
     getModalControllerOptions() {
@@ -420,12 +342,12 @@ const App = {
             isModalInteractionActive: () => this._modalInteractionActive,
             setModalInteractionActive: value => { this._modalInteractionActive = value; },
             setModalInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; },
-            getViewportHeight: () => this.getViewportHeight(),
+            getViewportHeight: () => ModalMobileController.getViewportHeight(this.getModalMobileControllerOptions()),
             setLastViewportHeight: value => { this._lastViewportHeight = value; },
-            startModalViewportWatch: () => this.startModalViewportWatch(),
-            stopModalViewportWatch: () => this.stopModalViewportWatch(),
-            pushModalHistoryState: () => this.pushModalHistoryState(),
-            clearModalSelection: () => this.clearModalSelection(),
+            startModalViewportWatch: () => ModalMobileController.startViewportWatch(this.getModalMobileControllerOptions()),
+            stopModalViewportWatch: () => ModalMobileController.stopViewportWatch(this.getModalMobileControllerOptions()),
+            pushModalHistoryState: () => ModalMobileController.pushHistoryState(this.getModalMobileControllerOptions()),
+            clearModalSelection: () => ModalMobileController.clearSelection(this.getModalMobileControllerOptions()),
             runHistoryAction: action => this.runHistoryAction(action),
             getCloseHistoryAction: payload => UIStack.getCloseHistoryAction(payload),
             parseAmountInput: value => AppUI.parseAmountInput(value),
@@ -443,13 +365,16 @@ const App = {
                 storage: Storage
             }),
             refreshAfterExpenseChange: () => this.refreshExpenseViews({ updateFilterSlider: true }),
-            closeModal: fromPopstate => this.closeModal(fromPopstate),
-            saveEdit: () => this.saveEdit(),
+            closeModal: fromPopstate => ModalController.close(this.getModalControllerOptions(), fromPopstate),
+            saveEdit: () => ModalController.save(this.getModalControllerOptions()),
             showConfirm: (message, onYes) => this.showConfirm(message, onYes),
             closeConfirm: () => this.closeConfirm(),
             showToast: (message, type) => this.showToast(message, type),
-            bindNonStickyNativePicker: el => this.bindNonStickyNativePicker(el),
-            handleModalViewportChange: () => this.handleModalViewportChange(),
+            bindNonStickyNativePicker: el => ModalMobileController.bindNonStickyNativePicker(
+                el,
+                this.getModalMobileControllerOptions()
+            ),
+            handleModalViewportChange: () => ModalMobileController.handleViewportChange(this.getModalMobileControllerOptions()),
             handlePopstate: () => this.handlePopstate(),
             toInputDate: date => AppUI.toInputDate(date),
             toInputTime: date => AppUI.toInputTime(date),
@@ -470,26 +395,32 @@ const App = {
             setSuppressNextPopstate: value => { this._suppressNextPopstate = value; },
             isConfirmOpen: () => this.isConfirmOpen(),
             closeConfirm: fromPopstate => this.closeConfirm(fromPopstate),
-            isModalOpen: () => this.isModalOpen(),
-            closeModal: fromPopstate => this.closeModal(fromPopstate),
+            isModalOpen: () => ModalController.isOpen(this.getModalControllerOptions()),
+            closeModal: fromPopstate => ModalController.close(this.getModalControllerOptions(), fromPopstate),
             isFilterSearchActive: () => this._filterSearchActive,
             setFilterSearchActive: value => { this._filterSearchActive = value; },
             isExpenseInputActive: () => this._expenseInputActive,
             setExpenseInputActive: value => { this._expenseInputActive = value; },
             isAdvancedFiltersOpen: () => this.advancedFiltersOpen,
-            closeAdvancedFilters: fromPopstate => this.closeAdvancedFilters(fromPopstate),
+            closeAdvancedFilters: fromPopstate => FilterController.closeAdvancedFilters(
+                this.getFilterControllerOptions(),
+                fromPopstate
+            ),
             isFilterOpen: () => this.filterOpen,
-            closeFilterPanel: fromPopstate => this.closeFilterPanel(fromPopstate),
+            closeFilterPanel: fromPopstate => FilterController.closeFilterPanel(
+                this.getFilterControllerOptions(),
+                fromPopstate
+            ),
             getCurrentPage: () => this.currentPage,
             navigateTo: (page, fromPopstate) => this.navigateTo(page, fromPopstate),
-            stopExpenseInputBarWatch: () => this.stopExpenseInputBarWatch(),
+            stopExpenseInputBarWatch: () => InputBarController.stopWatch(this.getInputBarControllerOptions()),
             isModalInteractionActive: () => this._modalInteractionActive,
             setModalInteractionActive: value => { this._modalInteractionActive = value; },
             setModalInteractionReleaseSuspended: value => { this._suspendInteractionRelease = value; },
-            hasOpenModalDropdown: () => !!this.getOpenModalDropdown(),
-            hasActivePlainModalField: () => !!this.getActivePlainModalField(),
-            clearModalSelection: () => this.clearModalSelection(),
-            pushModalHistoryState: () => this.pushModalHistoryState()
+            hasOpenModalDropdown: () => !!ModalMobileController.getOpenDropdown(this.getModalMobileControllerOptions()),
+            hasActivePlainModalField: () => !!ModalMobileController.getActivePlainField(this.getModalMobileControllerOptions()),
+            clearModalSelection: () => ModalMobileController.clearSelection(this.getModalMobileControllerOptions()),
+            pushModalHistoryState: () => ModalMobileController.pushHistoryState(this.getModalMobileControllerOptions())
         };
     },
 
@@ -499,11 +430,11 @@ const App = {
 
     getModalInteractionHooks() {
         return {
-            ensureInteractionState: () => this.ensureModalInteractionState(),
-            releaseInteractionState: () => this.releaseModalInteractionState(),
+            ensureInteractionState: () => ModalMobileController.ensureInteractionState(this.getModalMobileControllerOptions()),
+            releaseInteractionState: () => ModalMobileController.releaseInteractionState(this.getModalMobileControllerOptions()),
             isInteractionActive: () => this._modalInteractionActive,
             isInteractionReleaseSuspended: () => this._suspendInteractionRelease,
-            hasOpenDropdown: () => !!this.getOpenModalDropdown()
+            hasOpenDropdown: () => !!ModalMobileController.getOpenDropdown(this.getModalMobileControllerOptions())
         };
     },
 
@@ -530,18 +461,6 @@ const App = {
             getAllTags: () => ModalView.getAllTags(ExpenseStore.getSpese()),
             getTagStats: () => ModalView.getTagStats(ExpenseStore.getSpese())
         });
-    },
-
-    openEditModal(id) {
-        ModalController.open(this.getModalControllerOptions(), id);
-    },
-
-    closeModal(fromPopstate = false) {
-        ModalController.close(this.getModalControllerOptions(), fromPopstate);
-    },
-
-    saveEdit() {
-        ModalController.save(this.getModalControllerOptions());
     },
 
     /* =====================
@@ -592,7 +511,12 @@ const App = {
        ============================================= */
     renderStats(filterModel = null) {
         const allSpese = filterModel ? filterModel.allSpese : ExpenseStore.getSpese();
-        const statsModel = this.getExpenseStatsModel(allSpese);
+        const statsModel = ExpenseQuery.buildStatsModel({
+            spese: allSpese,
+            filters: this.filters,
+            period: this.statsPeriod,
+            offset: this.statsOffset
+        });
         const result = StatsController.render({
             document,
             container: document.getElementById('stats-content'),
@@ -657,31 +581,12 @@ const App = {
             invalidateSpeseCache: () => ExpenseStore.invalidate(),
             updateFilterSlider: !!options.updateFilterSlider,
             isFilterOpen: () => this.filterOpen,
-            recalcSliderMax: () => this.recalcSliderMax(),
+            recalcSliderMax: () => FilterController.recalcSliderMax(this.getFilterControllerOptions()),
             getCurrentPage: () => this.currentPage,
             renderTimeline: () => this.renderTimeline(),
             renderStats: () => this.renderStats(),
             includeSettings: !!options.includeSettings,
             renderSettings: () => this.renderSettings()
-        });
-    },
-
-    /* =====================
-       HELPERS
-       ===================== */
-    getExpenseFilterModel(spese = ExpenseStore.getSpese()) {
-        return ExpenseQuery.buildFilterModel({
-            spese,
-            filters: this.filters
-        });
-    },
-
-    getExpenseStatsModel(spese = ExpenseStore.getSpese()) {
-        return ExpenseQuery.buildStatsModel({
-            spese,
-            filters: this.filters,
-            period: this.statsPeriod,
-            offset: this.statsOffset
         });
     }
 };

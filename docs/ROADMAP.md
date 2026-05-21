@@ -64,6 +64,8 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-21: `DownloadController` gestisce il download reale dei file esportati e `app.js` non contiene piu il helper Blob/link temporaneo.
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper puri ridondanti verso `AppUI`, `StatsData`, `ExpenseStore` ed `ExpenseQuery` nei flussi di timeline, statistiche, modale e impostazioni.
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper pass-through non usati verso controller gia estratti e lo stato morto `_expenseScrollLockY`.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` i wrapper pass-through residui verso `app/js/input-bar-controller.js` e `app/js/modal-mobile-controller.js`.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` altri wrapper residui verso `app/js/expense-query.js`, `app/js/filter-controller.js` e `app/js/modal-controller.js`.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.

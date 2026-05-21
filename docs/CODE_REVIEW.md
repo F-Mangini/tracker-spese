@@ -196,7 +196,7 @@ Direzione di fix:
 
 Problema:
 
-`App` contiene ancora wrapper conferme/history, stato condiviso e orchestrazione generale. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, focus/mobile e lifecycle della modale, impostazioni, azioni spesa, submit rapido, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, download file, input rapido, layout della barra input mobile, tema, toast, micro-interazioni della modale, dialog/controller conferma, decisioni/glue dello stack UI, esecuzione history, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati. Diversi wrapper puri ridondanti verso `AppUI`, `StatsData`, `ExpenseStore`, `ExpenseQuery` e pass-through verso controller gia estratti sono stati eliminati.
+`App` contiene ancora wrapper conferme/history, stato condiviso e orchestrazione generale. Il rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form modale, focus/mobile e lifecycle della modale, impostazioni, azioni spesa, submit rapido, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, download file, input rapido, layout della barra input mobile, tema, toast, micro-interazioni della modale, dialog/controller conferma, decisioni/glue dello stack UI, esecuzione history, cleanup DOM puntuali, flussi impostazioni persistenti e configurazione Chart.js e stato pero estratto in moduli dedicati. Diversi wrapper puri ridondanti verso `AppUI`, `StatsData`, `ExpenseStore`, `ExpenseQuery` e pass-through verso controller gia estratti sono stati eliminati, inclusi quelli verso `FilterController`, `InputBarController`, `ModalController` e `ModalMobileController`.
 
 Conseguenze:
 
@@ -555,6 +555,8 @@ Stato: completata il 2026-05-15.
 - Completato parzialmente il 2026-05-20: spostata in `app-refresh.js` la policy di refresh viste dopo cambi dati.
 - Completato parzialmente il 2026-05-21: spostato in `download-controller.js` il download reale dei file esportati e rimossi wrapper puri ridondanti da `app.js`.
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper pass-through non usati verso controller gia estratti e lo stato morto `_expenseScrollLockY`.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` i wrapper pass-through residui verso `InputBarController` e `ModalMobileController`, collegando direttamente i moduli estratti nei punti di wiring.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` altri wrapper puri verso `ExpenseQuery`, `FilterController` e `ModalController`, mantenendo `app.js` come solo wiring di stato/hook.
 - Completato parzialmente il 2026-05-19: spostato in `expense-input-controller.js` il wiring dell'input rapido, mantenendo in `app.js` gli hook history/mobile.
 - Completato parzialmente il 2026-05-19: spostato in `input-bar-controller.js` il layout mobile della barra input, inclusi inset tastiera, padding contenuto, RAF e listener resize.
 - Completato parzialmente il 2026-05-19: spostati in `modal-form-controller.js` popolamento, lettura e micro-eventi dei campi del form modale.
@@ -579,7 +581,7 @@ Stato: completata il 2026-05-15.
 ### Fase 4 - Modularizzazione UI
 
 - Spezzare `app.js` in moduli coerenti.
-- Completato parzialmente il 2026-05-21: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form/focus mobile/lifecycle modale, impostazioni, input rapido e suo submit, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, download file, barra input mobile, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog/controller conferma, stack UI/back button, esecuzione history, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`; rimossi anche wrapper pass-through ormai inutili.
+- Completato parzialmente il 2026-05-21: rendering/wiring di navigazione, filtri, timeline, statistiche, grafici, dropdown, tag, form/focus mobile/lifecycle modale, impostazioni, input rapido e suo submit, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste post-commit, download file, barra input mobile, tema, configurazione grafici, micro-interazioni dropdown/tag modale, dialog/controller conferma, stack UI/back button, esecuzione history, cleanup DOM puntuali e flussi impostazioni persistenti spostati fuori da `app.js`; rimossi anche wrapper pass-through ormai inutili, compresi quelli residui verso query, filtri, barra input e modale.
 - Lasciare un orchestratore centrale piccolo.
 - Non cambiare UX durante l'estrazione.
 

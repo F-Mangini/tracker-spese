@@ -547,43 +547,43 @@ const App = {
     /* =====================
        CONFIRM
        ===================== */
+    getConfirmControllerOptions() {
+        return {
+            document,
+            dialog: ConfirmDialog,
+            stack: UIStack,
+            pushUiState: state => this.pushUiState(state),
+            runHistoryAction: action => this.runHistoryAction(action)
+        };
+    },
+
     isConfirmOpen() {
-        return ConfirmDialog.isOpen(document);
+        return ConfirmController.isOpen(this.getConfirmControllerOptions());
     },
 
     showChoices(msg, choices) {
-        ConfirmDialog.showChoices({
-            document,
+        ConfirmController.showChoices({
+            ...this.getConfirmControllerOptions(),
             message: msg,
-            choices,
-            pushState: state => this.pushUiState(state),
-            close: () => this.closeConfirm()
+            choices
         });
     },
 
     showConfirm(msg, onYes, yesText = null, noText = null, yesClass = 'btn-danger') {
-        ConfirmDialog.showConfirm({
-            document,
+        ConfirmController.showConfirm({
+            ...this.getConfirmControllerOptions(),
             message: msg,
             onYes,
             yesText,
             noText,
-            yesClass,
-            pushState: state => this.pushUiState(state),
-            close: () => this.closeConfirm()
+            yesClass
         });
     },
 
     closeConfirm(fromPopstate = false) {
-        ConfirmDialog.close({
-            document,
-            fromPopstate,
-            closeHistory: wasClosedFromPopstate => {
-                this.runHistoryAction(UIStack.getCloseHistoryAction({
-                    fromPopstate: wasClosedFromPopstate,
-                    wasOpen: true
-                }));
-            }
+        ConfirmController.close({
+            ...this.getConfirmControllerOptions(),
+            fromPopstate
         });
     },
 

@@ -27,6 +27,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-19: wiring statistiche e grafici spostato in `app/js/stats-controller.js`.
 - In corso dal 2026-05-19: gestione tema spostata in `app/js/theme-controller.js`.
 - In corso dal 2026-05-19: gestione toast spostata in `app/js/toast-controller.js`.
+- In corso dal 2026-05-21: glue dialog conferme/history spostato in `app/js/confirm-controller.js`.
 - In corso dal 2026-05-19: glue `popstate`/back button spostato in `app/js/ui-stack-controller.js`.
 - In corso dal 2026-05-20: esecuzione history spostata in `app/js/history-controller.js`.
 - In corso dal 2026-05-18: rendering dropdown e suggerimenti tag della modale spostati in `app/js/modal-view.js`.
@@ -46,6 +47,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-19: preview, export e commit import/export impostazioni orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 - Completato parzialmente il 2026-05-19: salvataggio tema persistente e cancellazione completa orchestrati in `app/js/settings-actions.js` con adapter `Storage`.
 - Completato parzialmente il 2026-05-19: dialog scelte/conferme spostato in `app/js/confirm-dialog.js`.
+- Completato parzialmente il 2026-05-21: consumo history/back button del dialog conferme spostato in `app/js/confirm-controller.js`.
 - Completato parzialmente il 2026-05-19: toggle tema temporaneo dell'header mantenuto ma spostato in `app/js/theme-controller.js`.
 - Completato parzialmente il 2026-05-19: cambio pagina, sync nav/pagine e salvataggio/ripristino scroll passano da `app/js/navigation-controller.js`.
 - Completato parzialmente il 2026-05-19: ricerca, chip, date, slider, badge, reset e apertura/chiusura filtri base/avanzati passano da `app/js/filter-controller.js`.

@@ -115,6 +115,7 @@ function loadUiViews() {
     const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
     const uiStackControllerCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-controller.js'), 'utf8');
     const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
+    const confirmControllerCode = fs.readFileSync(path.join(root, 'app/js/confirm-controller.js'), 'utf8');
     const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
     const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
 
@@ -152,6 +153,7 @@ function loadUiViews() {
             uiStackEffectsCode,
             uiStackControllerCode,
             confirmDialogCode,
+            confirmControllerCode,
             themeControllerCode,
             toastControllerCode,
             'globalThis.ExpenseStore = ExpenseStore;',
@@ -185,6 +187,7 @@ function loadUiViews() {
             'globalThis.UIStackEffects = UIStackEffects;',
             'globalThis.UIStackController = UIStackController;',
             'globalThis.ConfirmDialog = ConfirmDialog;',
+            'globalThis.ConfirmController = ConfirmController;',
             'globalThis.ThemeController = ThemeController;',
             'globalThis.ToastController = ToastController;'
         ].join('\n'),
@@ -222,6 +225,7 @@ function loadUiViews() {
         UIStackEffects: context.UIStackEffects,
         UIStackController: context.UIStackController,
         ConfirmDialog: context.ConfirmDialog,
+        ConfirmController: context.ConfirmController,
         ThemeController: context.ThemeController,
         ToastController: context.ToastController
     };
@@ -3124,6 +3128,72 @@ test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', 
     assert.equal(choices[1].onClick, yes);
     assert.equal(ConfirmDialog.isOpen(hiddenDoc), false);
     assert.equal(ConfirmDialog.isOpen(openDoc), true);
+});
+
+test('Controller conferma collega dialog e history senza dipendere da App', () => {
+    const { ConfirmController, UIStack } = loadUiViews();
+    const calls = [];
+    let closeFromDialog = null;
+    const fakeDocument = {};
+    const dialog = {
+        isOpen(doc) {
+            calls.push(['is-open', doc === fakeDocument]);
+            return true;
+        },
+        showChoices(options) {
+            calls.push(['show-choices', options.document === fakeDocument, options.message, options.choices.length]);
+            options.pushState({ panel: 'confirm' });
+            closeFromDialog = options.close;
+        },
+        showConfirm(options) {
+            calls.push(['show-confirm', options.message, options.yesText, options.noText, options.yesClass]);
+            options.pushState({ panel: 'confirm' });
+            closeFromDialog = options.close;
+        },
+        close(options) {
+            calls.push(['close-dialog', options.document === fakeDocument, options.fromPopstate]);
+            options.closeHistory(options.fromPopstate);
+        }
+    };
+    const baseOptions = {
+        document: fakeDocument,
+        dialog,
+        stack: UIStack,
+        pushUiState: state => calls.push(['push', state]),
+        runHistoryAction: action => calls.push(['history', action.type, action.delta, action.suppressPopstate])
+    };
+
+    assert.equal(ConfirmController.isOpen(baseOptions), true);
+    assert.equal(ConfirmController.showChoices({
+        ...baseOptions,
+        message: 'Scegli formato',
+        choices: [{ text: 'JSON' }, { text: 'CSV' }]
+    }), true);
+    closeFromDialog(false);
+
+    assert.equal(ConfirmController.showConfirm({
+        ...baseOptions,
+        message: 'Eliminare?',
+        yesText: 'Si',
+        noText: 'No',
+        yesClass: 'btn-danger'
+    }), true);
+    ConfirmController.close({
+        ...baseOptions,
+        fromPopstate: true
+    });
+
+    assert.deepEqual(calls, [
+        ['is-open', true],
+        ['show-choices', true, 'Scegli formato', 2],
+        ['push', { panel: 'confirm' }],
+        ['close-dialog', true, false],
+        ['history', UIStack.HISTORY_ACTIONS.BACK, -1, true],
+        ['show-confirm', 'Eliminare?', 'Si', 'No', 'btn-danger'],
+        ['push', { panel: 'confirm' }],
+        ['close-dialog', true, true],
+        ['history', UIStack.HISTORY_ACTIONS.NONE, 0, false]
+    ]);
 });
 
 test('Controller tema mantiene separati tema persistente e toggle temporaneo', () => {

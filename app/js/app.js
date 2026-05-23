@@ -2,56 +2,7 @@
    APP
    ============================================ */
 const App = {
-    currentPage: 'timeline',
-    pageScrollTop: {
-        timeline: 0,
-        stats: 0,
-        settings: 0
-    },
-    _restoringPageScroll: false,
-    editingId: null,
-    newCardId: null,
-    recognition: null,
-
-    /* --- Stats --- */
-    statsPeriod: 'month',
-    statsOffset: 0,
-    chartDoughnut: null,
-    chartBar: null,
-
-    /* --- Filters (shared across pages) --- */
-    filterOpen: false,
-    filters: {
-        query: '',
-        categories: new Set(),
-        methods: new Set(),
-        amountMin: 0,
-        amountMax: Infinity,
-        dateFrom: '',
-        dateTo: ''
-    },
-    sliderMax: 100,
-    _lastSliderInput: 'max',
-    advancedFiltersOpen: false,
-    _filterSearchActive: false,
-
-    /* --- Edit modal history/focus --- */
-    _modalInteractionActive: false,
-    _suppressNextPopstate: false,
-    _suspendInteractionRelease: false,
-    _keyboardWatchTimer: null,
-    _expenseInputActive: false,
-    _lastViewportHeight: 0,
-    _expenseInputBarRaf: null,
-    _expenseInputResizeHandler: null,
-
-    /* --- Searchable dropdown instances --- */
-    _sdInstances: {},
-
-    /* --- Tags --- */
-    _editTags: [],
-
-    _wiring: null,
+    ...AppState.create(),
 
     /* =====================
        INIT

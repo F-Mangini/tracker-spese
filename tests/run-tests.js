@@ -118,6 +118,8 @@ function loadUiViews() {
     const confirmControllerCode = fs.readFileSync(path.join(root, 'app/js/confirm-controller.js'), 'utf8');
     const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
     const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
+    const appStateCode = fs.readFileSync(path.join(root, 'app/js/app-state.js'), 'utf8');
+    const appWiringModalCode = fs.readFileSync(path.join(root, 'app/js/app-wiring-modal.js'), 'utf8');
     const appWiringCode = fs.readFileSync(path.join(root, 'app/js/app-wiring.js'), 'utf8');
 
     vm.runInContext(
@@ -157,6 +159,8 @@ function loadUiViews() {
             confirmControllerCode,
             themeControllerCode,
             toastControllerCode,
+            appStateCode,
+            appWiringModalCode,
             appWiringCode,
             'globalThis.ExpenseStore = ExpenseStore;',
             'globalThis.ExpenseFilters = ExpenseFilters;',
@@ -192,6 +196,8 @@ function loadUiViews() {
             'globalThis.ConfirmController = ConfirmController;',
             'globalThis.ThemeController = ThemeController;',
             'globalThis.ToastController = ToastController;',
+            'globalThis.AppState = AppState;',
+            'globalThis.AppWiringModal = AppWiringModal;',
             'globalThis.AppWiring = AppWiring;'
         ].join('\n'),
         context
@@ -231,6 +237,8 @@ function loadUiViews() {
         ConfirmController: context.ConfirmController,
         ThemeController: context.ThemeController,
         ToastController: context.ToastController,
+        AppState: context.AppState,
+        AppWiringModal: context.AppWiringModal,
         AppWiring: context.AppWiring
     };
 }
@@ -3197,6 +3205,147 @@ test('Controller conferma collega dialog e history senza dipendere da App', () =
         ['push', { panel: 'confirm' }],
         ['close-dialog', true, true],
         ['history', UIStack.HISTORY_ACTIONS.NONE, 0, false]
+    ]);
+});
+
+test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
+    const { AppState } = loadUiViews();
+
+    const first = AppState.create();
+    const second = AppState.create();
+
+    first.currentPage = 'stats';
+    first.filters.query = 'caffe';
+    first.filters.categories.add('bar');
+    first.pageScrollTop.timeline = 120;
+    first._sdInstances.test = {};
+    first._editTags.push('lavoro');
+
+    assert.equal(second.currentPage, 'timeline');
+    assert.equal(second.filters.query, '');
+    assert.equal(second.filters.categories.size, 0);
+    assert.equal(second.pageScrollTop.timeline, 0);
+    assert.deepEqual(second._sdInstances, {});
+    assert.deepEqual(second._editTags, []);
+    assert.equal(second.statsPeriod, 'month');
+    assert.equal(second.filters.amountMax, Infinity);
+});
+
+test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {
+    const { AppWiringModal } = loadUiViews();
+    const calls = [];
+    const app = {
+        filterOpen: false,
+        currentPage: 'timeline',
+        _lastViewportHeight: 0,
+        _keyboardWatchTimer: null,
+        _modalInteractionActive: false,
+        _suspendInteractionRelease: false,
+        editingId: null,
+        _editTags: [],
+        _sdInstances: {},
+        refreshExpenseViews: options => calls.push(['refresh', options]),
+        showToast: (message, type) => calls.push(['toast', type, message]),
+        handlePopstate: () => calls.push('popstate')
+    };
+    const deps = {
+        document: {},
+        window: {},
+        ModalFormController: {},
+        ModalController: {
+            isOpen: () => true,
+            close: (options, fromPopstate) => calls.push(['modal-close', fromPopstate]),
+            save: () => calls.push('modal-save')
+        },
+        ModalMobileController: {
+            clearSelection: () => calls.push('clear-selection'),
+            getViewportHeight: () => 700,
+            startViewportWatch: () => calls.push('start-viewport'),
+            stopViewportWatch: () => calls.push('stop-viewport'),
+            pushHistoryState: () => calls.push('push-modal-history'),
+            bindNonStickyNativePicker: () => calls.push('bind-picker'),
+            handleViewportChange: () => calls.push('viewport-change'),
+            ensureInteractionState: () => calls.push('ensure-interaction'),
+            releaseInteractionState: () => calls.push('release-interaction'),
+            getOpenDropdown: () => null
+        },
+        ExpenseStore: { getSpese: () => [] },
+        CATEGORIES: [{ id: 'bar', nome: 'Bar' }],
+        PAYMENT_METHODS: [{ id: 'carta', nome: 'Carta' }],
+        ExpenseActions: {
+            updateExpense: payload => {
+                calls.push(['update', payload.id]);
+                return { success: true };
+            },
+            deleteExpense: payload => {
+                calls.push(['delete', payload.id]);
+                return { success: true };
+            }
+        },
+        Storage: {},
+        UIStack: {
+            getCloseHistoryAction: payload => ({ type: 'close', payload })
+        },
+        AppUI: {
+            parseAmountInput: value => Number(value),
+            toInputDate: value => value,
+            toInputTime: value => value
+        },
+        ConfirmController: {
+            showConfirm: options => calls.push(['confirm', options.message, options.base]),
+            close: options => calls.push(['confirm-close', options.base])
+        },
+        ModalInteractions: {
+            createSearchableDropdown(options) {
+                calls.push(['dropdown', options.containerId, options.currentValue]);
+                return { getValue: () => options.currentValue };
+            },
+            createTagInput(options) {
+                calls.push(['tag-input', options.containerId]);
+                options.setTags(['lavoro']);
+            }
+        },
+        ModalView: {
+            getAllTags: () => ['lavoro'],
+            getTagStats: () => ({})
+        },
+        setTimeout: callback => {
+            callback();
+            return 1;
+        },
+        setInterval: () => 2,
+        clearInterval: id => calls.push(['clear-interval', id])
+    };
+    const core = {
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: () => calls.push('consume'),
+        runHistoryAction: action => calls.push(['history', action]),
+        confirmOptions: () => ({ base: true })
+    };
+    const wiring = AppWiringModal.create({ app, deps, core });
+    const mobileOptions = wiring.modalMobileOptions();
+    const modalOptions = wiring.modalOptions();
+
+    mobileOptions.setLastViewportHeight(640);
+    mobileOptions.pushUiState({ panel: 'modal' });
+    mobileOptions.consumeUiState();
+
+    modalOptions.setEditingId('expense-a');
+    modalOptions.setEditTags(['casa']);
+    modalOptions.initSearchableDropdown('sd-categoria', deps.CATEGORIES, 'bar');
+    modalOptions.initTagInput();
+    modalOptions.showConfirm('Confermi?', () => {});
+
+    assert.equal(app._lastViewportHeight, 640);
+    assert.equal(app.editingId, 'expense-a');
+    assert.deepEqual(app._editTags, ['lavoro']);
+    assert.equal(modalOptions.getDropdownValue('sd-categoria', 'altro'), 'bar');
+    assert.deepEqual(calls, [
+        ['push', { panel: 'modal' }],
+        'consume',
+        ['dropdown', 'sd-categoria', 'bar'],
+        ['tag-input', 'sd-tags'],
+        ['confirm', 'Confermi?', true]
     ]);
 });
 

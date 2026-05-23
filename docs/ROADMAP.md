@@ -17,6 +17,7 @@ Stato della fase iniziale:
 - In corso dal 2026-05-20: cache letture spese della UI spostata in `app/js/expense-store.js`.
 - In corso dal 2026-05-20: modelli filtrati/statistiche/riepiloghi spostati in `app/js/expense-query.js`.
 - In corso dal 2026-05-20: policy refresh viste dopo cambio dati spostata in `app/js/app-refresh.js`.
+- In corso dal 2026-05-23: option factory e collegamenti controller/stato condiviso spostati in `app/js/app-wiring.js`.
 - In corso dal 2026-05-21: download reale dei file esportati spostato in `app/js/download-controller.js`.
 - In corso dal 2026-05-19: wiring input rapido spostato in `app/js/expense-input-controller.js`.
 - In corso dal 2026-05-19: layout mobile della barra input spostato in `app/js/input-bar-controller.js`.
@@ -40,7 +41,7 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-18: navigazione piu leggibile con salvataggio scroll per pagina e chiusura simmetrica dei filtri avanzati nella history.
 - Completato parzialmente il 2026-05-19: parser importi rafforzato per frasi con piu numeri, valuta esplicita e importi finali.
 - Completato parzialmente il 2026-05-19: decisione `popstate`/back button centralizzata in `app/js/ui-stack.js` e coperta da test.
-- Completato parzialmente il 2026-05-20: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da `app/js/history-controller.js` tramite un wrapper sottile in `app.js`.
+- Completato parzialmente il 2026-05-20: push/back/go/replace descritti da `ui-stack.js` ed eseguiti da `app/js/history-controller.js` tramite callback di wiring in `app.js`.
 - Completato parzialmente il 2026-05-19: applicazione delle azioni `popstate`/back button spostata in `app/js/ui-stack-controller.js` tramite hook verso `app.js`.
 - Completato parzialmente il 2026-05-19: decisioni import/export impostazioni spostate in `app/js/settings-actions.js`.
 - Completato parzialmente il 2026-05-19: cleanup DOM minimi collegati al `popstate` spostati in `app/js/ui-stack-effects.js`.
@@ -66,6 +67,8 @@ Stato della fase iniziale:
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` wrapper pass-through non usati verso controller gia estratti e lo stato morto `_expenseScrollLockY`.
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` i wrapper pass-through residui verso `app/js/input-bar-controller.js` e `app/js/modal-mobile-controller.js`.
 - Completato parzialmente il 2026-05-21: rimossi da `app.js` altri wrapper residui verso `app/js/expense-query.js`, `app/js/filter-controller.js` e `app/js/modal-controller.js`.
+- Completato parzialmente il 2026-05-21: rimossi da `app.js` i wrapper residui verso `ConfirmController`, `HistoryController`, `NavigationController` e `ThemeController`.
+- Completato parzialmente il 2026-05-23: estratto `app/js/app-wiring.js`; `app.js` ora conserva stato, boot e render principali, mentre history/conferme/opzioni controller vivono nel modulo di wiring.
 - Completato parzialmente il 2026-05-19: touch/click, Invio, focus/blur e voce dell'input rapido passano da `app/js/expense-input-controller.js`.
 - Completato parzialmente il 2026-05-19: inset tastiera, padding contenuto, RAF e listener resize della barra input passano da `app/js/input-bar-controller.js`.
 - Completato parzialmente il 2026-05-19: popolamento, lettura e micro-eventi del form di modifica passano da `app/js/modal-form-controller.js`.
@@ -78,7 +81,7 @@ Priorita della fase attuale:
 - Pulire la codebase senza cambiare comportamento percepito.
 - Separare progressivamente logica dati, rendering e gestione UI oggi concentrate in `app.js`.
 - Rendere piu leggibili filtri, modali, navigazione e statistiche.
-- Prossimo passo consigliato: proseguire con piccoli wrapper di orchestrazione rimasti e valutare i ricalcoli residui legati a rendering/grafici, continuando a evitare schema dati e workaround non verificati.
+- Prossimo passo consigliato: proseguire riducendo lo stato condiviso rimasto in `app.js`, valutando i ricalcoli residui legati a rendering/grafici e continuando a evitare schema dati e workaround non verificati.
 - Mantenere documentazione aggiornata a ogni cambiamento strutturale.
 - Mantenere `AGENTS.md` in root come riferimento operativo per gli assistenti.
 

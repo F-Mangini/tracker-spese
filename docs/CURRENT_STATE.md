@@ -17,6 +17,7 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/expense-store.js` contiene una cache leggera delle letture spese per la UI, invalidata dopo scritture, import/cancellazione e cambi `storage` da altri contesti.
 - `app/js/expense-query.js` contiene modelli derivati testabili per filtri, statistiche e riepiloghi, cosi badge filtri, timeline e pagina statistiche possono riusare gli stessi calcoli preparati.
 - `app/js/app-refresh.js` contiene la policy di aggiornamento viste dopo cambi dati: invalidazione cache, slider filtri, timeline, statistiche e impostazioni quando richieste.
+- `app/js/app-wiring.js` contiene le option factory applicative per collegare stato condiviso, controller estratti, history, conferme e callback DOM senza appesantire `app.js`.
 - `app/js/download-controller.js` contiene il download reale dei file esportati tramite link temporaneo, `Blob` e URL revocato.
 - `app/js/expense-input-controller.js` contiene il wiring dell'input rapido: touch/click, invio da tastiera, focus/blur e dettatura vocale tramite hook verso `app.js`.
 - `app/js/input-bar-controller.js` contiene il layout mobile della barra di inserimento: inset tastiera da `visualViewport`, padding del contenuto, RAF e listener resize.
@@ -47,9 +48,9 @@ Where's My Money? e una web app statica, senza build system e senza framework.
 - `app/js/ui-stack-effects.js` contiene cleanup DOM piccoli usati dallo stack UI durante `popstate`.
 - `app/js/ui-stack-controller.js` contiene il glue applicativo dello stack UI/back button: snapshot stato, applicazione azioni `popstate` e stati interni modale tramite hook verso `app.js`.
 - `app/js/storage.js` gestisce persistenza, import/export e utility dati.
-- `app/js/app.js` contiene stato UI, eventi generali, orchestrazione dei moduli, istanze Chart.js e workaround mobile.
+- `app/js/app.js` contiene stato UI condiviso, boot dell'app, orchestrazione dei render principali e riferimenti alle istanze Chart.js.
 
-La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il centro di orchestrazione generale, stato condiviso, storage e hook history. Le estrazioni hanno pero spostato logica pura, helper di formattazione, rendering UI, azioni spesa, submit dell'input rapido, cache letture spese, query filtrate/statistiche/riepiloghi, refresh viste dopo cambio dati, download file, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog/controller conferma, decisioni/glue dello stack UI, esecuzione concreta delle azioni history e cleanup DOM puntuali in moduli separati. Alcuni wrapper puri e pass-through ridondanti sono stati rimossi da `app.js`, inclusi i pass-through verso `ExpenseQuery`, `FilterController`, `InputBarController`, `ModalController` e `ModalMobileController`; `app.js` ora chiama direttamente i moduli estratti nei punti di wiring quando non serve mantenere un hook applicativo.
+La struttura attuale resta intenzionalmente semplice. `app.js` e ancora il proprietario dello stato UI condiviso e dell'orchestrazione principale, ma le option factory dei controller sono ora isolate in `app/js/app-wiring.js`. Le estrazioni hanno spostato logica pura, helper di formattazione, rendering UI, azioni spesa, submit dell'input rapido, cache letture spese, query filtrate/statistiche/riepiloghi, refresh viste dopo cambio dati, download file, wiring dell'input rapido, layout della barra input mobile, navigazione, filtri, timeline, tema, toast, statistiche/grafici, form, focus/mobile, micro-interazioni e lifecycle della modale, flussi impostazioni, dialog/controller conferma, decisioni/glue dello stack UI, esecuzione concreta delle azioni history e cleanup DOM puntuali in moduli separati. Alcuni wrapper puri e pass-through ridondanti sono stati rimossi da `app.js`, inclusi i pass-through verso `ExpenseQuery`, `FilterController`, `InputBarController`, `ModalController`, `ModalMobileController`, `ConfirmController`, `HistoryController`, `NavigationController` e `ThemeController`; `app.js` ora richiama i controller estratti tramite `AppWiring` quando serve collegare stato e callback applicative.
 
 Per la mappa dettagliata dei rischi tecnici e dell'ordine consigliato del refactor, vedere `docs/CODE_REVIEW.md`.
 
@@ -173,9 +174,9 @@ La navigazione principale e composta da:
 
 La chiusura dei filtri avanzati ora consuma in modo simmetrico lo stato history creato all'apertura; se si chiude tutto il pannello mentre i filtri avanzati sono aperti, vengono consumati entrambi gli stati sovrapposti.
 
-Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso. Questo wiring e in `app/js/navigation-controller.js`; `app.js` mantiene lo stato pagina corrente e delega l'esecuzione history a `HistoryController` tramite `runHistoryAction`.
+Lo scroll di timeline, statistiche e impostazioni viene ricordato separatamente: quando si cambia pagina, la posizione della pagina lasciata viene salvata e quella della pagina aperta viene ripristinata, partendo dall'alto al primo ingresso. Questo wiring e in `app/js/navigation-controller.js`; `app.js` mantiene lo stato pagina corrente e passa ai controller callback che invocano direttamente `HistoryController`.
 
-Il layout della barra di inserimento durante tastiera mobile e filtri usa `input-bar-controller.js`, che legge `visualViewport`, aggiorna il padding di `app-main` e gestisce RAF/listener resize tramite hook di `app.js`. I workaround di focus/picker/viewport della modale sono in `modal-mobile-controller.js`; il lifecycle della modale e in `modal-controller.js`, tramite hook verso stato, storage, rendering e history di `app.js`. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; l'esecuzione push/replace/back/go e in `history-controller.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`; il glue che applica le azioni tramite hook vive in `ui-stack-controller.js`, mentre `app.js` mantiene flag e wrapper sottili.
+Il layout della barra di inserimento durante tastiera mobile e filtri usa `input-bar-controller.js`, che legge `visualViewport`, aggiorna il padding di `app-main` e gestisce RAF/listener resize tramite hook applicativi preparati da `app-wiring.js`. I workaround di focus/picker/viewport della modale sono in `modal-mobile-controller.js`; il lifecycle della modale e in `modal-controller.js`, tramite hook verso stato, storage, rendering e history preparati da `AppWiring`. Lo stack UI non e ancora un manager completo: centralizza decisioni testabili di `popstate` e azioni push/back simmetriche in `ui-stack.js`; l'esecuzione push/replace/back/go e in `history-controller.js`; alcuni cleanup DOM puntuali sono in `ui-stack-effects.js`; il glue che applica le azioni tramite hook vive in `ui-stack-controller.js`, mentre `app.js` mantiene i flag condivisi.
 
 ### Statistiche
 
@@ -219,7 +220,7 @@ Il rendering della pagina impostazioni e del messaggio di preview import e in `a
 - Non c'e ancora un service worker: l'app non e pienamente offline.
 - Chart.js viene caricato da CDN, quindi le statistiche dipendono dalla rete al primo caricamento.
 - Non esiste ancora un sistema di versioni installabili in parallelo o aggiornamenti controllati dall'utente.
-- `app.js` e molto grande e accoppia stato, rendering, eventi e workaround mobile.
+- `app.js` conserva ancora stato condiviso e orchestrazione generale, anche se wiring, rendering e workaround principali sono stati spostati in moduli dedicati.
 - Categorie e metodi sono statici nel codice, non personalizzabili dall'app.
 - Le categorie non hanno ancora icone o immagini personalizzabili dall'utente, ne un colore visivo mostrato direttamente sulle spese.
 - Non esiste ancora una modalita selezione con evidenza visiva dedicata e azioni bulk sulle spese.

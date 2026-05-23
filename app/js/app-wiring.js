@@ -1,0 +1,537 @@
+/* ============================================
+   APP WIRING - option factory per controller
+   ============================================ */
+
+const AppWiring = (() => {
+    function noop() { }
+
+    function getGlobal(name, fallback = null) {
+        try {
+            if (typeof globalThis !== 'undefined' && name in globalThis) {
+                return globalThis[name];
+            }
+        } catch (_) { }
+
+        return fallback;
+    }
+
+    function getDefaults() {
+        return {
+            document: getGlobal('document'),
+            window: getGlobal('window'),
+            history: getGlobal('history'),
+            Storage: typeof Storage === 'undefined' ? null : Storage,
+            ExpenseStore: typeof ExpenseStore === 'undefined' ? null : ExpenseStore,
+            Parser: typeof Parser === 'undefined' ? null : Parser,
+            ExpenseActions: typeof ExpenseActions === 'undefined' ? null : ExpenseActions,
+            ExpenseSubmitController: typeof ExpenseSubmitController === 'undefined' ? null : ExpenseSubmitController,
+            ExpenseInputController: typeof ExpenseInputController === 'undefined' ? null : ExpenseInputController,
+            InputBarController: typeof InputBarController === 'undefined' ? null : InputBarController,
+            ExpenseFilters: typeof ExpenseFilters === 'undefined' ? null : ExpenseFilters,
+            StatsData: typeof StatsData === 'undefined' ? null : StatsData,
+            ExpenseQuery: typeof ExpenseQuery === 'undefined' ? null : ExpenseQuery,
+            AppRefresh: typeof AppRefresh === 'undefined' ? null : AppRefresh,
+            AppUI: typeof AppUI === 'undefined' ? null : AppUI,
+            DownloadController: typeof DownloadController === 'undefined' ? null : DownloadController,
+            FilterView: typeof FilterView === 'undefined' ? null : FilterView,
+            FilterController: typeof FilterController === 'undefined' ? null : FilterController,
+            TimelineController: typeof TimelineController === 'undefined' ? null : TimelineController,
+            NavigationController: typeof NavigationController === 'undefined' ? null : NavigationController,
+            StatsController: typeof StatsController === 'undefined' ? null : StatsController,
+            ModalView: typeof ModalView === 'undefined' ? null : ModalView,
+            ModalFormController: typeof ModalFormController === 'undefined' ? null : ModalFormController,
+            ModalMobileController: typeof ModalMobileController === 'undefined' ? null : ModalMobileController,
+            ModalInteractions: typeof ModalInteractions === 'undefined' ? null : ModalInteractions,
+            ModalController: typeof ModalController === 'undefined' ? null : ModalController,
+            SettingsController: typeof SettingsController === 'undefined' ? null : SettingsController,
+            UIStack: typeof UIStack === 'undefined' ? null : UIStack,
+            HistoryController: typeof HistoryController === 'undefined' ? null : HistoryController,
+            UIStackEffects: typeof UIStackEffects === 'undefined' ? null : UIStackEffects,
+            UIStackController: typeof UIStackController === 'undefined' ? null : UIStackController,
+            ConfirmDialog: typeof ConfirmDialog === 'undefined' ? null : ConfirmDialog,
+            ConfirmController: typeof ConfirmController === 'undefined' ? null : ConfirmController,
+            ThemeController: typeof ThemeController === 'undefined' ? null : ThemeController,
+            ToastController: typeof ToastController === 'undefined' ? null : ToastController,
+            CATEGORIES: typeof CATEGORIES === 'undefined' ? [] : CATEGORIES,
+            PAYMENT_METHODS: typeof PAYMENT_METHODS === 'undefined' ? [] : PAYMENT_METHODS,
+            ChartClass: typeof Chart === 'undefined' ? null : Chart,
+            FileReaderClass: typeof FileReader === 'undefined' ? null : FileReader,
+            URL: typeof URL === 'undefined' ? null : URL,
+            Blob: typeof Blob === 'undefined' ? null : Blob,
+            requestAnimationFrame: typeof requestAnimationFrame === 'function'
+                ? requestAnimationFrame
+                : callback => callback(),
+            cancelAnimationFrame: typeof cancelAnimationFrame === 'function'
+                ? cancelAnimationFrame
+                : noop,
+            setTimeout: typeof setTimeout === 'function' ? setTimeout : callback => {
+                callback();
+                return null;
+            },
+            setInterval: typeof setInterval === 'function' ? setInterval : noop,
+            clearInterval: typeof clearInterval === 'function' ? clearInterval : noop
+        };
+    }
+
+    function create(app, overrides = {}) {
+        const deps = {
+            ...getDefaults(),
+            ...overrides
+        };
+
+        const api = {
+            deps,
+            historyOptions,
+            runHistoryAction,
+            pushUiState,
+            consumeUiState,
+            themeOptions,
+            navigationOptions,
+            filterOptions,
+            inputBarOptions,
+            expenseInputOptions,
+            expenseSubmitOptions,
+            timelineOptions,
+            modalMobileOptions,
+            modalOptions,
+            uiStackOptions,
+            modalInteractionHooks,
+            initSearchableDropdown,
+            initTagInput,
+            confirmOptions,
+            statsOptions,
+            settingsOptions,
+            toastOptions,
+            refreshOptions
+        };
+
+        function historyOptions() {
+            return {
+                stack: deps.UIStack,
+                history: deps.history,
+                setSuppressPopstate: value => { app._suppressNextPopstate = value; }
+            };
+        }
+
+        function runHistoryAction(action) {
+            return deps.HistoryController.run(action, historyOptions());
+        }
+
+        function pushUiState(state) {
+            return runHistoryAction(deps.UIStack.pushState(state));
+        }
+
+        function consumeUiState(steps = 1) {
+            return runHistoryAction(deps.UIStack.consumeState({ steps }));
+        }
+
+        function themeOptions() {
+            return {
+                storage: deps.Storage,
+                document: deps.document,
+                window: deps.window,
+                onTemporaryThemeChange: () => {
+                    if (app.currentPage === 'stats') app.renderStats();
+                }
+            };
+        }
+
+        function navigationOptions() {
+            return {
+                document: deps.document,
+                pageScrollTop: app.pageScrollTop,
+                getCurrentPage: () => app.currentPage,
+                setCurrentPage: page => { app.currentPage = page; },
+                isRestoringPageScroll: () => app._restoringPageScroll,
+                setRestoringPageScroll: value => { app._restoringPageScroll = value; },
+                getNavigationHistoryAction: payload => deps.UIStack.getNavigationHistoryAction(payload),
+                runHistoryAction,
+                isFilterOpen: () => app.filterOpen,
+                closeFilterPanel: () => deps.FilterController.closeFilterPanel(filterOptions()),
+                updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
+                renderTimeline: () => app.renderTimeline(),
+                renderStats: () => app.renderStats(),
+                renderSettings: () => app.renderSettings(),
+                requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
+                defer: callback => deps.setTimeout(callback, 0)
+            };
+        }
+
+        function filterOptions() {
+            return {
+                document: deps.document,
+                body: deps.document.body,
+                filters: app.filters,
+                categories: deps.CATEGORIES,
+                methods: deps.PAYMENT_METHODS,
+                getSpese: () => deps.ExpenseStore.getSpese(),
+                getSliderMax: spese => deps.FilterView.getSliderMax(spese),
+                renderChips: items => deps.FilterView.renderChips(items),
+                renderFooterInfo: payload => deps.FilterView.renderFooterInfo(payload),
+                getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
+                countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
+                    spese: deps.ExpenseStore.getSpese(),
+                    filters: app.filters
+                }),
+                getFilterOpen: () => app.filterOpen,
+                setFilterOpen: value => { app.filterOpen = value; },
+                getAdvancedFiltersOpen: () => app.advancedFiltersOpen,
+                setAdvancedFiltersOpen: value => { app.advancedFiltersOpen = value; },
+                getFilterSearchActive: () => app._filterSearchActive,
+                setFilterSearchActive: value => { app._filterSearchActive = value; },
+                getLastSliderInput: () => app._lastSliderInput,
+                setLastSliderInput: value => { app._lastSliderInput = value; },
+                getSliderMaxValue: () => app.sliderMax,
+                setSliderMaxValue: value => { app.sliderMax = value; },
+                setLastViewportHeight: value => { app._lastViewportHeight = value; },
+                getViewportHeight: () => deps.ModalMobileController.getViewportHeight(modalMobileOptions()),
+                startExpenseInputBarWatch: () => deps.InputBarController.startWatch(inputBarOptions()),
+                stopExpenseInputBarWatch: () => deps.InputBarController.stopWatch(inputBarOptions()),
+                pushUiState,
+                consumeUiState: () => consumeUiState(),
+                runHistoryAction,
+                getCloseHistoryAction: payload => deps.UIStack.getCloseHistoryAction(payload),
+                updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
+                onFilterChange: () => app.onFilterChange(),
+                showToast: (message, type) => app.showToast(message, type),
+                requestAnimationFrame: callback => deps.requestAnimationFrame(callback)
+            };
+        }
+
+        function inputBarOptions() {
+            return {
+                document: deps.document,
+                window: deps.window,
+                isExpenseInputActive: () => app._expenseInputActive,
+                isFilterSearchActive: () => app._filterSearchActive,
+                isFilterOpen: () => app.filterOpen,
+                getRafId: () => app._expenseInputBarRaf,
+                setRafId: value => { app._expenseInputBarRaf = value; },
+                getResizeHandler: () => app._expenseInputResizeHandler,
+                setResizeHandler: value => { app._expenseInputResizeHandler = value; },
+                requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
+                cancelAnimationFrame: id => deps.cancelAnimationFrame(id),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
+            };
+        }
+
+        function expenseInputOptions() {
+            return {
+                document: deps.document,
+                window: deps.window,
+                onSubmit: () => app.submitExpense(),
+                onVoiceError: () => app.showToast('Non ho capito. Riprova.', 'error'),
+                isInputActive: () => app._expenseInputActive,
+                setInputActive: value => { app._expenseInputActive = value; },
+                getViewportHeight: () => deps.ModalMobileController.getViewportHeight(modalMobileOptions()),
+                setLastViewportHeight: value => { app._lastViewportHeight = value; },
+                pushInputState: () => pushUiState({ panel: 'expense-input' }),
+                consumeInputState: () => consumeUiState(),
+                startInputBarWatch: () => deps.InputBarController.startWatch(inputBarOptions()),
+                stopInputBarWatch: () => deps.InputBarController.stopWatch(inputBarOptions()),
+                scheduleInputBarPositionUpdate: force => deps.InputBarController.schedulePositionUpdate(inputBarOptions(), force),
+                updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions())
+            };
+        }
+
+        function expenseSubmitOptions() {
+            return {
+                document: deps.document,
+                actions: deps.ExpenseActions,
+                parser: deps.Parser,
+                storage: deps.Storage,
+                categories: deps.CATEGORIES,
+                ui: deps.AppUI,
+                setNewCardId: id => { app.newCardId = id; },
+                refreshAfterAdd: () => app.refreshExpenseViews({ updateFilterSlider: true }),
+                showToast: (message, type) => app.showToast(message, type)
+            };
+        }
+
+        function timelineOptions(filterModel = null) {
+            return {
+                document: deps.document,
+                spese: filterModel ? filterModel.allSpese : deps.ExpenseStore.getSpese(),
+                filterModel,
+                newCardId: app.newCardId,
+                hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
+                groupByDay: spese => deps.StatsData.groupByDay(spese),
+                getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
+                getMethod: id => deps.AppUI.getMethod(id, deps.PAYMENT_METHODS),
+                formatDayLabel: date => deps.AppUI.formatDayLabel(date),
+                clearNewCardId: () => { app.newCardId = null; },
+                openEditModal: id => deps.ModalController.open(modalOptions(), id)
+            };
+        }
+
+        function modalMobileOptions() {
+            return {
+                document: deps.document,
+                window: deps.window,
+                formController: deps.ModalFormController,
+                isModalOpen: () => deps.ModalController.isOpen(modalOptions()),
+                isFilterOpen: () => app.filterOpen,
+                getCurrentPage: () => app.currentPage,
+                getLastViewportHeight: () => app._lastViewportHeight,
+                setLastViewportHeight: value => { app._lastViewportHeight = value; },
+                getKeyboardWatchTimer: () => app._keyboardWatchTimer,
+                setKeyboardWatchTimer: value => { app._keyboardWatchTimer = value; },
+                isInteractionActive: () => app._modalInteractionActive,
+                setInteractionActive: value => { app._modalInteractionActive = value; },
+                pushUiState,
+                consumeUiState: () => consumeUiState(),
+                clearSelection: () => deps.ModalMobileController.clearSelection(modalMobileOptions()),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                setInterval: (callback, delay) => deps.setInterval(callback, delay),
+                clearInterval: id => deps.clearInterval(id)
+            };
+        }
+
+        function modalOptions() {
+            return {
+                document: deps.document,
+                window: deps.window,
+                formController: deps.ModalFormController,
+                mobileController: deps.ModalMobileController,
+                getModalMobileOptions: () => modalMobileOptions(),
+                getEditingId: () => app.editingId,
+                setEditingId: id => { app.editingId = id; },
+                getExpenses: () => deps.ExpenseStore.getSpese(),
+                categories: deps.CATEGORIES,
+                methods: deps.PAYMENT_METHODS,
+                setEditTags: tags => { app._editTags = tags; },
+                getEditTags: () => app._editTags,
+                initSearchableDropdown,
+                initTagInput,
+                isModalInteractionActive: () => app._modalInteractionActive,
+                setModalInteractionActive: value => { app._modalInteractionActive = value; },
+                setModalInteractionReleaseSuspended: value => { app._suspendInteractionRelease = value; },
+                getViewportHeight: () => deps.ModalMobileController.getViewportHeight(modalMobileOptions()),
+                setLastViewportHeight: value => { app._lastViewportHeight = value; },
+                startModalViewportWatch: () => deps.ModalMobileController.startViewportWatch(modalMobileOptions()),
+                stopModalViewportWatch: () => deps.ModalMobileController.stopViewportWatch(modalMobileOptions()),
+                pushModalHistoryState: () => deps.ModalMobileController.pushHistoryState(modalMobileOptions()),
+                clearModalSelection: () => deps.ModalMobileController.clearSelection(modalMobileOptions()),
+                runHistoryAction,
+                getCloseHistoryAction: payload => deps.UIStack.getCloseHistoryAction(payload),
+                parseAmountInput: value => deps.AppUI.parseAmountInput(value),
+                getDropdownValue: (id, fallback) => {
+                    const instance = app._sdInstances[id];
+                    return instance ? instance.getValue() : fallback;
+                },
+                updateExpense: data => deps.ExpenseActions.updateExpense({
+                    id: app.editingId,
+                    data,
+                    storage: deps.Storage
+                }),
+                deleteExpense: () => deps.ExpenseActions.deleteExpense({
+                    id: app.editingId,
+                    storage: deps.Storage
+                }),
+                refreshAfterExpenseChange: () => app.refreshExpenseViews({ updateFilterSlider: true }),
+                closeModal: fromPopstate => deps.ModalController.close(modalOptions(), fromPopstate),
+                saveEdit: () => deps.ModalController.save(modalOptions()),
+                showConfirm: (message, onYes) => deps.ConfirmController.showConfirm({
+                    ...confirmOptions(),
+                    message,
+                    onYes
+                }),
+                closeConfirm: () => deps.ConfirmController.close(confirmOptions()),
+                showToast: (message, type) => app.showToast(message, type),
+                bindNonStickyNativePicker: el => deps.ModalMobileController.bindNonStickyNativePicker(
+                    el,
+                    modalMobileOptions()
+                ),
+                handleModalViewportChange: () => deps.ModalMobileController.handleViewportChange(modalMobileOptions()),
+                handlePopstate: () => app.handlePopstate(),
+                toInputDate: date => deps.AppUI.toInputDate(date),
+                toInputTime: date => deps.AppUI.toInputTime(date),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
+            };
+        }
+
+        function uiStackOptions() {
+            return {
+                document: deps.document,
+                stack: deps.UIStack,
+                effects: deps.UIStackEffects,
+                getSuppressNextPopstate: () => app._suppressNextPopstate,
+                setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
+                isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
+                closeConfirm: fromPopstate => deps.ConfirmController.close({
+                    ...confirmOptions(),
+                    fromPopstate
+                }),
+                isModalOpen: () => deps.ModalController.isOpen(modalOptions()),
+                closeModal: fromPopstate => deps.ModalController.close(modalOptions(), fromPopstate),
+                isFilterSearchActive: () => app._filterSearchActive,
+                setFilterSearchActive: value => { app._filterSearchActive = value; },
+                isExpenseInputActive: () => app._expenseInputActive,
+                setExpenseInputActive: value => { app._expenseInputActive = value; },
+                isAdvancedFiltersOpen: () => app.advancedFiltersOpen,
+                closeAdvancedFilters: fromPopstate => deps.FilterController.closeAdvancedFilters(
+                    filterOptions(),
+                    fromPopstate
+                ),
+                isFilterOpen: () => app.filterOpen,
+                closeFilterPanel: fromPopstate => deps.FilterController.closeFilterPanel(
+                    filterOptions(),
+                    fromPopstate
+                ),
+                getCurrentPage: () => app.currentPage,
+                navigateTo: (page, fromPopstate) => deps.NavigationController.navigateTo(
+                    navigationOptions(),
+                    page,
+                    fromPopstate
+                ),
+                stopExpenseInputBarWatch: () => deps.InputBarController.stopWatch(inputBarOptions()),
+                isModalInteractionActive: () => app._modalInteractionActive,
+                setModalInteractionActive: value => { app._modalInteractionActive = value; },
+                setModalInteractionReleaseSuspended: value => { app._suspendInteractionRelease = value; },
+                hasOpenModalDropdown: () => !!deps.ModalMobileController.getOpenDropdown(modalMobileOptions()),
+                hasActivePlainModalField: () => !!deps.ModalMobileController.getActivePlainField(modalMobileOptions()),
+                clearModalSelection: () => deps.ModalMobileController.clearSelection(modalMobileOptions()),
+                pushModalHistoryState: () => deps.ModalMobileController.pushHistoryState(modalMobileOptions())
+            };
+        }
+
+        function modalInteractionHooks() {
+            return {
+                ensureInteractionState: () => deps.ModalMobileController.ensureInteractionState(modalMobileOptions()),
+                releaseInteractionState: () => deps.ModalMobileController.releaseInteractionState(modalMobileOptions()),
+                isInteractionActive: () => app._modalInteractionActive,
+                isInteractionReleaseSuspended: () => app._suspendInteractionRelease,
+                hasOpenDropdown: () => !!deps.ModalMobileController.getOpenDropdown(modalMobileOptions())
+            };
+        }
+
+        function initSearchableDropdown(containerId, items, currentValue) {
+            const instance = deps.ModalInteractions.createSearchableDropdown({
+                ...modalInteractionHooks(),
+                containerId,
+                items,
+                currentValue
+            });
+
+            if (instance) {
+                app._sdInstances[containerId] = instance;
+            }
+        }
+
+        function initTagInput() {
+            deps.ModalInteractions.createTagInput({
+                ...modalInteractionHooks(),
+                containerId: 'sd-tags',
+                chipsId: 'tag-chips',
+                getTags: () => app._editTags,
+                setTags: tags => { app._editTags = tags; },
+                getAllTags: () => deps.ModalView.getAllTags(deps.ExpenseStore.getSpese()),
+                getTagStats: () => deps.ModalView.getTagStats(deps.ExpenseStore.getSpese())
+            });
+        }
+
+        function confirmOptions() {
+            return {
+                document: deps.document,
+                dialog: deps.ConfirmDialog,
+                stack: deps.UIStack,
+                pushUiState,
+                runHistoryAction
+            };
+        }
+
+        function statsOptions(filterModel = null) {
+            const allSpese = filterModel ? filterModel.allSpese : deps.ExpenseStore.getSpese();
+            const statsModel = deps.ExpenseQuery.buildStatsModel({
+                spese: allSpese,
+                filters: app.filters,
+                period: app.statsPeriod,
+                offset: app.statsOffset
+            });
+
+            return {
+                document: deps.document,
+                container: deps.document.getElementById('stats-content'),
+                spese: allSpese,
+                statsModel,
+                period: app.statsPeriod,
+                offset: app.statsOffset,
+                filters: app.filters,
+                charts: {
+                    doughnut: app.chartDoughnut,
+                    bar: app.chartBar
+                },
+                ChartClass: deps.ChartClass,
+                getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
+                applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters),
+                setPeriod: period => { app.statsPeriod = period; },
+                setOffset: offset => { app.statsOffset = offset; },
+                rerender: () => app.renderStats()
+            };
+        }
+
+        function settingsOptions() {
+            return {
+                container: deps.document.getElementById('settings-content'),
+                storage: deps.Storage,
+                getSpese: () => deps.ExpenseStore.getSpese(),
+                FileReaderClass: deps.FileReaderClass,
+                dateStamp: () => deps.AppUI.dateStamp(),
+                download: (content, filename, mime) => deps.DownloadController.download(content, filename, mime, {
+                    document: deps.document,
+                    URL: deps.URL,
+                    Blob: deps.Blob
+                }),
+                showToast: (message, type) => app.showToast(message, type),
+                showChoices: (message, choices) => deps.ConfirmController.showChoices({
+                    ...confirmOptions(),
+                    message,
+                    choices
+                }),
+                showConfirm: (message, onYes) => deps.ConfirmController.showConfirm({
+                    ...confirmOptions(),
+                    message,
+                    onYes
+                }),
+                applyTheme: theme => deps.ThemeController.applyTheme(theme, {
+                    document: deps.document,
+                    window: deps.window
+                }),
+                refreshSettings: () => app.renderSettings(),
+                refreshAfterDataChange: () => app.refreshExpenseViews({ includeSettings: true })
+            };
+        }
+
+        function toastOptions() {
+            return {
+                document: deps.document,
+                window: deps.window,
+                isExpenseInputActive: () => app._expenseInputActive
+            };
+        }
+
+        function refreshOptions(options = {}) {
+            return {
+                invalidateSpeseCache: () => deps.ExpenseStore.invalidate(),
+                updateFilterSlider: !!options.updateFilterSlider,
+                isFilterOpen: () => app.filterOpen,
+                recalcSliderMax: () => deps.FilterController.recalcSliderMax(filterOptions()),
+                getCurrentPage: () => app.currentPage,
+                renderTimeline: () => app.renderTimeline(),
+                renderStats: () => app.renderStats(),
+                includeSettings: !!options.includeSettings,
+                renderSettings: () => app.renderSettings()
+            };
+        }
+
+        return api;
+    }
+
+    return {
+        create
+    };
+})();

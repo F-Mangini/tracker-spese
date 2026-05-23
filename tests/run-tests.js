@@ -118,6 +118,7 @@ function loadUiViews() {
     const confirmControllerCode = fs.readFileSync(path.join(root, 'app/js/confirm-controller.js'), 'utf8');
     const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
     const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
+    const appWiringCode = fs.readFileSync(path.join(root, 'app/js/app-wiring.js'), 'utf8');
 
     vm.runInContext(
         [
@@ -156,6 +157,7 @@ function loadUiViews() {
             confirmControllerCode,
             themeControllerCode,
             toastControllerCode,
+            appWiringCode,
             'globalThis.ExpenseStore = ExpenseStore;',
             'globalThis.ExpenseFilters = ExpenseFilters;',
             'globalThis.ExpenseQuery = ExpenseQuery;',
@@ -189,7 +191,8 @@ function loadUiViews() {
             'globalThis.ConfirmDialog = ConfirmDialog;',
             'globalThis.ConfirmController = ConfirmController;',
             'globalThis.ThemeController = ThemeController;',
-            'globalThis.ToastController = ToastController;'
+            'globalThis.ToastController = ToastController;',
+            'globalThis.AppWiring = AppWiring;'
         ].join('\n'),
         context
     );
@@ -227,7 +230,8 @@ function loadUiViews() {
         ConfirmDialog: context.ConfirmDialog,
         ConfirmController: context.ConfirmController,
         ThemeController: context.ThemeController,
-        ToastController: context.ToastController
+        ToastController: context.ToastController,
+        AppWiring: context.AppWiring
     };
 }
 
@@ -3193,6 +3197,103 @@ test('Controller conferma collega dialog e history senza dipendere da App', () =
         ['push', { panel: 'confirm' }],
         ['close-dialog', true, true],
         ['history', UIStack.HISTORY_ACTIONS.NONE, 0, false]
+    ]);
+});
+
+test('Wiring app centralizza history e opzioni controller fuori da app.js', () => {
+    const { AppWiring, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    const fakeDocument = { body: {} };
+    const app = {
+        currentPage: 'timeline',
+        pageScrollTop: { timeline: 0, stats: 0, settings: 0 },
+        _restoringPageScroll: false,
+        filterOpen: false,
+        filters: {
+            query: '',
+            categories: new Set(),
+            methods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '',
+            dateTo: ''
+        },
+        sliderMax: 100,
+        _lastSliderInput: 'max',
+        advancedFiltersOpen: false,
+        _filterSearchActive: false,
+        _modalInteractionActive: false,
+        _suppressNextPopstate: false,
+        _suspendInteractionRelease: false,
+        _keyboardWatchTimer: null,
+        _expenseInputActive: false,
+        _lastViewportHeight: 0,
+        _expenseInputBarRaf: null,
+        _expenseInputResizeHandler: null,
+        _sdInstances: {},
+        _editTags: [],
+        editingId: 'expense-a',
+        newCardId: null,
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: (message, type) => calls.push(['toast', type, message]),
+        submitExpense: () => calls.push('submit'),
+        refreshExpenseViews: options => calls.push(['refresh', options])
+    };
+    const wiring = AppWiring.create(app, {
+        document: fakeDocument,
+        window: {},
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        FilterController: {
+            closeFilterPanel: () => calls.push('close-filter'),
+            recalcSliderMax: () => calls.push('recalc-slider')
+        },
+        InputBarController: {
+            updateAppMainPadding: () => calls.push('padding'),
+            startWatch: () => calls.push('start-watch'),
+            stopWatch: () => calls.push('stop-watch')
+        },
+        ExpenseStore: {
+            getSpese: () => [],
+            invalidate: () => calls.push('invalidate')
+        }
+    });
+
+    wiring.navigationOptions().setCurrentPage('stats');
+    wiring.runHistoryAction(UIStack.getCloseHistoryAction({ wasOpen: true }));
+    wiring.pushUiState({ panel: 'confirm' });
+    wiring.confirmOptions().runHistoryAction(UIStack.getCloseHistoryAction({ wasOpen: true }));
+
+    const refreshOptions = wiring.refreshOptions({ updateFilterSlider: true, includeSettings: true });
+    refreshOptions.invalidateSpeseCache();
+    refreshOptions.recalcSliderMax();
+    refreshOptions.renderSettings();
+
+    assert.equal(app.currentPage, 'stats');
+    assert.equal(app._suppressNextPopstate, true);
+    assert.deepEqual(
+        historyActions.map(action => action.type),
+        [
+            UIStack.HISTORY_ACTIONS.BACK,
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.BACK
+        ]
+    );
+    assert.deepEqual(calls, [
+        'invalidate',
+        'recalc-slider',
+        'settings'
     ]);
 });
 

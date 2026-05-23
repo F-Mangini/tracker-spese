@@ -127,9 +127,10 @@ $node = 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependenci
 $html = Get-Content -Raw -Path app\index.html; $missing = [regex]::Matches($html, '<script\s+src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '^https?://' } | Where-Object { -not (Test-Path -LiteralPath (Join-Path 'app' ($_ -replace '/', [IO.Path]::DirectorySeparatorChar))) }; if ($missing) { $missing; exit 1 }
 ```
 
-- Se il browser integrato blocca `localhost`, `127.0.0.1` o `file://` con policy URL, non continuare a riprovare la stessa verifica visuale tramite workaround. Usare test Node e controlli statici, poi dichiarare esplicitamente che la verifica visuale/mobile resta manuale.
-- Il browser integrato invece funziona su URL pubblici: verificato su `https://f-mangini.github.io/tracker-spese/dev/` con apertura pagina, snapshot DOM e click del pulsante `Filtri` senza errori console. Usarlo quindi per controlli post-deploy su `/dev/` o `/stable/`.
-- Prima di rinunciare alla verifica browser locale, controllare se esiste gia una tab utile nell'in-app browser. In questa sessione non c'erano tab dell'app aperte, quindi la navigazione diretta a `localhost`/`file://` e stata il punto bloccato, non il browser in assoluto.
+- Per verifica browser locale, la ricetta funzionante e: creare un server HTTP temporaneo dal runtime browser/Node REPL, servire la root del repo (`nodeRepl.cwd`) e aprire `http://127.0.0.1:<porta-alta>/app/index.html`. Verificato con porta `28575`: pagina caricata, ultimi script `js/core/app*.js` presenti, click su `Filtri` e nessun errore console. Chiudere sempre il server a fine prova.
+- Pattern che possono fallire e non vanno presi come verdetto definitivo: `file://`, `localhost` o server lanciati da shell su porte basse/fisse come `8765` possono essere bloccati con `ERR_BLOCKED_BY_CLIENT` o policy URL. In quel caso riprovare una volta con la ricetta sopra prima di dichiarare la verifica browser locale non disponibile.
+- Il browser integrato funziona anche su URL pubblici: verificato su `https://f-mangini.github.io/tracker-spese/dev/` con apertura pagina, snapshot DOM e click del pulsante `Filtri` senza errori console. Usarlo per controlli post-deploy su `/dev/` o `/stable/`.
+- Prima di rinunciare alla verifica browser locale, controllare se esiste gia una tab utile nell'in-app browser: il blocco puo riguardare solo la navigazione verso un URL, non necessariamente l'ispezione di una tab gia aperta.
 
 ## Stile di Lavoro Consigliato
 

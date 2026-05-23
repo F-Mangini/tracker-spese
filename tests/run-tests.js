@@ -79,8 +79,8 @@ function loadStats() {
     return context.StatsData;
 }
 
-function loadUiViews() {
-    const context = { console };
+function loadUiViews(globals = {}) {
+    const context = { console, ...globals };
     vm.createContext(context);
 
     const expenseStoreCode = fs.readFileSync(path.join(root, 'app/js/expense-store.js'), 'utf8');
@@ -3346,6 +3346,74 @@ test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiri
         ['dropdown', 'sd-categoria', 'bar'],
         ['tag-input', 'sd-tags'],
         ['confirm', 'Confermi?', true]
+    ]);
+});
+
+test('Wiring app richiama timer e frame browser con binding window corretto', () => {
+    const calls = [];
+    const fakeWindow = {
+        requestAnimationFrame(callback) {
+            assert.equal(this, fakeWindow);
+            calls.push('raf');
+            callback();
+            return 11;
+        },
+        cancelAnimationFrame(id) {
+            assert.equal(this, fakeWindow);
+            calls.push(['cancel', id]);
+        },
+        setTimeout(callback, delay) {
+            assert.equal(this, fakeWindow);
+            calls.push(['timeout', delay]);
+            callback();
+            return 22;
+        },
+        setInterval(callback, delay) {
+            assert.equal(this, fakeWindow);
+            calls.push(['interval', delay]);
+            callback();
+            return 33;
+        },
+        clearInterval(id) {
+            assert.equal(this, fakeWindow);
+            calls.push(['clear-interval', id]);
+        }
+    };
+    const fakeDocument = { body: {} };
+    const { AppWiring } = loadUiViews({
+        window: fakeWindow,
+        document: fakeDocument,
+        history: {}
+    });
+    const app = {
+        ...loadUiViews().AppState.create(),
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app);
+
+    wiring.filterOptions().requestAnimationFrame(() => calls.push('filter-callback'));
+    wiring.navigationOptions().defer(() => calls.push('defer-callback'));
+    wiring.inputBarOptions().cancelAnimationFrame(11);
+    wiring.modalMobileOptions().setInterval(() => calls.push('interval-callback'), 120);
+    wiring.modalMobileOptions().clearInterval(33);
+    wiring.modalOptions().setTimeout(() => calls.push('modal-timeout-callback'), 280);
+
+    assert.deepEqual(calls, [
+        'raf',
+        'filter-callback',
+        ['timeout', 0],
+        'defer-callback',
+        ['cancel', 11],
+        ['interval', 120],
+        'interval-callback',
+        ['clear-interval', 33],
+        ['timeout', 280],
+        'modal-timeout-callback'
     ]);
 });
 

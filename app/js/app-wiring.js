@@ -15,6 +15,20 @@ const AppWiring = (() => {
         return fallback;
     }
 
+    function getBoundGlobalFunction(name, fallback) {
+        const activeWindow = getGlobal('window');
+        if (activeWindow && typeof activeWindow[name] === 'function') {
+            return (...args) => activeWindow[name](...args);
+        }
+
+        const fn = getGlobal(name);
+        if (typeof fn === 'function') {
+            return (...args) => fn(...args);
+        }
+
+        return fallback;
+    }
+
     function getDefaults() {
         return {
             document: getGlobal('document'),
@@ -58,18 +72,17 @@ const AppWiring = (() => {
             FileReaderClass: typeof FileReader === 'undefined' ? null : FileReader,
             URL: typeof URL === 'undefined' ? null : URL,
             Blob: typeof Blob === 'undefined' ? null : Blob,
-            requestAnimationFrame: typeof requestAnimationFrame === 'function'
-                ? requestAnimationFrame
-                : callback => callback(),
-            cancelAnimationFrame: typeof cancelAnimationFrame === 'function'
-                ? cancelAnimationFrame
-                : noop,
-            setTimeout: typeof setTimeout === 'function' ? setTimeout : callback => {
+            requestAnimationFrame: getBoundGlobalFunction('requestAnimationFrame', callback => {
                 callback();
                 return null;
-            },
-            setInterval: typeof setInterval === 'function' ? setInterval : noop,
-            clearInterval: typeof clearInterval === 'function' ? clearInterval : noop
+            }),
+            cancelAnimationFrame: getBoundGlobalFunction('cancelAnimationFrame', noop),
+            setTimeout: getBoundGlobalFunction('setTimeout', callback => {
+                callback();
+                return null;
+            }),
+            setInterval: getBoundGlobalFunction('setInterval', noop),
+            clearInterval: getBoundGlobalFunction('clearInterval', noop)
         };
     }
 

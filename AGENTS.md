@@ -103,7 +103,13 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 
 ## Verifiche Locali
 
-- Se `node` non e nel PATH o Windows restituisce `Accesso negato`, usare il runtime bundled indicato da `load_workspace_dependencies`. In questa workspace il comando testato e:
+- Se `node` non e nel PATH o Windows restituisce `Accesso negato`, usare il runtime bundled indicato da `load_workspace_dependencies`. In questa workspace il runtime testato e:
+
+```powershell
+& 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -v
+```
+
+- Quando il branch contiene `tests/run-tests.js`, eseguire il runner con:
 
 ```powershell
 & 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' tests\run-tests.js

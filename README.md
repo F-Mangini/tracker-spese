@@ -40,6 +40,7 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
 |   +-- CURRENT_STATE.md
 |   +-- DEPLOYMENT_STRATEGY.md
 |   +-- DEVELOPMENT_GUIDE.md
+|   +-- REFACTORING_SUMMARY.md
 |   +-- ROADMAP.md
 +-- note/
 |   +-- note_di_progetto.txt
@@ -50,49 +51,15 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
     +-- manifest.json
     +-- css/style.css
     +-- js/
-        +-- app.js
-        +-- categories.js
-        +-- confirm-controller.js
-        +-- confirm-dialog.js
-        +-- config.js
-        +-- expense-actions.js
-        +-- expense-submit-controller.js
-        +-- expense-store.js
-        +-- expense-query.js
-        +-- app-refresh.js
-        +-- app-state.js
-        +-- app-wiring-modal.js
-        +-- app-wiring.js
-        +-- history-controller.js
-        +-- download-controller.js
-        +-- expense-input-controller.js
-        +-- input-bar-controller.js
-        +-- filters.js
-        +-- filter-controller.js
-        +-- filter-view.js
-        +-- modal-view.js
-        +-- modal-form-controller.js
-        +-- modal-mobile-controller.js
-        +-- modal-interactions.js
-        +-- modal-controller.js
-        +-- navigation-controller.js
-        +-- parser.js
-        +-- settings-actions.js
-        +-- settings-controller.js
-        +-- settings-view.js
-        +-- stats.js
-        +-- stats-charts.js
-        +-- stats-controller.js
-        +-- stats-view.js
-        +-- storage.js
-        +-- theme-controller.js
-        +-- timeline-controller.js
-        +-- timeline-view.js
-        +-- toast-controller.js
-        +-- ui-stack-controller.js
-        +-- ui-stack-effects.js
-        +-- ui-stack.js
-        +-- ui-utils.js
+        +-- app.js                 # boot e orchestrazione sottile
+        +-- app-state.js           # stato iniziale UI
+        +-- app-wiring*.js         # collegamento controller/stato/history
+        +-- storage.js             # persistenza localStorage e import/export
+        +-- parser.js              # parsing inserimento rapido
+        +-- *-controller.js        # wiring DOM e lifecycle per area
+        +-- *-view.js              # rendering testabile per area
+        +-- filters.js / stats.js  # logica pura condivisa
+        +-- ui-*.js                # helper e stack UI/back button
 ```
 
 ## Documentazione
@@ -104,6 +71,7 @@ File documentali ufficiali:
 - [Review tecnica](docs/CODE_REVIEW.md): problemi, rischi e priorita del refactor.
 - [Strategia stabile/dev](docs/DEPLOYMENT_STRATEGY.md): come separare versione stabile e versione di test.
 - [Guida sviluppo](docs/DEVELOPMENT_GUIDE.md): regole pratiche per refactor e nuove feature.
+- [Riepilogo refactor](docs/REFACTORING_SUMMARY.md): cosa e stato fatto finora e cosa e rimasto fuori dalla fase conclusa.
 - [Roadmap](docs/ROADMAP.md): backlog ordinato a partire dagli appunti.
 - [Appunti raw](note/note_di_progetto.txt): fonte grezza e storica delle idee.
 
@@ -128,7 +96,7 @@ Test leggeri disponibili:
 node tests/run-tests.js
 ```
 
-Il runner copre guardrail iniziali su storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser base e importi ambigui, azioni spesa, submit input rapido, download file, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, configurazione grafici, stack UI/back button/controller, esecuzione history, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog/controller conferma, stato/wiring applicativo, wiring modale e rendering/helper UI estratti.
+Il runner copre i moduli principali estratti durante il refactor: storage, parser, filtri, statistiche, query/cache, refresh, controller UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.
 
 ## Deploy
 

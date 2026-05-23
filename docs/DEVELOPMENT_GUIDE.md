@@ -1,6 +1,6 @@
 # Guida Sviluppo
 
-Questa guida definisce come lavorare sul progetto durante il refactor e le feature future.
+Questa guida definisce come lavorare sul progetto durante manutenzione, hardening e nuove feature.
 
 ## Priorita
 
@@ -97,6 +97,7 @@ Usare questi file come fonti:
 - `docs/CODE_REVIEW.md`: mappa dei rischi tecnici e ordine consigliato per il refactor.
 - `docs/CURRENT_STATE.md`: stato tecnico implementato.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev per testare il refactor senza rischiare l'uso quotidiano.
+- `docs/REFACTORING_SUMMARY.md`: riepilogo compatto del refactor gia svolto.
 - `docs/ROADMAP.md`: priorita e idee future ordinate.
 - `AGENTS.md`: contesto operativo per assistenti AI.
 - `note/note_di_progetto.txt`: appunti grezzi, storici, non necessariamente ordinati.
@@ -123,4 +124,4 @@ Il test runner leggero attuale non richiede dipendenze:
 node tests/run-tests.js
 ```
 
-Copre i primi guardrail su storage, cache letture spese, query filtri/statistiche/riepiloghi, refresh viste dopo cambio dati, parser base e importi ambigui, azioni spesa, submit input rapido, download file, controller input rapido, controller barra input mobile, navigazione, filtri/controller filtri, timeline/controller timeline, aggregazioni/controller statistiche, helper/rendering UI estratti, configurazione grafici, decisioni/controller stack UI/back button, esecuzione history, cleanup DOM collegati al popstate, lifecycle/form/dropdown/tag/focus mobile della modale, flussi/controller impostazioni, tema, toast, dialog/controller conferma, stato/wiring applicativo e wiring modale. I prossimi test ad alto valore riguardano history/back button reale, tastiera mobile su device e interazioni DOM complesse.
+Copre i moduli principali del refactor: storage, parser, filtri, statistiche, query/cache, refresh, input rapido, timeline, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo. I prossimi test ad alto valore riguardano history/back button reale, tastiera mobile su device e interazioni DOM complesse.

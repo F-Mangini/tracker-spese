@@ -42,7 +42,8 @@ Leggere, nell'ordine:
 3. `docs/CODE_REVIEW.md`;
 4. `docs/DEVELOPMENT_GUIDE.md`;
 5. `docs/ROADMAP.md`;
-6. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
+6. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
+7. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
 
 Non considerare `note/note_di_progetto.txt` come specifica finale: e una raccolta raw di appunti. La roadmap curata decide priorita e raggruppamenti, ma gli appunti possono contenere dettagli utili non ancora formalizzati.
 
@@ -56,6 +57,7 @@ I file documentali ufficiali da mantenere allineati sono:
 - `docs/CODE_REVIEW.md`: rischi tecnici, priorita e ordine consigliato del refactor.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev e strategia GitHub Pages.
 - `docs/DEVELOPMENT_GUIDE.md`: regole pratiche per sviluppo, refactor e nuove feature.
+- `docs/REFACTORING_SUMMARY.md`: riepilogo ordinato del refactor gia svolto.
 - `docs/ROADMAP.md`: backlog curato e ordinato a partire dagli appunti.
 - `note/note_di_progetto.txt`: appunti raw e storici del maintainer.
 
@@ -86,7 +88,8 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 
 ## Aree Sensibili
 
-- `app/js/app.js`: molto grande, contiene UI state, rendering, eventi e workaround mobile.
+- `app/js/app.js`: orchestratore sottile; non va riempito di nuovo con logica di dominio o wiring ripetitivo.
+- `app/js/app-wiring.js` e `app/js/app-wiring-modal.js`: collegano controller, stato condiviso e history; sono sensibili per filtri, modali, tastiera mobile e back button.
 - `app/js/storage.js`: rischio dati; ogni modifica deve rispettare backup/import.
 - `Storage.KEY`: se si pubblica una versione dev sullo stesso dominio della stabile, non deve usare la stessa chiave dati della stabile.
 - Configurazione runtime minima: `app/js/config.js`, caricato prima di `storage.js`.

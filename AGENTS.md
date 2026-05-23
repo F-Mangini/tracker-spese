@@ -123,6 +123,8 @@ $html = Get-Content -Raw -Path app\index.html; $missing = [regex]::Matches($html
 ```
 
 - Se il browser integrato blocca `localhost`, `127.0.0.1` o `file://` con policy URL, non continuare a riprovare la stessa verifica visuale tramite workaround. Usare test Node e controlli statici, poi dichiarare esplicitamente che la verifica visuale/mobile resta manuale.
+- Il browser integrato invece funziona su URL pubblici: verificato su `https://f-mangini.github.io/tracker-spese/dev/` con apertura pagina, snapshot DOM e click del pulsante `Filtri` senza errori console. Usarlo quindi per controlli post-deploy su `/dev/` o `/stable/`.
+- Prima di rinunciare alla verifica browser locale, controllare se esiste gia una tab utile nell'in-app browser. In questa sessione non c'erano tab dell'app aperte, quindi la navigazione diretta a `localhost`/`file://` e stata il punto bloccato, non il browser in assoluto.
 
 ## Stile di Lavoro Consigliato
 

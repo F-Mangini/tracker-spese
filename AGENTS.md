@@ -96,6 +96,34 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - `app/js/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.
 - Gestione back button, modali, filtri, tastiera mobile e scroll: molte parti sono state sistemate dopo bug concreti.
 
+## Verifiche Locali
+
+- Se `node` non e nel PATH o Windows restituisce `Accesso negato`, usare il runtime bundled indicato da `load_workspace_dependencies`. In questa workspace il runtime testato e:
+
+```powershell
+& 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -v
+```
+
+- Quando il branch contiene `tests/run-tests.js`, eseguire il runner con:
+
+```powershell
+& 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' tests\run-tests.js
+```
+
+- Per controllare la sintassi di tutti gli script:
+
+```powershell
+$node = 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'; Get-ChildItem -Path app\js -Recurse -Filter *.js | Sort-Object FullName | ForEach-Object { & $node --check $_.FullName }
+```
+
+- Dopo spostamenti di file JS, verificare almeno che ogni script locale referenziato da `app/index.html` esista. Questo controllo e stato testato e non richiede browser:
+
+```powershell
+$html = Get-Content -Raw -Path app\index.html; $missing = [regex]::Matches($html, '<script\s+src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '^https?://' } | Where-Object { -not (Test-Path -LiteralPath (Join-Path 'app' ($_ -replace '/', [IO.Path]::DirectorySeparatorChar))) }; if ($missing) { $missing; exit 1 }
+```
+
+- Se il browser integrato blocca `localhost`, `127.0.0.1` o `file://` con policy URL, non continuare a riprovare la stessa verifica visuale tramite workaround. Usare test Node e controlli statici, poi dichiarare esplicitamente che la verifica visuale/mobile resta manuale.
+
 ## Stile di Lavoro Consigliato
 
 - Prima capire il comportamento attuale, poi intervenire.

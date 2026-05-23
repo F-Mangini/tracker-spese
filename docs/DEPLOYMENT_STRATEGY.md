@@ -83,11 +83,11 @@ Prima di pubblicare una dev accanto alla stabile, rendere configurabile la chiav
 
 Implementazione scelta:
 
-- `app/js/config.js` definisce `window.SPESA_TRACKER_CONFIG`;
-- `index.html` carica `config.js` prima di `storage.js`;
-- `storage.js` usa `window.SPESA_TRACKER_CONFIG.storageKey` con fallback a `spesa-tracker-data`;
+- `app/js/core/config.js` definisce `window.SPESA_TRACKER_CONFIG`;
+- `index.html` carica `core/config.js` prima di `data/storage.js`;
+- `data/storage.js` usa `window.SPESA_TRACKER_CONFIG.storageKey` con fallback a `spesa-tracker-data`;
 - la stabile usa `spesa-tracker-data`;
-- il workflow Pages sovrascrive `public/dev/js/config.js` con `spesa-tracker-data-dev`.
+- il workflow Pages sovrascrive `public/dev/js/core/config.js` con `spesa-tracker-data-dev`.
 
 Quando la dev viene pubblicata accanto alla stabile, deve essere distinguibile anche nel manifest e nella UI installata: nome app e icona dev non devono confondersi con quelli della versione quotidiana. Il nome stabile completo e `Where's My Money?`, con `WMM` come nome breve sotto l'icona mobile.
 

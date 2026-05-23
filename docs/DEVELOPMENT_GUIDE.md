@@ -15,7 +15,7 @@ Questa guida definisce come lavorare sul progetto durante manutenzione, hardenin
 
 - Mantenere il progetto statico e semplice finche possibile.
 - Evitare framework, build system o dipendenze nuove senza un beneficio evidente.
-- Preferire moduli piccoli e funzioni pure quando si estrae logica da `app.js`.
+- Preferire moduli piccoli e funzioni pure quando si estrae logica da `app/js/core/app.js` o dal wiring applicativo.
 - Non cambiare schema dati senza prevedere compatibilita o migrazione leggera.
 - Non rompere backup JSON esistenti.
 - Non forzare aggiornamenti automatici quando l'app sara offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.
@@ -47,7 +47,7 @@ Se invece solo alcune modifiche sono pronte, usare cherry-pick o un branch dedic
 
 ## Linee Guida per i Dati
 
-`localStorage` e la sorgente principale. Prima di modificare `storage.js`, controllare:
+`localStorage` e la sorgente principale. Prima di modificare `app/js/data/storage.js`, controllare:
 
 - formato attuale di `spese`;
 - comportamento di `importJSON`;
@@ -59,7 +59,7 @@ Dal refactor dati del 2026-05-16:
 
 - lo schema corrente e `schemaVersion: 1`;
 - le scritture storage devono restituire risultati espliciti e la UI deve controllare `success` prima di mostrare conferme positive;
-- i dati letti o importati devono passare dalla normalizzazione centralizzata in `storage.js`;
+- i dati letti o importati devono passare dalla normalizzazione centralizzata in `app/js/data/storage.js`;
 - un JSON locale corrotto deve bloccare i nuovi salvataggi finche il maintainer non esporta o risolve il raw;
 - le operazioni distruttive come import in sostituzione e cancellazione completa devono creare uno snapshot locale prima del commit;
 - import JSON e CSV devono mantenere preview/validazione separata dal commit.

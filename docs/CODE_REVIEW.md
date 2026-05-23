@@ -9,9 +9,9 @@ Le fasi tecniche 0-4 sono chiuse per lo scopo del refactor strutturale:
 - canale stabile/dev sicuro;
 - protezione dati e import/export;
 - test runner leggero;
-- spacchettamento primario di `app/js/app.js`.
+- spacchettamento primario di `app/js/core/app.js` e organizzazione dei moduli JS per area.
 
-La dev e stata verificata manualmente su Android dal maintainer ed e tornata al pari della stabile per i flussi principali. I rischi piu importanti rimasti non riguardano piu il monolite `app.js`, ma distribuzione offline/versioni, privacy, CSS/mobile, accessibilita e feature future che cambieranno il modello dati.
+La dev e stata verificata manualmente su Android dal maintainer ed e tornata al pari della stabile per i flussi principali. I rischi piu importanti rimasti non riguardano piu il monolite `app/js/core/app.js`, ma distribuzione offline/versioni, privacy, CSS/mobile, accessibilita e feature future che cambieranno il modello dati.
 
 ## Stato Fasi
 
@@ -21,7 +21,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | 1. Protezione dati | Completata | Schema v1, normalizzazione, risultati espliciti, preview import e snapshot distruttivi. |
 | 2. Logica pura e rendering testabile | Completata | Filtri, statistiche, rendering, query, cache e controller principali sono separati e coperti da test. |
 | 3. UI stack e mobile behavior | Completata per i flussi attuali | Back button, modale, filtri e tastiera mobile sono modularizzati e verificati; resta prudenza su nuovi casi Android/iOS. |
-| 4. Modularizzazione UI | Completata | `app.js` e un orchestratore sottile; stato e wiring sono in moduli dedicati. |
+| 4. Modularizzazione UI | Completata | `core/app.js` e un orchestratore sottile; stato e wiring sono in moduli dedicati. |
 | 5. Offline e versioni controllate | Non iniziata | Prossima grande area tecnica dopo stabilizzazione. |
 
 ## Findings Aggiornati
@@ -30,7 +30,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | --- | --- | --- | --- |
 | CR-01 | Guardrail `localStorage` | Completato | Continuare a non scrivere dati se lo storage risulta corrotto. |
 | CR-02 | Import JSON distruttivo | Completato | Ogni nuovo campo dovra entrare in preview, normalizzazione e backup. |
-| CR-03 | `app.js` monolitico | Completato | Non riaccumulare logica in `app.js` o `app-wiring.js`. |
+| CR-03 | `app.js` monolitico | Completato | Non riaccumulare logica in `core/app.js` o `core/app-wiring.js`. |
 | CR-04 | Back button/history fragile | Stabilizzato | I flussi attuali sono verificati; nuovi pannelli/modali vanno aggiunti allo stack con test e prova Android. |
 | CR-05 | Parser/importi ambigui | Completato per casi noti | Aggiungere test quando emergono frasi reali ambigue. |
 | CR-06 | Assenza test automatici | Mitigato | Manca ancora E2E/browser mobile reale. |
@@ -52,7 +52,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 Ogni nuova feature che aggiunge campi a spese, impostazioni, categorie o personalizzazioni deve prevedere:
 
 - fallback per backup vecchi;
-- normalizzazione in `storage.js`;
+- normalizzazione in `data/storage.js`;
 - export/import JSON completo;
 - preview import coerente;
 - test nel runner Node.
@@ -68,7 +68,7 @@ Back button, modali, filtri, input rapido e tastiera sono ora isolati, ma restan
 
 ### `AppWiring`
 
-`AppWiring` deve restare glue. Non deve contenere logica di dominio o rendering. Se cresce molto, il passo giusto e separare altro wiring per area, come gia fatto con `app-wiring-modal.js`.
+`AppWiring` deve restare glue. Non deve contenere logica di dominio o rendering. Se cresce molto, il passo giusto e separare altro wiring per area, come gia fatto con `core/app-wiring-modal.js`.
 
 Nota specifica: timer/frame browser vanno richiamati tramite wrapper bound a `window`. Un test dedicato copre il bug che aveva rotto animazione filtri e chiusura modale dopo l'estrazione.
 

@@ -51,15 +51,17 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
     +-- manifest.json
     +-- css/style.css
     +-- js/
-        +-- app.js                 # boot e orchestrazione sottile
-        +-- app-state.js           # stato iniziale UI
-        +-- app-wiring*.js         # collegamento controller/stato/history
-        +-- storage.js             # persistenza localStorage e import/export
-        +-- parser.js              # parsing inserimento rapido
-        +-- *-controller.js        # wiring DOM e lifecycle per area
-        +-- *-view.js              # rendering testabile per area
-        +-- filters.js / stats.js  # logica pura condivisa
-        +-- ui-*.js                # helper e stack UI/back button
+        +-- core/        # boot, stato, config, refresh e wiring applicativo
+        +-- data/        # localStorage e cache spese
+        +-- domain/      # parser, categorie, filtri, statistiche e azioni pure
+        +-- input/       # barra inserimento e submit rapido
+        +-- filters/     # pannello filtri
+        +-- timeline/    # rendering e controller timeline
+        +-- stats/       # rendering, grafici e controller statistiche
+        +-- modal/       # modifica spesa e workaround mobile
+        +-- navigation/  # pagine, stack UI e back button
+        +-- settings/    # impostazioni, import/export e info app
+        +-- ui/          # conferme, toast, tema, download e helper UI
 ```
 
 ## Documentazione

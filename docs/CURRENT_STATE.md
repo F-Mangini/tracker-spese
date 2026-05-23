@@ -6,22 +6,22 @@ Questo documento descrive lo stato tecnico implementato oggi. Non e un diario de
 
 Where's My Money? e una web app statica, local-first, senza backend e senza build system. I dati vivono in `localStorage`; l'app e pensata prima di tutto per uso quotidiano su Android.
 
-Lo spacchettamento primario di `app/js/app.js` e completato. `app.js` resta il punto di boot e orchestrazione sottile; stato iniziale, wiring, rendering, controller, logica dati e workaround principali sono in moduli dedicati.
+Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta il punto di boot e orchestrazione sottile; stato iniziale, wiring, rendering, controller, logica dati e workaround principali sono in moduli dedicati, organizzati in cartelle per area dentro `app/js/`.
 
 ## Architettura
 
 | Area | File principali | Responsabilita |
 | --- | --- | --- |
-| Boot e stato | `app.js`, `app-state.js`, `app-wiring.js`, `app-wiring-modal.js` | Avvio app, stato iniziale, option factory e collegamento tra controller, stato condiviso, history e DOM. |
-| Config e dominio statico | `config.js`, `categories.js` | Config runtime minima, chiave storage configurabile, categorie e metodi statici. |
-| Persistenza e dati derivati | `storage.js`, `expense-store.js`, `expense-query.js`, `app-refresh.js` | Storage protetto, cache UI, modelli filtrati/statistici e policy di refresh post-commit. |
-| Inserimento e spese | `parser.js`, `expense-actions.js`, `expense-submit-controller.js`, `expense-input-controller.js`, `input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
-| Timeline e filtri | `timeline-view.js`, `timeline-controller.js`, `filters.js`, `filter-view.js`, `filter-controller.js` | Rendering timeline, modello filtrato, pannello filtri, slider, badge e ricerca. |
-| Statistiche | `stats.js`, `stats-view.js`, `stats-charts.js`, `stats-controller.js` | Periodi, aggregazioni, template statistiche e configurazione Chart.js. |
-| Modale modifica | `modal-view.js`, `modal-form-controller.js`, `modal-mobile-controller.js`, `modal-interactions.js`, `modal-controller.js` | Form modifica, dropdown, tag, focus/picker mobile, viewport/tastiera e lifecycle modale. |
-| Navigazione e stack UI | `navigation-controller.js`, `ui-stack.js`, `history-controller.js`, `ui-stack-effects.js`, `ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
-| Impostazioni e feedback | `settings-view.js`, `settings-actions.js`, `settings-controller.js`, `confirm-dialog.js`, `confirm-controller.js`, `download-controller.js`, `theme-controller.js`, `toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
-| Helper UI | `ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
+| Boot e stato | `core/app.js`, `core/app-state.js`, `core/app-wiring.js`, `core/app-wiring-modal.js` | Avvio app, stato iniziale, option factory e collegamento tra controller, stato condiviso, history e DOM. |
+| Config e dominio statico | `core/config.js`, `domain/categories.js` | Config runtime minima, chiave storage configurabile, categorie e metodi statici. |
+| Persistenza e dati derivati | `data/storage.js`, `data/expense-store.js`, `domain/expense-query.js`, `core/app-refresh.js` | Storage protetto, cache UI, modelli filtrati/statistici e policy di refresh post-commit. |
+| Inserimento e spese | `domain/parser.js`, `domain/expense-actions.js`, `input/expense-submit-controller.js`, `input/expense-input-controller.js`, `input/input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
+| Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/filter-controller.js` | Rendering timeline, modello filtrato, pannello filtri, slider, badge e ricerca. |
+| Statistiche | `domain/stats.js`, `stats/stats-view.js`, `stats/stats-charts.js`, `stats/stats-controller.js` | Periodi, aggregazioni, template statistiche e configurazione Chart.js. |
+| Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, focus/picker mobile, viewport/tastiera e lifecycle modale. |
+| Navigazione e stack UI | `navigation/navigation-controller.js`, `navigation/ui-stack.js`, `navigation/history-controller.js`, `navigation/ui-stack-effects.js`, `navigation/ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
+| Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
+| Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
 
 Chart.js e ancora caricato da CDN in `app/index.html`; non esiste ancora un service worker.
 
@@ -56,7 +56,7 @@ Una spesa contiene normalmente:
 - `nota`;
 - `creatoIl` e `modificatoIl`.
 
-`storage.js` normalizza letture e import: importi numerici, date valide, tag senza `#`, impostazioni con fallback e id duplicati rigenerati. Le scritture ritornano risultati espliciti `{ success, ... }`.
+`data/storage.js` normalizza letture e import: importi numerici, date valide, tag senza `#`, impostazioni con fallback e id duplicati rigenerati. Le scritture ritornano risultati espliciti `{ success, ... }`.
 
 Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccati per evitare perdita dati silenziosa. La pagina impostazioni permette l'export del raw.
 

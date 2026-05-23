@@ -9,7 +9,7 @@ La fase di refactor strutturale e completata per lo scopo previsto:
 - canale stabile/dev sicuro;
 - protezione dati;
 - test runner leggero;
-- spacchettamento primario di `app.js`;
+- spacchettamento primario di `core/app.js`;
 - verifica manuale Android dei flussi principali.
 
 Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hardening o nuove feature, non come completamento dello spacchettamento.
@@ -19,7 +19,7 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 1. Stabilizzare la dev per eventuale promozione a stabile.
 2. Eseguire una review privacy esplicita.
 3. Progettare PWA/offline e aggiornamenti controllati prima di scrivere service worker.
-4. Affrontare piccoli bug UX rimasti, soprattutto desktop e gesture Android.
+4. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
 5. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 ## Repository e Canali
@@ -49,7 +49,11 @@ Stato: completato.
 - Eseguire una review privacy: dati nel browser, asset caricati da rete, backup esportati, device condivisi, eventuale cifratura locale.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Aggiungere export/copia rapida per spese selezionate o filtrate: JSON, CSV/TSV e tabella Markdown.
-- Estendere il backup completo a future personalizzazioni, non solo spese e impostazioni.
+- Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
+- Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
+- Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
+- In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
+- Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
 - Definire eventuali migrazioni schema in modo idempotente.
 
 ## Offline e Installazione
@@ -75,6 +79,7 @@ Da progettare:
 - UI per scegliere e applicare aggiornamenti;
 - strategia per piu versioni su hosting statico;
 - compatibilita dati tra versioni.
+- numero versione visibile nelle impostazioni e aggiornato a ogni release/push significativo.
 
 ## Filtri e Ricerca
 
@@ -101,10 +106,13 @@ Da progettare:
 
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
+- Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
 - Pressione lunga per modalita selezione.
 - Evidenza visuale dedicata per selezione e cancellazione.
-- Azioni bulk: elimina, seleziona tutte.
+- Azioni bulk: elimina, copia negli appunti, export selezionate.
+- Header adattato alla modalita selezione con conteggio e valore totale selezionato.
 - Seleziona tutte limitato alle spese visibili/filtrate.
+- Modalita selezione riusabile anche per export filtrato: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

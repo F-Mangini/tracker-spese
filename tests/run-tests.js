@@ -5,6 +5,10 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 
+function readAppScript(relativePath) {
+    return fs.readFileSync(path.join(root, 'app/js', relativePath), 'utf8');
+}
+
 function createLocalStorage() {
     const store = new Map();
 
@@ -36,7 +40,7 @@ function loadStorage() {
     };
 
     vm.createContext(context);
-    const storageCode = fs.readFileSync(path.join(root, 'app/js/storage.js'), 'utf8');
+    const storageCode = readAppScript('data/storage.js');
     vm.runInContext(`${storageCode}\nglobalThis.Storage = Storage;`, context);
 
     return {
@@ -49,8 +53,8 @@ function loadParser() {
     const context = { console };
     vm.createContext(context);
 
-    const categoriesCode = fs.readFileSync(path.join(root, 'app/js/categories.js'), 'utf8');
-    const parserCode = fs.readFileSync(path.join(root, 'app/js/parser.js'), 'utf8');
+    const categoriesCode = readAppScript('domain/categories.js');
+    const parserCode = readAppScript('domain/parser.js');
     vm.runInContext(
         `${categoriesCode}\n${parserCode}\nglobalThis.Parser = Parser;`,
         context
@@ -63,7 +67,7 @@ function loadFilters() {
     const context = { console };
     vm.createContext(context);
 
-    const filtersCode = fs.readFileSync(path.join(root, 'app/js/filters.js'), 'utf8');
+    const filtersCode = readAppScript('domain/filters.js');
     vm.runInContext(`${filtersCode}\nglobalThis.ExpenseFilters = ExpenseFilters;`, context);
 
     return context.ExpenseFilters;
@@ -73,7 +77,7 @@ function loadStats() {
     const context = { console };
     vm.createContext(context);
 
-    const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
+    const statsCode = readAppScript('domain/stats.js');
     vm.runInContext(`${statsCode}\nglobalThis.StatsData = StatsData;`, context);
 
     return context.StatsData;
@@ -83,44 +87,44 @@ function loadUiViews(globals = {}) {
     const context = { console, ...globals };
     vm.createContext(context);
 
-    const expenseStoreCode = fs.readFileSync(path.join(root, 'app/js/expense-store.js'), 'utf8');
-    const filtersCode = fs.readFileSync(path.join(root, 'app/js/filters.js'), 'utf8');
-    const statsCode = fs.readFileSync(path.join(root, 'app/js/stats.js'), 'utf8');
-    const expenseQueryCode = fs.readFileSync(path.join(root, 'app/js/expense-query.js'), 'utf8');
-    const appRefreshCode = fs.readFileSync(path.join(root, 'app/js/app-refresh.js'), 'utf8');
-    const expenseActionsCode = fs.readFileSync(path.join(root, 'app/js/expense-actions.js'), 'utf8');
-    const expenseSubmitControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-submit-controller.js'), 'utf8');
-    const expenseInputControllerCode = fs.readFileSync(path.join(root, 'app/js/expense-input-controller.js'), 'utf8');
-    const inputBarControllerCode = fs.readFileSync(path.join(root, 'app/js/input-bar-controller.js'), 'utf8');
-    const uiCode = fs.readFileSync(path.join(root, 'app/js/ui-utils.js'), 'utf8');
-    const downloadControllerCode = fs.readFileSync(path.join(root, 'app/js/download-controller.js'), 'utf8');
-    const filterViewCode = fs.readFileSync(path.join(root, 'app/js/filter-view.js'), 'utf8');
-    const filterControllerCode = fs.readFileSync(path.join(root, 'app/js/filter-controller.js'), 'utf8');
-    const timelineViewCode = fs.readFileSync(path.join(root, 'app/js/timeline-view.js'), 'utf8');
-    const timelineControllerCode = fs.readFileSync(path.join(root, 'app/js/timeline-controller.js'), 'utf8');
-    const navigationControllerCode = fs.readFileSync(path.join(root, 'app/js/navigation-controller.js'), 'utf8');
-    const statsViewCode = fs.readFileSync(path.join(root, 'app/js/stats-view.js'), 'utf8');
-    const statsChartsCode = fs.readFileSync(path.join(root, 'app/js/stats-charts.js'), 'utf8');
-    const statsControllerCode = fs.readFileSync(path.join(root, 'app/js/stats-controller.js'), 'utf8');
-    const modalViewCode = fs.readFileSync(path.join(root, 'app/js/modal-view.js'), 'utf8');
-    const modalFormControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-form-controller.js'), 'utf8');
-    const modalMobileControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-mobile-controller.js'), 'utf8');
-    const modalInteractionsCode = fs.readFileSync(path.join(root, 'app/js/modal-interactions.js'), 'utf8');
-    const modalControllerCode = fs.readFileSync(path.join(root, 'app/js/modal-controller.js'), 'utf8');
-    const settingsViewCode = fs.readFileSync(path.join(root, 'app/js/settings-view.js'), 'utf8');
-    const settingsActionsCode = fs.readFileSync(path.join(root, 'app/js/settings-actions.js'), 'utf8');
-    const settingsControllerCode = fs.readFileSync(path.join(root, 'app/js/settings-controller.js'), 'utf8');
-    const uiStackCode = fs.readFileSync(path.join(root, 'app/js/ui-stack.js'), 'utf8');
-    const historyControllerCode = fs.readFileSync(path.join(root, 'app/js/history-controller.js'), 'utf8');
-    const uiStackEffectsCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-effects.js'), 'utf8');
-    const uiStackControllerCode = fs.readFileSync(path.join(root, 'app/js/ui-stack-controller.js'), 'utf8');
-    const confirmDialogCode = fs.readFileSync(path.join(root, 'app/js/confirm-dialog.js'), 'utf8');
-    const confirmControllerCode = fs.readFileSync(path.join(root, 'app/js/confirm-controller.js'), 'utf8');
-    const themeControllerCode = fs.readFileSync(path.join(root, 'app/js/theme-controller.js'), 'utf8');
-    const toastControllerCode = fs.readFileSync(path.join(root, 'app/js/toast-controller.js'), 'utf8');
-    const appStateCode = fs.readFileSync(path.join(root, 'app/js/app-state.js'), 'utf8');
-    const appWiringModalCode = fs.readFileSync(path.join(root, 'app/js/app-wiring-modal.js'), 'utf8');
-    const appWiringCode = fs.readFileSync(path.join(root, 'app/js/app-wiring.js'), 'utf8');
+    const expenseStoreCode = readAppScript('data/expense-store.js');
+    const filtersCode = readAppScript('domain/filters.js');
+    const statsCode = readAppScript('domain/stats.js');
+    const expenseQueryCode = readAppScript('domain/expense-query.js');
+    const appRefreshCode = readAppScript('core/app-refresh.js');
+    const expenseActionsCode = readAppScript('domain/expense-actions.js');
+    const expenseSubmitControllerCode = readAppScript('input/expense-submit-controller.js');
+    const expenseInputControllerCode = readAppScript('input/expense-input-controller.js');
+    const inputBarControllerCode = readAppScript('input/input-bar-controller.js');
+    const uiCode = readAppScript('ui/ui-utils.js');
+    const downloadControllerCode = readAppScript('ui/download-controller.js');
+    const filterViewCode = readAppScript('filters/filter-view.js');
+    const filterControllerCode = readAppScript('filters/filter-controller.js');
+    const timelineViewCode = readAppScript('timeline/timeline-view.js');
+    const timelineControllerCode = readAppScript('timeline/timeline-controller.js');
+    const navigationControllerCode = readAppScript('navigation/navigation-controller.js');
+    const statsViewCode = readAppScript('stats/stats-view.js');
+    const statsChartsCode = readAppScript('stats/stats-charts.js');
+    const statsControllerCode = readAppScript('stats/stats-controller.js');
+    const modalViewCode = readAppScript('modal/modal-view.js');
+    const modalFormControllerCode = readAppScript('modal/modal-form-controller.js');
+    const modalMobileControllerCode = readAppScript('modal/modal-mobile-controller.js');
+    const modalInteractionsCode = readAppScript('modal/modal-interactions.js');
+    const modalControllerCode = readAppScript('modal/modal-controller.js');
+    const settingsViewCode = readAppScript('settings/settings-view.js');
+    const settingsActionsCode = readAppScript('settings/settings-actions.js');
+    const settingsControllerCode = readAppScript('settings/settings-controller.js');
+    const uiStackCode = readAppScript('navigation/ui-stack.js');
+    const historyControllerCode = readAppScript('navigation/history-controller.js');
+    const uiStackEffectsCode = readAppScript('navigation/ui-stack-effects.js');
+    const uiStackControllerCode = readAppScript('navigation/ui-stack-controller.js');
+    const confirmDialogCode = readAppScript('ui/confirm-dialog.js');
+    const confirmControllerCode = readAppScript('ui/confirm-controller.js');
+    const themeControllerCode = readAppScript('ui/theme-controller.js');
+    const toastControllerCode = readAppScript('ui/toast-controller.js');
+    const appStateCode = readAppScript('core/app-state.js');
+    const appWiringModalCode = readAppScript('core/app-wiring-modal.js');
+    const appWiringCode = readAppScript('core/app-wiring.js');
 
     vm.runInContext(
         [
@@ -416,6 +420,18 @@ test('Parser preferisce importi espliciti o finali quando ci sono piu numeri', (
     assert.equal(caffe.descrizione, '2 caffe');
     assert.equal(currency.importo, 1.5);
     assert.equal(currency.descrizione, 'Caffe');
+});
+
+test('Parser non confonde quantita pesate con importi', () => {
+    const Parser = loadParser();
+
+    const ciliegie = Parser.parse('10euro 1.5 kg di ciliegie');
+    const pere = Parser.parse('5.5 2 kg di pere');
+
+    assert.equal(ciliegie.importo, 10);
+    assert.equal(ciliegie.descrizione, '1.5 kg di ciliegie');
+    assert.equal(pere.importo, 5.5);
+    assert.equal(pere.descrizione, '2 kg di pere');
 });
 
 test('Azioni spesa isolano parser e storage dall input rapido', () => {

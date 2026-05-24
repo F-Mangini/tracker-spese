@@ -43,6 +43,7 @@ const AppWiringModal = (() => {
                 getEditTags: () => app._editTags,
                 initSearchableDropdown,
                 initTagInput,
+                releaseFilterSearchBeforeModal: core.releaseFilterSearchBeforeModal,
                 isModalInteractionActive: () => app._modalInteractionActive,
                 setModalInteractionActive: value => { app._modalInteractionActive = value; },
                 setModalInteractionReleaseSuspended: value => { app._suspendInteractionRelease = value; },
@@ -76,6 +77,7 @@ const AppWiringModal = (() => {
                     message,
                     onYes
                 }),
+                isConfirmOpen: () => deps.ConfirmController.isOpen(core.confirmOptions()),
                 closeConfirm: () => deps.ConfirmController.close(core.confirmOptions()),
                 showToast: (message, type) => app.showToast(message, type),
                 bindNonStickyNativePicker: el => deps.ModalMobileController.bindNonStickyNativePicker(

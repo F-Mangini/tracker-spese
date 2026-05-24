@@ -669,6 +669,7 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
         updateFilterSlider: true,
         isFilterOpen: () => true,
         recalcSliderMax: () => calls.push('recalc-slider'),
+        updateFilterBadge: () => calls.push('filter-badge'),
         getCurrentPage: () => 'stats',
         renderTimeline: () => calls.push('timeline'),
         renderStats: () => calls.push('stats'),
@@ -676,7 +677,7 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
         renderSettings: () => calls.push('settings')
     });
 
-    assert.deepEqual(calls, ['invalidate', 'recalc-slider', 'timeline', 'stats', 'settings']);
+    assert.deepEqual(calls, ['invalidate', 'recalc-slider', 'filter-badge', 'timeline', 'stats', 'settings']);
 
     calls.length = 0;
     AppRefresh.refreshExpenseViews({
@@ -684,13 +685,14 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
         updateFilterSlider: true,
         isFilterOpen: () => false,
         recalcSliderMax: () => calls.push('recalc-slider'),
+        updateFilterBadge: () => calls.push('filter-badge'),
         getCurrentPage: () => 'timeline',
         renderTimeline: () => calls.push('timeline'),
         renderStats: () => calls.push('stats'),
         renderSettings: () => calls.push('settings')
     });
 
-    assert.deepEqual(calls, ['invalidate', 'timeline']);
+    assert.deepEqual(calls, ['invalidate', 'filter-badge', 'timeline']);
 });
 
 test('Controller submit input rapido pulisce input e aggiorna viste dopo salvataggio', () => {
@@ -1515,6 +1517,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         'timeline-summary': makeElement('timeline-summary'),
         'page-timeline': makeElement('page-timeline'),
         'app-main': makeElement('app-main'),
+        'input-bar': makeElement('input-bar'),
         'advanced-filters': makeElement('advanced-filters', { classes: ['hidden'] })
     };
     const doc = {
@@ -1552,6 +1555,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     const options = {
         document: doc,
+        window: {
+            matchMedia: () => ({ matches: true })
+        },
         body: doc.body,
         filters,
         categories: [{ id: 'bar', emoji: 'B', nome: 'Bar' }, { id: 'casa', emoji: 'C', nome: 'Casa' }],
@@ -1578,6 +1584,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         setAdvancedFiltersOpen: value => { state.advancedFiltersOpen = value; },
         getFilterSearchActive: () => state.filterSearchActive,
         setFilterSearchActive: value => { state.filterSearchActive = value; },
+        getCurrentPage: () => 'timeline',
         getLastSliderInput: () => state.lastSliderInput,
         setLastSliderInput: value => { state.lastSliderInput = value; },
         getSliderMaxValue: () => state.sliderMax,
@@ -1619,6 +1626,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(state.filterSearchActive, false);
     assert(calls.includes('stop-watch'));
 
+    const consumeCountAfterBlur = calls.filter(call => call === 'consume').length;
+    elements['search-input'].listeners.focus();
+    assert.equal(state.filterSearchActive, true);
+    assert.equal(FilterController.releaseFilterSearchInteraction(options, { consumeHistory: false }), true);
+    assert.equal(state.filterSearchActive, false);
+    assert.equal(calls.filter(call => call === 'consume').length, consumeCountAfterBlur);
+
     elements['slider-max'].value = '80';
     elements['slider-max'].listeners.input();
     assert.equal(state.lastSliderInput, 'max');
@@ -1626,11 +1640,16 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     FilterController.openAdvancedFilters(options);
     assert.equal(state.advancedFiltersOpen, true);
+    assert(elements['input-bar'].classList.contains('hidden'));
+    assert(elements['app-main'].classList.contains('no-input-bar'));
+    assert(!doc.body.classList.contains('no-scroll'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'scroll-to'));
 
     FilterController.closeFilterPanel(options);
     assert.equal(state.filterOpen, false);
     assert.equal(state.advancedFiltersOpen, false);
+    assert(!elements['input-bar'].classList.contains('hidden'));
+    assert(!elements['app-main'].classList.contains('no-input-bar'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
     FilterController.resetFilters(options);
@@ -2672,6 +2691,7 @@ test('Controller modale coordina apertura, salvataggio e chiusura fuori da App',
         }
     };
     const win = {
+        matchMedia: () => ({ matches: true }),
         visualViewport: {
             addEventListener(event, handler) {
                 winListeners[`vv:${event}`] = handler;
@@ -2748,6 +2768,7 @@ test('Controller modale coordina apertura, salvataggio e chiusura fuori da App',
             calls.push(['dropdown', containerId, currentValue, items.length]);
         },
         initTagInput: () => calls.push('tag-input'),
+        releaseFilterSearchBeforeModal: () => calls.push('release-filter-search'),
         isModalInteractionActive: () => interactionActive,
         setModalInteractionActive: value => {
             interactionActive = value;
@@ -2813,6 +2834,25 @@ test('Controller modale coordina apertura, salvataggio e chiusura fuori da App',
     assert(calls.includes('bind-picker-fields'));
     assert(calls.includes('bind-plain-fields'));
 
+    let enterPrevented = false;
+    editingId = 'expense-a';
+    elements['modal-overlay'].classList.remove('hidden');
+    docListeners.keydown({
+        key: 'Enter',
+        target: {
+            tagName: 'TEXTAREA',
+            closest(selector) {
+                return selector === '#edit-modal' ? {} : null;
+            }
+        },
+        preventDefault() {
+            enterPrevented = true;
+        }
+    });
+
+    assert.equal(enterPrevented, true);
+    assert(calls.includes('save-edit'));
+
     elements['btn-delete'].listeners.click();
     assert.equal(typeof confirmCallback, 'function');
     confirmCallback();
@@ -2830,6 +2870,7 @@ test('Controller modale coordina apertura, salvataggio e chiusura fuori da App',
     assert.deepEqual(editTags, ['lavoro']);
     assert.equal(ModalController.isOpen(options), true);
     assert(calls.some(call => call[0] === 'fill-form' && call[1] === 'expense-a'));
+    assert(calls.includes('release-filter-search'));
     assert(calls.some(call => call[0] === 'dropdown' && call[1] === 'sd-categoria'));
     assert(calls.some(call => call[0] === 'dropdown' && call[1] === 'sd-metodo'));
     assert(calls.includes('tag-input'));
@@ -3490,7 +3531,8 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
         },
         FilterController: {
             closeFilterPanel: () => calls.push('close-filter'),
-            recalcSliderMax: () => calls.push('recalc-slider')
+            recalcSliderMax: () => calls.push('recalc-slider'),
+            updateFilterBadge: payload => calls.push(['filter-badge', !!payload.filterModel])
         },
         InputBarController: {
             updateAppMainPadding: () => calls.push('padding'),
@@ -3511,6 +3553,7 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
     const refreshOptions = wiring.refreshOptions({ updateFilterSlider: true, includeSettings: true });
     refreshOptions.invalidateSpeseCache();
     refreshOptions.recalcSliderMax();
+    refreshOptions.updateFilterBadge();
     refreshOptions.renderSettings();
 
     assert.equal(app.currentPage, 'stats');
@@ -3526,6 +3569,7 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
     assert.deepEqual(calls, [
         'invalidate',
         'recalc-slider',
+        ['filter-badge', true],
         'settings'
     ]);
 });

@@ -86,9 +86,15 @@ I filtri sono condivisi tra timeline e statistiche:
 
 Il pannello ha sezione base e avanzata. Il badge del pulsante filtri mostra il numero di filtri attivi.
 
+Il riepilogo nella tendina filtri viene aggiornato anche dopo aggiunta, modifica o cancellazione di spese, non solo quando cambiano i filtri. Quando la sezione avanzata e aperta, la barra di inserimento rapido viene nascosta temporaneamente; su desktop questo stato non blocca lo scroll della pagina sottostante.
+
+L'area interna del pannello filtri resta scrollabile anche nella vista base quando lo spazio disponibile e ridotto; le barre di scroll laterali restano nascoste. Se una ricerca filtri e attiva e l'utente apre una spesa, l'interazione di ricerca viene rilasciata senza consumare lo stato history del pannello, cosi il back successivo alla chiusura della modale chiude ancora i filtri invece di uscire dall'app.
+
 ### Modifica Spesa
 
 La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e nota. Categoria, metodo e tag usano dropdown ricercabili custom. La cancellazione richiede conferma.
+
+Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 
 I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela.
 

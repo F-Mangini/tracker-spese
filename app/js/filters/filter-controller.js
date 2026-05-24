@@ -9,6 +9,10 @@ const FilterController = (() => {
         return options.document || document;
     }
 
+    function getWindow(options) {
+        return options.window || (typeof window !== 'undefined' ? window : null);
+    }
+
     function getBody(options, doc) {
         return options.body || (doc ? doc.body : null);
     }
@@ -64,6 +68,26 @@ const FilterController = (() => {
 
     function setFilterSearchActive(options, value) {
         setState(options, 'setFilterSearchActive', 'filterSearchActive', !!value);
+    }
+
+    function getCurrentPage(options) {
+        if (typeof options.getCurrentPage === 'function') return options.getCurrentPage();
+        return options.currentPage || 'timeline';
+    }
+
+    function isDesktopLike(options = {}) {
+        const win = getWindow(options);
+        if (!win) return false;
+
+        if (typeof win.matchMedia === 'function') {
+            return !!win.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        }
+
+        return Number(win.innerWidth || 0) >= 768;
+    }
+
+    function shouldLockMainScrollForAdvanced(options = {}) {
+        return !isDesktopLike(options);
     }
 
     function getLastSliderInput(options) {
@@ -133,6 +157,56 @@ const FilterController = (() => {
         (options.updateAppMainPadding || noop)();
     }
 
+    function releaseFilterSearchInteraction(options = {}, config = {}) {
+        if (!getFilterSearchActive(options)) return false;
+
+        const doc = getDocument(options);
+        const searchInput = doc.getElementById('search-input');
+
+        setFilterSearchActive(options, false);
+        (options.stopExpenseInputBarWatch || noop)();
+
+        if (searchInput && typeof searchInput.blur === 'function') {
+            try { searchInput.blur(); } catch (_) { }
+        }
+
+        if (config.consumeHistory !== false) {
+            (options.consumeUiState || noop)();
+        }
+
+        return true;
+    }
+
+    function setBodyScrollLockForAdvanced(options = {}, locked) {
+        const doc = getDocument(options);
+        const body = getBody(options, doc);
+        if (!body) return;
+
+        body.classList.toggle('no-scroll', !!locked);
+    }
+
+    function syncInputBarForAdvanced(options = {}, hidden) {
+        const doc = getDocument(options);
+        const inputBar = doc.getElementById('input-bar');
+        const main = doc.getElementById('app-main');
+        const panel = doc.getElementById('filter-panel');
+        const shouldShowInputBar = getCurrentPage(options) === 'timeline';
+
+        if (panel) panel.classList.toggle('input-bar-hidden', !!hidden);
+        if (!inputBar || !main) return;
+
+        if (hidden) {
+            inputBar.classList.add('hidden');
+            main.classList.add('no-input-bar');
+            return;
+        }
+
+        if (shouldShowInputBar) {
+            inputBar.classList.remove('hidden');
+            main.classList.remove('no-input-bar');
+        }
+    }
+
     function init(options = {}) {
         const doc = getDocument(options);
         const toggleBtn = doc.getElementById('btn-filter-toggle');
@@ -177,11 +251,7 @@ const FilterController = (() => {
             });
 
             searchInput.addEventListener('blur', () => {
-                if (!getFilterSearchActive(options)) return;
-
-                setFilterSearchActive(options, false);
-                (options.stopExpenseInputBarWatch || noop)();
-                (options.consumeUiState || noop)();
+                releaseFilterSearchInteraction(options);
             });
 
             const handleClear = e => {
@@ -248,14 +318,14 @@ const FilterController = (() => {
 
     function openAdvancedFilters(options = {}) {
         const doc = getDocument(options);
-        const body = getBody(options, doc);
         const section = doc.getElementById('advanced-filters');
         const btn = doc.getElementById('btn-advanced-toggle');
 
         setAdvancedFiltersOpen(options, true);
         if (section) section.classList.remove('hidden');
         if (btn) btn.classList.add('active');
-        if (body) body.classList.add('no-scroll');
+        setBodyScrollLockForAdvanced(options, shouldLockMainScrollForAdvanced(options));
+        syncInputBarForAdvanced(options, true);
         (options.pushUiState || noop)({ panel: 'advanced-filters' });
 
         defer(options, () => {
@@ -278,14 +348,14 @@ const FilterController = (() => {
         if (!getAdvancedFiltersOpen(options)) return;
 
         const doc = getDocument(options);
-        const body = getBody(options, doc);
         const section = doc.getElementById('advanced-filters');
         const btn = doc.getElementById('btn-advanced-toggle');
 
         setAdvancedFiltersOpen(options, false);
         if (section) section.classList.add('hidden');
         if (btn) btn.classList.remove('active');
-        if (body) body.classList.remove('no-scroll');
+        setBodyScrollLockForAdvanced(options, false);
+        syncInputBarForAdvanced(options, false);
 
         defer(options, () => {
             const panel = doc.getElementById('filter-panel');
@@ -499,6 +569,7 @@ const FilterController = (() => {
         if (advanced) advanced.classList.add('hidden');
         if (advancedBtn) advancedBtn.classList.remove('active');
         if (body) body.classList.remove('no-scroll');
+        syncInputBarForAdvanced(options, false);
 
         const summary = doc.getElementById('timeline-summary');
         if (summary) summary.classList.remove('hidden');
@@ -596,6 +667,7 @@ const FilterController = (() => {
         closeFilterPanel,
         getActiveFilterCount,
         updateFilterBadge,
-        resetFilters
+        resetFilters,
+        releaseFilterSearchInteraction
     };
 })();

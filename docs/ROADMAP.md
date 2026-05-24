@@ -34,14 +34,19 @@ Stato: completato.
 
 ## Bug e Miglioramenti Vicini
 
-- Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
+Completati nella tranche di stabilizzazione dev del 2026-05-24:
+
 - Su PC, permettere scroll quando il pannello filtri e completamente aperto.
 - Su PC, confermare la modifica alla spesa con Invio.
-- Aggiornare live il riepilogo nella tendina quando si aggiungono o rimuovono spese.
-- Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
+- Aggiornare live il riepilogo nella tendina quando si aggiungono, modificano o rimuovono spese.
 - Nascondere la barra di inserimento quando il pannello filtri e completamente aperto.
-- Rendere il pannello filtri scrollabile anche quando non completamente aperto.
-- Rivedere casi limite tra filtri parzialmente aperti, modifica spesa e history.
+- Rendere il pannello filtri scrollabile anche quando non completamente aperto, senza mostrare la barra laterale di scroll.
+- Rivedere casi limite tra filtri parzialmente aperti, modifica spesa e history: corretto il caso ricerca filtri attiva -> apertura spesa -> back modale -> back filtri.
+
+Ancora da affrontare:
+
+- Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
+- Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
 - Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
 
 ## Dati, Privacy e Import/Export

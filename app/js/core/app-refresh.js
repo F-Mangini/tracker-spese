@@ -23,6 +23,10 @@ const AppRefresh = (() => {
             options.recalcSliderMax();
         }
 
+        if (typeof options.updateFilterBadge === 'function') {
+            options.updateFilterBadge();
+        }
+
         if (typeof options.renderTimeline === 'function') {
             options.renderTimeline();
         }

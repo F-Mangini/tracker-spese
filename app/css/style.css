@@ -194,17 +194,22 @@ body {
 
 .filter-panel-scroll {
     max-height: calc(100vh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom));
+    max-height: calc(100dvh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom));
     overflow-y: auto;
     padding: 10px 14px 6px;
     max-width: 540px;
     margin: 0 auto;
+    width: 100%;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    touch-action: pan-y;
 }
 
+.filter-panel.input-bar-hidden .filter-panel-scroll,
 .no-input-bar~#filter-panel .filter-panel-scroll,
 body:has(.no-input-bar) .filter-panel-scroll {
     max-height: calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-bottom));
+    max-height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--safe-bottom));
 }
 
 .filter-section {

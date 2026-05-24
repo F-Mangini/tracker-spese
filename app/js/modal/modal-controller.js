@@ -8,7 +8,7 @@ const ModalController = (() => {
     }
 
     function getWindow(options) {
-        return options.window || window;
+        return options.window || (typeof window !== 'undefined' ? window : null);
     }
 
     function getFormController(options) {
@@ -27,6 +27,46 @@ const ModalController = (() => {
             : null;
 
         return !!overlay && !overlay.classList.contains('hidden') && editingId !== null;
+    }
+
+    function isDesktopLike(options = {}) {
+        const win = getWindow(options);
+        if (!win) return false;
+
+        if (typeof win.matchMedia === 'function') {
+            return !!win.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        }
+
+        return Number(win.innerWidth || 0) >= 768;
+    }
+
+    function isConfirmOpen(options = {}) {
+        if (typeof options.isConfirmOpen === 'function') return options.isConfirmOpen();
+
+        const doc = getDocument(options);
+        const overlay = doc.getElementById('confirm-overlay');
+        return !!overlay && !overlay.classList.contains('hidden');
+    }
+
+    function shouldSaveOnEnter(options = {}, event) {
+        if (!event || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.repeat) {
+            return false;
+        }
+
+        if (!isDesktopLike(options) || !isOpen(options) || isConfirmOpen(options)) return false;
+        if (typeof options.isModalInteractionActive === 'function' && options.isModalInteractionActive()) return false;
+
+        const target = event.target;
+        if (!target || typeof target.closest !== 'function') return false;
+        if (!target.closest('#edit-modal')) return false;
+        if (target.closest('.searchable-dropdown') || target.closest('.tag-input-container')) return false;
+
+        const tagName = String(target.tagName || '').toUpperCase();
+        const type = String(target.type || '').toLowerCase();
+
+        if (tagName === 'BUTTON' || type === 'date' || type === 'time') return false;
+
+        return true;
     }
 
     function init(options = {}) {
@@ -66,6 +106,12 @@ const ModalController = (() => {
             if (e.key === 'Escape') {
                 options.closeModal();
                 options.closeConfirm();
+                return;
+            }
+
+            if (shouldSaveOnEnter(options, e)) {
+                e.preventDefault();
+                options.saveEdit();
             }
         });
 
@@ -104,6 +150,10 @@ const ModalController = (() => {
         const spese = options.getExpenses();
         const spesa = spese.find(item => item.id === id);
         if (!spesa) return false;
+
+        if (typeof options.releaseFilterSearchBeforeModal === 'function') {
+            options.releaseFilterSearchBeforeModal();
+        }
 
         options.setEditingId(id);
 

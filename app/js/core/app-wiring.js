@@ -99,7 +99,8 @@ const AppWiring = (() => {
                 pushUiState,
                 consumeUiState,
                 runHistoryAction,
-                confirmOptions
+                confirmOptions,
+                releaseFilterSearchBeforeModal
             }
         });
 
@@ -147,6 +148,16 @@ const AppWiring = (() => {
 
         function consumeUiState(steps = 1) {
             return runHistoryAction(deps.UIStack.consumeState({ steps }));
+        }
+
+        function releaseFilterSearchBeforeModal() {
+            if (!deps.FilterController || typeof deps.FilterController.releaseFilterSearchInteraction !== 'function') {
+                return false;
+            }
+
+            return deps.FilterController.releaseFilterSearchInteraction(filterOptions(), {
+                consumeHistory: false
+            });
         }
 
         function themeOptions() {
@@ -205,6 +216,7 @@ const AppWiring = (() => {
                 setAdvancedFiltersOpen: value => { app.advancedFiltersOpen = value; },
                 getFilterSearchActive: () => app._filterSearchActive,
                 setFilterSearchActive: value => { app._filterSearchActive = value; },
+                getCurrentPage: () => app.currentPage,
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
                 getSliderMaxValue: () => app.sliderMax,
@@ -423,6 +435,21 @@ const AppWiring = (() => {
                 updateFilterSlider: !!options.updateFilterSlider,
                 isFilterOpen: () => app.filterOpen,
                 recalcSliderMax: () => deps.FilterController.recalcSliderMax(filterOptions()),
+                updateFilterBadge: () => {
+                    if (!deps.FilterController || typeof deps.FilterController.updateFilterBadge !== 'function') {
+                        return;
+                    }
+
+                    const filterModel = deps.ExpenseQuery.buildFilterModel({
+                        spese: deps.ExpenseStore.getSpese(),
+                        filters: app.filters
+                    });
+
+                    deps.FilterController.updateFilterBadge({
+                        ...filterOptions(),
+                        filterModel
+                    });
+                },
                 getCurrentPage: () => app.currentPage,
                 renderTimeline: () => app.renderTimeline(),
                 renderStats: () => app.renderStats(),

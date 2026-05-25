@@ -85,7 +85,7 @@ const AppWiringModal = (() => {
                     modalMobileOptions()
                 ),
                 handleModalViewportChange: () => deps.ModalMobileController.handleViewportChange(modalMobileOptions()),
-                handlePopstate: event => app.handlePopstate(event),
+                handlePopstate: () => app.handlePopstate(),
                 toInputDate: date => deps.AppUI.toInputDate(date),
                 toInputTime: date => deps.AppUI.toInputTime(date),
                 setTimeout: (callback, delay) => deps.setTimeout(callback, delay)

@@ -4,8 +4,6 @@
 
 const UIStackController = (() => {
     function noop() { }
-    const ROOT_BACK_BASE_KEY = '__wmmRootBackBase';
-    const ROOT_BACK_GUARD_KEY = '__wmmRootBackGuard';
 
     function getDocument(options) {
         return options.document || document;
@@ -17,101 +15,6 @@ const UIStackController = (() => {
 
     function getEffects(options) {
         return options.effects || UIStackEffects;
-    }
-
-    function getWindow(options) {
-        return options.window || (typeof window !== 'undefined' ? window : null);
-    }
-
-    function getDocumentForGuard(options) {
-        return options.document || (typeof document !== 'undefined' ? document : null);
-    }
-
-    function getHistory(options) {
-        return options.history || (typeof history !== 'undefined' ? history : null);
-    }
-
-    function setRootBackGuardEnabled(options, value) {
-        if (typeof options.setRootBackGuardEnabled === 'function') {
-            options.setRootBackGuardEnabled(!!value);
-        }
-    }
-
-    function isRootBackGuardEnabled(options) {
-        return !!(options.isRootBackGuardEnabled && options.isRootBackGuardEnabled());
-    }
-
-    function isStandaloneDisplay(options = {}) {
-        const win = getWindow(options);
-        if (!win) return false;
-
-        if (win.navigator && win.navigator.standalone === true) return true;
-        if (typeof win.matchMedia !== 'function') return false;
-
-        return !!(
-            win.matchMedia('(display-mode: standalone)').matches ||
-            win.matchMedia('(display-mode: fullscreen)').matches ||
-            win.matchMedia('(display-mode: minimal-ui)').matches
-        );
-    }
-
-    function isTouchPrimary(options = {}) {
-        const win = getWindow(options);
-        if (!win || typeof win.matchMedia !== 'function') return false;
-        return !!win.matchMedia('(pointer: coarse)').matches;
-    }
-
-    function isLikelyDirectMobileEntry(options = {}) {
-        const targetHistory = getHistory(options);
-        const doc = getDocumentForGuard(options);
-
-        if (!isTouchPrimary(options)) return false;
-        if (targetHistory && Number(targetHistory.length || 0) > 1) return false;
-        if (doc && doc.referrer) return false;
-
-        return true;
-    }
-
-    function shouldUseRootBackGuard(options = {}) {
-        if (typeof options.shouldUseRootBackGuard === 'function') {
-            return !!options.shouldUseRootBackGuard();
-        }
-
-        return isStandaloneDisplay(options) || isLikelyDirectMobileEntry(options);
-    }
-
-    function initRootBackGuard(options = {}) {
-        const targetHistory = getHistory(options);
-        if (!targetHistory || typeof targetHistory.replaceState !== 'function' ||
-            typeof targetHistory.pushState !== 'function') {
-            return false;
-        }
-
-        const currentState = targetHistory.state && typeof targetHistory.state === 'object'
-            ? targetHistory.state
-            : {};
-
-        if (currentState[ROOT_BACK_BASE_KEY] || currentState[ROOT_BACK_GUARD_KEY]) {
-            setRootBackGuardEnabled(options, true);
-            return true;
-        }
-
-        if (!shouldUseRootBackGuard(options)) {
-            setRootBackGuardEnabled(options, false);
-            return false;
-        }
-
-        targetHistory.replaceState({
-            ...currentState,
-            [ROOT_BACK_BASE_KEY]: true
-        }, '');
-
-        targetHistory.pushState({
-            [ROOT_BACK_GUARD_KEY]: true
-        }, '');
-
-        setRootBackGuardEnabled(options, true);
-        return true;
     }
 
     function getUiStackSnapshot(options = {}) {
@@ -172,51 +75,9 @@ const UIStackController = (() => {
         return action;
     }
 
-    function restoreRootBackGuard(options = {}) {
-        const targetHistory = getHistory(options);
-        if (!targetHistory) return false;
-
-        const run = () => {
-            if (typeof targetHistory.forward === 'function') {
-                targetHistory.forward();
-                return;
-            }
-
-            if (typeof targetHistory.pushState === 'function') {
-                targetHistory.pushState({ [ROOT_BACK_GUARD_KEY]: true }, '');
-            }
-        };
-
-        const defer = options.defer || (callback => {
-            if (typeof setTimeout === 'function') setTimeout(callback, 0);
-            else callback();
-        });
-
-        defer(run);
-        return true;
-    }
-
-    function handleRootBackGuard(options = {}, event = null) {
-        if (!isRootBackGuardEnabled(options)) return false;
-
-        const state = event && event.state && typeof event.state === 'object'
-            ? event.state
-            : null;
-
-        if (!state || !state[ROOT_BACK_BASE_KEY]) return false;
-
-        return restoreRootBackGuard(options);
-    }
-
-    function handlePopstate(options = {}, event = null) {
+    function handlePopstate(options = {}) {
         const action = getStack(options).getPopstateAction(getUiStackSnapshot(options));
-        const applied = applyPopstateAction(options, action);
-
-        if (applied === getStack(options).ACTIONS.NONE && handleRootBackGuard(options, event)) {
-            return 'root-back-guard';
-        }
-
-        return applied;
+        return applyPopstateAction(options, action);
     }
 
     function closeFilterSearchInteraction(options = {}) {
@@ -278,8 +139,6 @@ const UIStackController = (() => {
 
     return {
         getUiStackSnapshot,
-        initRootBackGuard,
-        handleRootBackGuard,
         applyPopstateAction,
         handlePopstate,
         closeFilterSearchInteraction,

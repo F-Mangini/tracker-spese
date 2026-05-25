@@ -115,8 +115,6 @@ Il back button chiude, in ordine di priorita:
 
 Le decisioni sono in `ui-stack.js`; l'esecuzione concreta di push/back/go/replace e in `history-controller.js`.
 
-Su ingresso mobile diretto o PWA standalone, l'app installa uno stato history di guardia sul root: quando il back laterale non ha piu pannelli, modali, input o pagine interne da chiudere, il controller annulla il ritorno allo stato base con `history.forward()`. Questo non puo emulare il gesto Home di Android, ma prova a evitare la chiusura distruttiva dell'app da root.
-
 ### Statistiche
 
 Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche.

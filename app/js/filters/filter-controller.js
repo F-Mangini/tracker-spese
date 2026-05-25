@@ -207,6 +207,27 @@ const FilterController = (() => {
         }
     }
 
+    function bindExpenseCardFilterSearchRelease(options = {}) {
+        const doc = getDocument(options);
+        if (!doc || typeof doc.addEventListener !== 'function') return;
+
+        const releaseBeforeCardOpen = event => {
+            const target = event && event.target;
+            const card = target && typeof target.closest === 'function'
+                ? target.closest('.expense-card')
+                : null;
+
+            if (!card || !getFilterOpen(options)) return;
+
+            releaseFilterSearchInteraction(options, {
+                consumeHistory: false
+            });
+        };
+
+        doc.addEventListener('pointerdown', releaseBeforeCardOpen, { capture: true, passive: true });
+        doc.addEventListener('touchstart', releaseBeforeCardOpen, { capture: true, passive: true });
+    }
+
     function init(options = {}) {
         const doc = getDocument(options);
         const toggleBtn = doc.getElementById('btn-filter-toggle');
@@ -294,6 +315,7 @@ const FilterController = (() => {
 
         syncFilterUI(options);
         updateFilterBadge(options);
+        bindExpenseCardFilterSearchRelease(options);
 
         const panel = doc.getElementById('filter-panel');
         if (panel) {

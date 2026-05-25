@@ -1496,6 +1496,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     };
     const catChips = [makeChip('bar'), makeChip('casa')];
     const methodChips = [makeChip('carta')];
+    const docListeners = {};
     const elements = {
         'btn-filter-toggle': makeElement('btn-filter-toggle'),
         'search-input': makeElement('search-input'),
@@ -1529,6 +1530,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             if (selector === '#filter-cats .filter-chip') return catChips;
             if (selector === '#filter-methods .filter-chip') return methodChips;
             return [];
+        },
+        addEventListener(event, handler) {
+            docListeners[event] = handler;
         }
     };
     const filters = {
@@ -1630,6 +1634,18 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     elements['search-input'].listeners.focus();
     assert.equal(state.filterSearchActive, true);
     assert.equal(FilterController.releaseFilterSearchInteraction(options, { consumeHistory: false }), true);
+    assert.equal(state.filterSearchActive, false);
+    assert.equal(calls.filter(call => call === 'consume').length, consumeCountAfterBlur);
+
+    elements['search-input'].listeners.focus();
+    assert.equal(state.filterSearchActive, true);
+    docListeners.pointerdown({
+        target: {
+            closest(selector) {
+                return selector === '.expense-card' ? {} : null;
+            }
+        }
+    });
     assert.equal(state.filterSearchActive, false);
     assert.equal(calls.filter(call => call === 'consume').length, consumeCountAfterBlur);
 

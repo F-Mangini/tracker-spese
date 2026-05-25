@@ -81,6 +81,7 @@ const AppWiring = (() => {
                 callback();
                 return null;
             }),
+            clearTimeout: getBoundGlobalFunction('clearTimeout', noop),
             setInterval: getBoundGlobalFunction('setInterval', noop),
             clearInterval: getBoundGlobalFunction('clearInterval', noop)
         };
@@ -250,9 +251,12 @@ const AppWiring = (() => {
                 setRafId: value => { app._expenseInputBarRaf = value; },
                 getResizeHandler: () => app._expenseInputResizeHandler,
                 setResizeHandler: value => { app._expenseInputResizeHandler = value; },
+                getResetTimer: () => app._expenseInputBarResetTimer,
+                setResetTimer: value => { app._expenseInputBarResetTimer = value; },
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
                 cancelAnimationFrame: id => deps.cancelAnimationFrame(id),
-                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: id => deps.clearTimeout(id)
             };
         }
 
@@ -269,7 +273,7 @@ const AppWiring = (() => {
                 pushInputState: () => pushUiState({ panel: 'expense-input' }),
                 consumeInputState: () => consumeUiState(),
                 startInputBarWatch: () => deps.InputBarController.startWatch(inputBarOptions()),
-                stopInputBarWatch: () => deps.InputBarController.stopWatch(inputBarOptions()),
+                stopInputBarWatch: config => deps.InputBarController.stopWatch(inputBarOptions(), config),
                 scheduleInputBarPositionUpdate: force => deps.InputBarController.schedulePositionUpdate(inputBarOptions(), force),
                 updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions())
             };
@@ -310,10 +314,14 @@ const AppWiring = (() => {
         function uiStackOptions() {
             return {
                 document: deps.document,
+                window: deps.window,
+                history: deps.history,
                 stack: deps.UIStack,
                 effects: deps.UIStackEffects,
                 getSuppressNextPopstate: () => app._suppressNextPopstate,
                 setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
+                isRootBackGuardEnabled: () => app._rootBackGuardEnabled,
+                setRootBackGuardEnabled: value => { app._rootBackGuardEnabled = value; },
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
                 closeConfirm: fromPopstate => deps.ConfirmController.close({
                     ...confirmOptions(),

@@ -840,6 +840,7 @@ body:has(.no-input-bar) .filter-panel-scroll {
     border-top: none;
     z-index: 100;
     touch-action: none;
+    transition: bottom 0.18s ease-out;
 }
 
 #input-bar::before {
@@ -864,7 +865,6 @@ body:has(.no-input-bar) .filter-panel-scroll {
    La posizione verrà aggiornata solo dal JS quando la tastiera
    è davvero aperta. */
 body.expense-input-active #input-bar {
-    transition: none;
     transform: none !important;
     will-change: bottom;
 }

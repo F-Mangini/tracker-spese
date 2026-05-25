@@ -20,6 +20,7 @@ const App = {
         NavigationController.init(wiring.navigationOptions());
         this.initInput();
         ModalController.init(wiring.modalOptions());
+        UIStackController.initRootBackGuard(wiring.uiStackOptions());
         FilterController.init(wiring.filterOptions());
         this.renderTimeline();
         this._lastViewportHeight = ModalMobileController.getViewportHeight(wiring.modalMobileOptions());
@@ -88,8 +89,8 @@ const App = {
     /* =====================
        UI STACK / BACK BUTTON
        ===================== */
-    handlePopstate() {
-        UIStackController.handlePopstate(this.getWiring().uiStackOptions());
+    handlePopstate(event = null) {
+        UIStackController.handlePopstate(this.getWiring().uiStackOptions(), event);
     },
 
     /* =============================================

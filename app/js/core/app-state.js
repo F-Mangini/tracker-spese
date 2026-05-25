@@ -44,6 +44,7 @@ const AppState = (() => {
             _modalInteractionActive: false,
             _suppressNextPopstate: false,
             _suspendInteractionRelease: false,
+            _rootBackGuardEnabled: false,
             _keyboardWatchTimer: null,
             _expenseInputActive: false,
             _lastViewportHeight: 0,

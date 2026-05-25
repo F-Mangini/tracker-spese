@@ -47,7 +47,7 @@ Ancora da affrontare:
 
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
-- Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
+- In verifica su Android: evitare, dove possibile, che l'app si chiuda completamente con back, invece deve restare nelle app recenti.
 
 ## Dati, Privacy e Import/Export
 

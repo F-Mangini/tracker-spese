@@ -3429,6 +3429,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second._rootBackGuardEnabled, false);
 });
 
 test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {
@@ -4198,6 +4199,72 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     state.activeField = false;
     UIStackController.handleModalPopstate(options);
     assert.deepEqual(calls[calls.length - 1], ['close-modal', true]);
+});
+
+test('UI stack controller protegge il back finale su ingresso mobile diretto', () => {
+    const { UIStack, UIStackController } = loadUiViews();
+    const calls = [];
+    const deferred = [];
+    let enabled = false;
+    const historyTarget = {
+        length: 1,
+        state: { existing: true },
+        replaceState(state, title) {
+            this.state = state;
+            calls.push(['replace', state, title]);
+        },
+        pushState(state, title) {
+            this.state = state;
+            calls.push(['push', state, title]);
+        },
+        forward() {
+            calls.push('forward');
+        }
+    };
+    const mobileWindow = {
+        navigator: {},
+        matchMedia(query) {
+            return { matches: query === '(pointer: coarse)' };
+        }
+    };
+    const options = {
+        document: { referrer: '' },
+        window: mobileWindow,
+        history: historyTarget,
+        stack: UIStack,
+        isRootBackGuardEnabled: () => enabled,
+        setRootBackGuardEnabled: value => { enabled = value; },
+        getCurrentPage: () => 'timeline',
+        defer: callback => deferred.push(callback)
+    };
+
+    assert.equal(UIStackController.initRootBackGuard(options), true);
+    assert.equal(enabled, true);
+    assert.equal(calls[0][0], 'replace');
+    assert.equal(calls[0][1].existing, true);
+    assert.equal(calls[0][1].__wmmRootBackBase, true);
+    assert.deepEqual(calls[1], ['push', { __wmmRootBackGuard: true }, '']);
+
+    const result = UIStackController.handlePopstate(options, { state: calls[0][1] });
+    assert.equal(result, 'root-back-guard');
+    assert.equal(deferred.length, 1);
+    deferred[0]();
+    assert(calls.includes('forward'));
+
+    calls.length = 0;
+    deferred.length = 0;
+    enabled = false;
+    historyTarget.length = 2;
+    historyTarget.state = {};
+
+    assert.equal(UIStackController.initRootBackGuard(options), false);
+    assert.equal(enabled, false);
+    assert.deepEqual(calls, []);
+
+    historyTarget.state = { __wmmRootBackGuard: true };
+    assert.equal(UIStackController.initRootBackGuard(options), true);
+    assert.equal(enabled, true);
+    assert.deepEqual(calls, []);
 });
 
 let failed = 0;

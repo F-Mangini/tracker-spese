@@ -140,7 +140,7 @@ const ModalController = (() => {
             }
         });
 
-        win.addEventListener('popstate', () => options.handlePopstate());
+        win.addEventListener('popstate', event => options.handlePopstate(event));
 
         formController.bindPlainFieldEnterBlur({ document: doc });
     }

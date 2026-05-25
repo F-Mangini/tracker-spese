@@ -310,10 +310,14 @@ const AppWiring = (() => {
         function uiStackOptions() {
             return {
                 document: deps.document,
+                window: deps.window,
+                history: deps.history,
                 stack: deps.UIStack,
                 effects: deps.UIStackEffects,
                 getSuppressNextPopstate: () => app._suppressNextPopstate,
                 setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
+                isRootBackGuardEnabled: () => app._rootBackGuardEnabled,
+                setRootBackGuardEnabled: value => { app._rootBackGuardEnabled = value; },
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
                 closeConfirm: fromPopstate => deps.ConfirmController.close({
                     ...confirmOptions(),
@@ -348,7 +352,8 @@ const AppWiring = (() => {
                 hasOpenModalDropdown: () => !!deps.ModalMobileController.getOpenDropdown(modalWiring.modalMobileOptions()),
                 hasActivePlainModalField: () => !!deps.ModalMobileController.getActivePlainField(modalWiring.modalMobileOptions()),
                 clearModalSelection: () => deps.ModalMobileController.clearSelection(modalWiring.modalMobileOptions()),
-                pushModalHistoryState: () => deps.ModalMobileController.pushHistoryState(modalWiring.modalMobileOptions())
+                pushModalHistoryState: () => deps.ModalMobileController.pushHistoryState(modalWiring.modalMobileOptions()),
+                defer: callback => deps.setTimeout(callback, 0)
             };
         }
 

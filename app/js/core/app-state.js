@@ -49,8 +49,6 @@ const AppState = (() => {
             _lastViewportHeight: 0,
             _expenseInputBarRaf: null,
             _expenseInputResizeHandler: null,
-            _expenseInputBarResetTimer: null,
-            _rootBackGuardEnabled: false,
 
             _sdInstances: {},
             _editTags: [],

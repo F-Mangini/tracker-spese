@@ -69,7 +69,7 @@ const ExpenseInputController = (() => {
                 activeDocument.body.classList.remove('expense-input-active');
             }
 
-            call(options.stopInputBarWatch, { deferReset: true });
+            call(options.stopInputBarWatch);
             call(options.setInputActive, false);
             call(options.updateAppMainPadding);
 

@@ -34,7 +34,7 @@ Stato: completato.
 
 ## Bug e Miglioramenti Vicini
 
-Completati nella tranche di stabilizzazione dev del 2026-05-24/25:
+Completati nella tranche di stabilizzazione dev del 2026-05-24:
 
 - Su PC, permettere scroll quando il pannello filtri e completamente aperto.
 - Su PC, confermare la modifica alla spesa con Invio.
@@ -42,12 +42,12 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24/25:
 - Nascondere la barra di inserimento quando il pannello filtri e completamente aperto.
 - Rendere il pannello filtri scrollabile anche quando non completamente aperto, senza mostrare la barra laterale di scroll.
 - Rivedere casi limite tra filtri parzialmente aperti, tastiera e history: corretto il rilascio centralizzato della ricerca filtri quando si toccano controlli interni come spese o pulsante filtri avanzati, evitando passaggi back invisibili.
-- Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera: la barra segue meglio `visualViewport` e ritarda il reset quando il blur chiude la tastiera.
-- Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti: aggiunto un guard root limitato alla PWA standalone su dispositivi touch.
 
 Ancora da affrontare:
 
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
+- Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
+- Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
 
 ## Dati, Privacy e Import/Export
 

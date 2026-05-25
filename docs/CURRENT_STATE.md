@@ -70,8 +70,6 @@ L'utente scrive testo libero nella barra inferiore. Il parser estrae importo, ta
 
 Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri, per esempio `pizza 4 formaggi 8 euro`. La dettatura vocale usa `SpeechRecognition` o `webkitSpeechRecognition` quando disponibili.
 
-La barra di inserimento rapido segue la tastiera tramite `visualViewport` quando disponibile, ascoltando resize e scroll del viewport visuale. Alla chiusura della tastiera il reset della posizione viene ritardato leggermente per evitare salti visivi durante l'animazione di sistema.
-
 ### Timeline
 
 La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana e mese; con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
@@ -116,8 +114,6 @@ Il back button chiude, in ordine di priorita:
 - pagina corrente tornando alla timeline.
 
 Le decisioni sono in `ui-stack.js`; l'esecuzione concreta di push/back/go/replace e in `history-controller.js`.
-
-In modalita PWA standalone su dispositivi touch, l'app installa un guard leggero sul back finale da root: quando non ci sono pannelli, modali, input o pagine interne da chiudere, il back viene consumato per evitare, dove il browser lo consente, la chiusura completa dell'app installata. Il guard non viene attivato nel normale browser desktop/mobile.
 
 ### Statistiche
 

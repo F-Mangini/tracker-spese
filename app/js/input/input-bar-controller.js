@@ -25,28 +25,6 @@ const InputBarController = (() => {
         return !!(options.isFilterOpen && options.isFilterOpen());
     }
 
-    function isKeyboardInteractionActive(options) {
-        return getExpenseInputActive(options) || getFilterSearchActive(options);
-    }
-
-    function getTimeout(options) {
-        return options.setTimeout ||
-            (typeof setTimeout === 'function' ? setTimeout : (callback => callback()));
-    }
-
-    function getClearTimeout(options) {
-        return options.clearTimeout ||
-            (typeof clearTimeout === 'function' ? clearTimeout : noop);
-    }
-
-    function clearPendingReset(options = {}) {
-        const currentTimer = options.getResetTimer ? options.getResetTimer() : null;
-        if (!currentTimer) return;
-
-        getClearTimeout(options)(currentTimer);
-        if (options.setResetTimer) options.setResetTimer(null);
-    }
-
     function getKeyboardInset(options = {}) {
         const win = getWindow(options);
         const vv = win.visualViewport;
@@ -69,7 +47,7 @@ const InputBarController = (() => {
             paddingCalc += 'var(--input-h) + var(--nav-h) + var(--safe-bottom)';
         }
 
-        if (isKeyboardInteractionActive(options)) {
+        if (getExpenseInputActive(options) || getFilterSearchActive(options)) {
             const inset = getKeyboardInset(options);
             if (inset > 0) {
                 paddingCalc += ` + ${inset}px - var(--nav-h)`;
@@ -141,8 +119,7 @@ const InputBarController = (() => {
     }
 
     function startWatch(options = {}) {
-        stopWatch(options, { preservePosition: true });
-        clearPendingReset(options);
+        stopWatch(options);
 
         const win = getWindow(options);
         const handler = () => {
@@ -155,32 +132,20 @@ const InputBarController = (() => {
 
         if (win.visualViewport) {
             win.visualViewport.addEventListener('resize', handler, { passive: true });
-            win.visualViewport.addEventListener('scroll', handler, { passive: true });
         }
 
         schedulePositionUpdate(options, true);
 
-        const delay = getTimeout(options);
+        const delay = options.setTimeout || setTimeout;
 
-        [60, 160, 320, 520].forEach(ms => {
+        [60, 160, 320].forEach(ms => {
             delay(() => {
-                if (isKeyboardInteractionActive(options)) schedulePositionUpdate(options, true);
+                if (getExpenseInputActive(options)) schedulePositionUpdate(options, true);
             }, ms);
         });
     }
 
-    function resetInputBarPosition(options = {}) {
-        const doc = getDocument(options);
-        const inputBar = doc.getElementById('input-bar');
-        if (inputBar) {
-            inputBar.style.bottom = '';
-            inputBar.style.transform = '';
-        }
-
-        updateAppMainPadding(options);
-    }
-
-    function stopWatch(options = {}, config = {}) {
+    function stopWatch(options = {}) {
         const currentRaf = options.getRafId ? options.getRafId() : null;
         const cancelFrame = options.cancelAnimationFrame ||
             (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : noop);
@@ -198,32 +163,19 @@ const InputBarController = (() => {
 
             if (win.visualViewport) {
                 win.visualViewport.removeEventListener('resize', handler);
-                win.visualViewport.removeEventListener('scroll', handler);
             }
 
             if (options.setResizeHandler) options.setResizeHandler(null);
         }
 
-        clearPendingReset(options);
-
-        if (config.preservePosition) {
-            updateAppMainPadding(options);
-            return;
+        const doc = getDocument(options);
+        const inputBar = doc.getElementById('input-bar');
+        if (inputBar) {
+            inputBar.style.bottom = '';
+            inputBar.style.transform = '';
         }
 
-        if (config.deferReset) {
-            updateAppMainPadding(options);
-
-            const timer = getTimeout(options)(() => {
-                if (options.setResetTimer) options.setResetTimer(null);
-                resetInputBarPosition(options);
-            }, config.resetDelay || 360);
-
-            if (options.setResetTimer) options.setResetTimer(timer);
-            return;
-        }
-
-        resetInputBarPosition(options);
+        updateAppMainPadding(options);
     }
 
     return {
@@ -232,7 +184,6 @@ const InputBarController = (() => {
         updatePosition,
         schedulePositionUpdate,
         startWatch,
-        stopWatch,
-        resetInputBarPosition
+        stopWatch
     };
 })();

@@ -878,7 +878,7 @@ test('Controller input rapido collega touch, focus e blur senza dipendere da App
         pushInputState: () => calls.push('push-input'),
         consumeInputState: () => calls.push('consume-input'),
         startInputBarWatch: () => calls.push('start-watch'),
-        stopInputBarWatch: config => calls.push(['stop-watch', config]),
+        stopInputBarWatch: () => calls.push('stop-watch'),
         scheduleInputBarPositionUpdate: force => calls.push(['schedule', force]),
         updateAppMainPadding: () => calls.push('update-padding'),
         setTimeout: (callback, ms) => {
@@ -938,7 +938,7 @@ test('Controller input rapido collega touch, focus e blur senza dipendere da App
         'push-input',
         'start-watch',
         ['schedule', true],
-        ['stop-watch', { deferReset: true }],
+        'stop-watch',
         ['active', false],
         'update-padding',
         'consume-input'
@@ -979,7 +979,6 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
     let filterOpen = true;
     let rafId = null;
     let resizeHandler = null;
-    let resetTimer = null;
     let windowResizeHandler = null;
     let viewportResizeHandler = null;
     let nextRaf = 0;
@@ -1015,8 +1014,6 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
         setRafId: value => { rafId = value; },
         getResizeHandler: () => resizeHandler,
         setResizeHandler: value => { resizeHandler = value; },
-        getResetTimer: () => resetTimer,
-        setResetTimer: value => { resetTimer = value; },
         requestAnimationFrame: callback => {
             frameCallbacks.push(callback);
             nextRaf += 1;
@@ -1026,8 +1023,7 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
         setTimeout: (callback, ms) => {
             timerCallbacks.push({ callback, ms });
             return timerCallbacks.length;
-        },
-        clearTimeout: id => events.push(['clear-timeout', id])
+        }
     };
 
     assert.equal(InputBarController.getKeyboardInset(options), 300);
@@ -1067,12 +1063,11 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
 
     assert.equal(resizeHandler, windowResizeHandler);
     assert.equal(resizeHandler, viewportResizeHandler);
-    assert.deepEqual(events.slice(0, 3), [
+    assert.deepEqual(events.slice(0, 2), [
         ['win-add', 'resize', true],
-        ['vv-add', 'resize', true],
-        ['vv-add', 'scroll', true]
+        ['vv-add', 'resize', true]
     ]);
-    assert.deepEqual(timerCallbacks.map(timer => timer.ms), [60, 160, 320, 520]);
+    assert.deepEqual(timerCallbacks.map(timer => timer.ms), [60, 160, 320]);
     assert.equal(rafId, 1);
 
     resizeHandler();
@@ -1087,7 +1082,7 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
 
     active = false;
     timerCallbacks[1].callback();
-    assert.equal(rafId, 4);
+    assert.equal(rafId, 3);
 
     InputBarController.stopWatch(options);
 
@@ -1095,21 +1090,11 @@ test('Controller barra input isola padding e watch tastiera da App', () => {
     assert.equal(resizeHandler, null);
     assert.equal(inputBar.style.bottom, '');
     assert.equal(inputBar.style.transform, '');
-    assert.deepEqual(events.slice(-4), [
-        ['cancel', 4],
+    assert.deepEqual(events.slice(-3), [
+        ['cancel', 3],
         ['win-remove', 'resize', true],
-        ['vv-remove', 'resize', true],
-        ['vv-remove', 'scroll', true]
+        ['vv-remove', 'resize', true]
     ]);
-
-    inputBar.style.bottom = '300px';
-    InputBarController.stopWatch(options, { deferReset: true, resetDelay: 240 });
-    assert.equal(resetTimer, 5);
-    assert.equal(inputBar.style.bottom, '300px');
-    assert.equal(timerCallbacks[4].ms, 240);
-    timerCallbacks[4].callback();
-    assert.equal(resetTimer, null);
-    assert.equal(inputBar.style.bottom, '');
 });
 
 test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
@@ -3444,8 +3429,6 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._releasedFilterSearchHistory, false);
-    assert.equal(second._expenseInputBarResetTimer, null);
-    assert.equal(second._rootBackGuardEnabled, false);
 });
 
 test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {
@@ -3585,10 +3568,6 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
             callback();
             return 22;
         },
-        clearTimeout(id) {
-            assert.equal(this, fakeWindow);
-            calls.push(['clear-timeout', id]);
-        },
         setInterval(callback, delay) {
             assert.equal(this, fakeWindow);
             calls.push(['interval', delay]);
@@ -3620,7 +3599,6 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
     wiring.filterOptions().requestAnimationFrame(() => calls.push('filter-callback'));
     wiring.navigationOptions().defer(() => calls.push('defer-callback'));
     wiring.inputBarOptions().cancelAnimationFrame(11);
-    wiring.inputBarOptions().clearTimeout(22);
     wiring.modalMobileOptions().setInterval(() => calls.push('interval-callback'), 120);
     wiring.modalMobileOptions().clearInterval(33);
     wiring.modalOptions().setTimeout(() => calls.push('modal-timeout-callback'), 280);
@@ -3631,7 +3609,6 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
         ['timeout', 0],
         'defer-callback',
         ['cancel', 11],
-        ['clear-timeout', 22],
         ['interval', 120],
         'interval-callback',
         ['clear-interval', 33],
@@ -4221,66 +4198,6 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     state.activeField = false;
     UIStackController.handleModalPopstate(options);
     assert.deepEqual(calls[calls.length - 1], ['close-modal', true]);
-});
-
-test('UI stack controller limita il back root alla PWA mobile standalone', () => {
-    const { UIStack, UIStackController } = loadUiViews();
-    const calls = [];
-    let enabled = false;
-    const historyTarget = {
-        state: { existing: true },
-        replaceState(state, title) {
-            this.state = state;
-            calls.push(['replace', state, title]);
-        },
-        pushState(state, title) {
-            this.state = state;
-            calls.push(['push', state, title]);
-        }
-    };
-    const standaloneWindow = {
-        navigator: {},
-        matchMedia(query) {
-            return {
-                matches: query === '(display-mode: standalone)' || query === '(pointer: coarse)'
-            };
-        }
-    };
-    const options = {
-        window: standaloneWindow,
-        history: historyTarget,
-        stack: UIStack,
-        isRootBackGuardEnabled: () => enabled,
-        setRootBackGuardEnabled: value => { enabled = value; },
-        getCurrentPage: () => 'timeline'
-    };
-
-    assert.equal(UIStackController.initRootBackGuard(options), true);
-    assert.equal(enabled, true);
-    assert.equal(calls[0][0], 'replace');
-    assert.equal(calls[0][1].existing, true);
-    assert.equal(calls[0][1].__wmmRootBackBase, true);
-    assert.deepEqual(calls[1], ['push', { __wmmRootBackGuard: true }, '']);
-
-    const result = UIStackController.handlePopstate(options, { state: calls[0][1] });
-    assert.equal(result, 'root-back-guard');
-    assert.deepEqual(calls[2], ['push', { __wmmRootBackGuard: true }, '']);
-
-    calls.length = 0;
-    enabled = false;
-    const browserWindow = {
-        navigator: {},
-        matchMedia() {
-            return { matches: false };
-        }
-    };
-
-    assert.equal(UIStackController.initRootBackGuard({
-        ...options,
-        window: browserWindow
-    }), false);
-    assert.equal(enabled, false);
-    assert.deepEqual(calls, []);
 });
 
 let failed = 0;

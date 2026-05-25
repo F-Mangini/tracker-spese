@@ -41,7 +41,7 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 - Aggiornare live il riepilogo nella tendina quando si aggiungono, modificano o rimuovono spese.
 - Nascondere la barra di inserimento quando il pannello filtri e completamente aperto.
 - Rendere il pannello filtri scrollabile anche quando non completamente aperto, senza mostrare la barra laterale di scroll.
-- Rivedere casi limite tra filtri parzialmente aperti, modifica spesa e history: corretto il caso ricerca filtri attiva -> apertura spesa -> back modale -> back filtri.
+- Rivedere casi limite tra filtri parzialmente aperti, modifica spesa e history: corretto il caso ricerca filtri attiva -> apertura spesa -> back modale -> back filtri -> back uscita app.
 
 Ancora da affrontare:
 

@@ -1548,6 +1548,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         filterOpen: false,
         advancedFiltersOpen: false,
         filterSearchActive: false,
+        releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
         lastViewportHeight: 0
@@ -1598,10 +1599,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         startExpenseInputBarWatch: () => calls.push('start-watch'),
         stopExpenseInputBarWatch: () => calls.push('stop-watch'),
         pushUiState: payload => calls.push(['push', payload.panel]),
-        consumeUiState: () => calls.push('consume'),
+        consumeUiState: steps => calls.push(['consume', steps || 1]),
         runHistoryAction: action => calls.push(['history', action]),
         getCloseHistoryAction: payload => ({ kind: 'close', ...payload }),
         updateAppMainPadding: () => calls.push('padding'),
+        markReleasedFilterSearchHistory: () => { state.releasedFilterSearchHistory = true; },
+        shouldCleanupReleasedFilterSearchHistory: () => state.releasedFilterSearchHistory,
+        clearReleasedFilterSearchHistory: () => { state.releasedFilterSearchHistory = false; },
         onFilterChange: () => calls.push('filter-change'),
         showToast: (message, type) => calls.push(['toast', message, type]),
         requestAnimationFrame: callback => callback()
@@ -1630,12 +1634,14 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(state.filterSearchActive, false);
     assert(calls.includes('stop-watch'));
 
-    const consumeCountAfterBlur = calls.filter(call => call === 'consume').length;
+    const consumeCountAfterBlur = calls.filter(call => Array.isArray(call) && call[0] === 'consume').length;
     elements['search-input'].listeners.focus();
     assert.equal(state.filterSearchActive, true);
     assert.equal(FilterController.releaseFilterSearchInteraction(options, { consumeHistory: false }), true);
     assert.equal(state.filterSearchActive, false);
-    assert.equal(calls.filter(call => call === 'consume').length, consumeCountAfterBlur);
+    assert.equal(state.releasedFilterSearchHistory, true);
+    assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'consume').length, consumeCountAfterBlur);
+    state.releasedFilterSearchHistory = false;
 
     elements['search-input'].listeners.focus();
     assert.equal(state.filterSearchActive, true);
@@ -1647,7 +1653,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         }
     });
     assert.equal(state.filterSearchActive, false);
-    assert.equal(calls.filter(call => call === 'consume').length, consumeCountAfterBlur);
+    assert.equal(state.releasedFilterSearchHistory, true);
+    assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'consume').length, consumeCountAfterBlur);
+    state.releasedFilterSearchHistory = false;
 
     elements['slider-max'].value = '80';
     elements['slider-max'].listeners.input();
@@ -1673,6 +1681,94 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.categories.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
+});
+
+test('Controller filtri ripulisce lo stato history della ricerca rilasciata', () => {
+    const { FilterController } = loadUiViews();
+    const calls = [];
+    let releasedFilterSearchHistory = true;
+    let filterOpen = true;
+
+    function classList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function element(id, classes = []) {
+        return {
+            id,
+            style: {},
+            classList: classList(classes)
+        };
+    }
+
+    const elements = {
+        'filter-panel': element('filter-panel'),
+        'btn-filter-toggle': element('btn-filter-toggle'),
+        'advanced-filters': element('advanced-filters'),
+        'btn-advanced-toggle': element('btn-advanced-toggle'),
+        'timeline-summary': element('timeline-summary'),
+        'page-timeline': element('page-timeline'),
+        'app-main': element('app-main'),
+        'input-bar': element('input-bar')
+    };
+    const doc = {
+        body: { classList: classList(['no-scroll']) },
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+    const options = {
+        document: doc,
+        body: doc.body,
+        getFilterOpen: () => filterOpen,
+        setFilterOpen: value => { filterOpen = value; },
+        getAdvancedFiltersOpen: () => false,
+        setAdvancedFiltersOpen: () => {},
+        shouldCleanupReleasedFilterSearchHistory: () => releasedFilterSearchHistory,
+        clearReleasedFilterSearchHistory: () => { releasedFilterSearchHistory = false; },
+        consumeUiState: steps => calls.push(['consume', steps]),
+        runHistoryAction: action => calls.push(['history', action]),
+        getCloseHistoryAction: payload => ({ type: 'close', ...payload }),
+        updateAppMainPadding: () => calls.push('padding'),
+        getCurrentPage: () => 'timeline'
+    };
+
+    FilterController.closeFilterPanel(options, true);
+
+    assert.equal(filterOpen, false);
+    assert.equal(releasedFilterSearchHistory, false);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'consume' && call[1] === 1));
+
+    calls.length = 0;
+    releasedFilterSearchHistory = true;
+    filterOpen = true;
+
+    FilterController.closeFilterPanel(options, false);
+
+    assert.equal(filterOpen, false);
+    assert.equal(releasedFilterSearchHistory, false);
+    assert(calls.some(call =>
+        Array.isArray(call) &&
+        call[0] === 'history' &&
+        call[1].steps === 2
+    ));
+    assert(!calls.some(call => Array.isArray(call) && call[0] === 'consume'));
 });
 
 test('Vista timeline renderizza riepilogo e card escapando il testo utente', () => {
@@ -3302,6 +3398,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.deepEqual(second._editTags, []);
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
+    assert.equal(second._releasedFilterSearchHistory, false);
 });
 
 test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {

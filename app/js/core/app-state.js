@@ -39,6 +39,7 @@ const AppState = (() => {
             _lastSliderInput: 'max',
             advancedFiltersOpen: false,
             _filterSearchActive: false,
+            _releasedFilterSearchHistory: false,
 
             _modalInteractionActive: false,
             _suppressNextPopstate: false,

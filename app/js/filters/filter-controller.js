@@ -172,6 +172,8 @@ const FilterController = (() => {
 
         if (config.consumeHistory !== false) {
             (options.consumeUiState || noop)();
+        } else if (typeof options.markReleasedFilterSearchHistory === 'function') {
+            options.markReleasedFilterSearchHistory();
         }
 
         return true;
@@ -577,6 +579,9 @@ const FilterController = (() => {
         const body = getBody(options, doc);
         const wasOpen = getFilterOpen(options);
         const hadAdvancedFilters = getAdvancedFiltersOpen(options);
+        const shouldCleanupReleasedFilterSearchHistory =
+            !!(options.shouldCleanupReleasedFilterSearchHistory &&
+                options.shouldCleanupReleasedFilterSearchHistory());
 
         setFilterOpen(options, false);
         setAdvancedFiltersOpen(options, false);
@@ -602,11 +607,24 @@ const FilterController = (() => {
         const main = doc.getElementById('app-main');
         if (main) main.style.marginTop = '';
 
+        const steps = (hadAdvancedFilters ? 2 : 1) +
+            (!fromPopstate && shouldCleanupReleasedFilterSearchHistory ? 1 : 0);
+
         (options.runHistoryAction || noop)(getCloseHistoryAction(options, {
             fromPopstate,
             wasOpen,
-            steps: hadAdvancedFilters ? 2 : 1
+            steps
         }));
+
+        if (shouldCleanupReleasedFilterSearchHistory) {
+            if (typeof options.clearReleasedFilterSearchHistory === 'function') {
+                options.clearReleasedFilterSearchHistory();
+            }
+
+            if (fromPopstate && typeof options.consumeUiState === 'function') {
+                options.consumeUiState(1);
+            }
+        }
 
         updateAppMainPadding(options);
     }

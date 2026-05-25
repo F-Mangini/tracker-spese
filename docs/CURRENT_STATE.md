@@ -88,7 +88,7 @@ Il pannello ha sezione base e avanzata. Il badge del pulsante filtri mostra il n
 
 Il riepilogo nella tendina filtri viene aggiornato anche dopo aggiunta, modifica o cancellazione di spese, non solo quando cambiano i filtri. Quando la sezione avanzata e aperta, la barra di inserimento rapido viene nascosta temporaneamente; su desktop questo stato non blocca lo scroll della pagina sottostante.
 
-L'area interna del pannello filtri resta scrollabile anche nella vista base quando lo spazio disponibile e ridotto; le barre di scroll laterali restano nascoste. Se una ricerca filtri e attiva e l'utente apre una spesa, l'interazione di ricerca viene rilasciata senza consumare lo stato history del pannello, cosi il back successivo alla chiusura della modale chiude ancora i filtri invece di uscire dall'app.
+L'area interna del pannello filtri resta scrollabile anche nella vista base quando lo spazio disponibile e ridotto; le barre di scroll laterali restano nascoste. Se una ricerca filtri e attiva e l'utente apre una spesa, l'interazione di ricerca viene rilasciata prima del blur della tastiera senza consumare subito lo stato history del pannello; quello stato viene ripulito quando si chiudono i filtri, cosi i back successivi chiudono modale, filtri e infine l'app senza passaggi invisibili.
 
 ### Modifica Spesa
 

@@ -1643,19 +1643,49 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'consume').length, consumeCountAfterBlur);
     state.releasedFilterSearchHistory = false;
 
+    const targetMatching = (...matches) => ({
+        closest(selector) {
+            const parts = String(selector).split(',').map(part => part.trim());
+            return matches.some(match => parts.includes(match)) ? {} : null;
+        }
+    });
+
     elements['search-input'].listeners.focus();
     assert.equal(state.filterSearchActive, true);
     docListeners.pointerdown({
-        target: {
-            closest(selector) {
-                return selector === '.expense-card' ? {} : null;
-            }
-        }
+        target: targetMatching('.expense-card')
     });
     assert.equal(state.filterSearchActive, false);
     assert.equal(state.releasedFilterSearchHistory, true);
     assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'consume').length, consumeCountAfterBlur);
     state.releasedFilterSearchHistory = false;
+
+    elements['search-input'].listeners.focus();
+    assert.equal(state.filterSearchActive, true);
+    docListeners.pointerdown({
+        target: targetMatching('button')
+    });
+    assert.equal(state.filterSearchActive, false);
+    assert.equal(state.releasedFilterSearchHistory, true);
+    assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'consume').length, consumeCountAfterBlur);
+    state.releasedFilterSearchHistory = false;
+
+    elements['search-input'].listeners.focus();
+    assert.equal(state.filterSearchActive, true);
+    docListeners.pointerdown({
+        target: targetMatching('#search-input', 'textarea')
+    });
+    assert.equal(state.filterSearchActive, true);
+    assert.equal(state.releasedFilterSearchHistory, false);
+
+    docListeners.pointerdown({
+        target: targetMatching('#btn-search-clear', 'button')
+    });
+    assert.equal(state.filterSearchActive, true);
+    assert.equal(state.releasedFilterSearchHistory, false);
+
+    elements['search-input'].listeners.blur();
+    assert.equal(state.filterSearchActive, false);
 
     elements['slider-max'].value = '80';
     elements['slider-max'].listeners.input();

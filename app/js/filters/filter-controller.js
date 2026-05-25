@@ -209,25 +209,48 @@ const FilterController = (() => {
         }
     }
 
-    function bindExpenseCardFilterSearchRelease(options = {}) {
+    const FILTER_SEARCH_RELEASE_EXCLUDE_SELECTOR = [
+        '#search-input',
+        '#btn-search-clear',
+        '.filter-input-row'
+    ].join(', ');
+
+    const FILTER_SEARCH_RELEASE_TARGET_SELECTOR = [
+        'button',
+        'input',
+        'select',
+        'textarea',
+        'label',
+        'a[href]',
+        '[role="button"]',
+        '.expense-card',
+        '.filter-chip',
+        '.nav-btn'
+    ].join(', ');
+
+    function shouldReleaseFilterSearchBeforeInteraction(options = {}, target) {
+        if (!getFilterOpen(options) || !getFilterSearchActive(options)) return false;
+        if (!target || typeof target.closest !== 'function') return false;
+        if (target.closest(FILTER_SEARCH_RELEASE_EXCLUDE_SELECTOR)) return false;
+        return !!target.closest(FILTER_SEARCH_RELEASE_TARGET_SELECTOR);
+    }
+
+    function bindInternalFilterSearchRelease(options = {}) {
         const doc = getDocument(options);
         if (!doc || typeof doc.addEventListener !== 'function') return;
 
-        const releaseBeforeCardOpen = event => {
+        const releaseBeforeInternalInteraction = event => {
             const target = event && event.target;
-            const card = target && typeof target.closest === 'function'
-                ? target.closest('.expense-card')
-                : null;
 
-            if (!card || !getFilterOpen(options)) return;
+            if (!shouldReleaseFilterSearchBeforeInteraction(options, target)) return;
 
             releaseFilterSearchInteraction(options, {
                 consumeHistory: false
             });
         };
 
-        doc.addEventListener('pointerdown', releaseBeforeCardOpen, { capture: true, passive: true });
-        doc.addEventListener('touchstart', releaseBeforeCardOpen, { capture: true, passive: true });
+        doc.addEventListener('pointerdown', releaseBeforeInternalInteraction, { capture: true, passive: true });
+        doc.addEventListener('touchstart', releaseBeforeInternalInteraction, { capture: true, passive: true });
     }
 
     function init(options = {}) {
@@ -317,7 +340,7 @@ const FilterController = (() => {
 
         syncFilterUI(options);
         updateFilterBadge(options);
-        bindExpenseCardFilterSearchRelease(options);
+        bindInternalFilterSearchRelease(options);
 
         const panel = doc.getElementById('filter-panel');
         if (panel) {

@@ -37,7 +37,7 @@
     --header-h: 56px;
     --input-h: 64px;
     --nav-h: 64px;
-    --filter-compact-scroll-h: 60px;
+    --filter-compact-scroll-h: 63px;
     --filter-footer-h: 42px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }

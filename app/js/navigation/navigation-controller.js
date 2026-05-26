@@ -127,7 +127,12 @@ const NavigationController = (() => {
         const main = doc.getElementById('app-main');
 
         if (inputBar && main) {
-            if (page === 'timeline') {
+            const shouldHideTimelineInputBar =
+                page === 'timeline' &&
+                typeof options.shouldHideTimelineInputBar === 'function' &&
+                options.shouldHideTimelineInputBar();
+
+            if (page === 'timeline' && !shouldHideTimelineInputBar) {
                 inputBar.classList.remove('hidden');
                 main.classList.remove('no-input-bar');
             } else {

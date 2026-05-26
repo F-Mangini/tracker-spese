@@ -209,6 +209,19 @@ const FilterController = (() => {
         }
     }
 
+    function syncAdvancedToggleButton(btn, expanded) {
+        if (!btn) return;
+
+        btn.classList.toggle('active', !!expanded);
+        if (typeof btn.setAttribute === 'function') {
+            btn.setAttribute(
+                'aria-label',
+                expanded ? 'Riduci pannello filtri' : 'Espandi pannello filtri'
+            );
+        }
+        btn.title = expanded ? 'Riduci pannello filtri' : 'Espandi pannello filtri';
+    }
+
     const FILTER_SEARCH_RELEASE_EXCLUDE_SELECTOR = [
         '#search-input',
         '#btn-search-clear',
@@ -370,7 +383,7 @@ const FilterController = (() => {
 
         setAdvancedFiltersOpen(options, true);
         if (section) section.classList.remove('hidden');
-        if (btn) btn.classList.add('active');
+        syncAdvancedToggleButton(btn, true);
         setBodyScrollLockForAdvanced(options, shouldLockMainScrollForAdvanced(options));
         syncInputBarForAdvanced(options, true);
         (options.pushUiState || noop)({ panel: 'advanced-filters' });
@@ -399,8 +412,8 @@ const FilterController = (() => {
         const btn = doc.getElementById('btn-advanced-toggle');
 
         setAdvancedFiltersOpen(options, false);
-        if (section) section.classList.add('hidden');
-        if (btn) btn.classList.remove('active');
+        if (section) section.classList.remove('hidden');
+        syncAdvancedToggleButton(btn, false);
         setBodyScrollLockForAdvanced(options, false);
         syncInputBarForAdvanced(options, false);
 
@@ -410,6 +423,8 @@ const FilterController = (() => {
 
             const main = doc.getElementById('app-main');
             if (main) main.style.marginTop = `calc(var(--header-h) + ${panel.offsetHeight}px)`;
+            const scrollContainer = panel.querySelector('.filter-panel-scroll');
+            if (scrollContainer) scrollContainer.scrollTop = 0;
             updateAppMainPadding(options);
         });
 
@@ -577,8 +592,12 @@ const FilterController = (() => {
 
         const panel = doc.getElementById('filter-panel');
         const toggleBtn = doc.getElementById('btn-filter-toggle');
+        const advanced = doc.getElementById('advanced-filters');
+        const advancedBtn = doc.getElementById('btn-advanced-toggle');
         if (panel) panel.classList.remove('hidden');
         if (toggleBtn) toggleBtn.classList.add('active');
+        if (advanced) advanced.classList.remove('hidden');
+        syncAdvancedToggleButton(advancedBtn, getAdvancedFiltersOpen(options));
 
         (options.pushUiState || noop)({ panel: 'filter' });
 
@@ -617,7 +636,7 @@ const FilterController = (() => {
         if (panel) panel.classList.add('hidden');
         if (toggleBtn) toggleBtn.classList.remove('active');
         if (advanced) advanced.classList.add('hidden');
-        if (advancedBtn) advancedBtn.classList.remove('active');
+        syncAdvancedToggleButton(advancedBtn, false);
         if (body) body.classList.remove('no-scroll');
         syncInputBarForAdvanced(options, false);
 

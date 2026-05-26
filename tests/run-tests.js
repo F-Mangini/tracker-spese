@@ -1465,6 +1465,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             blur() {
                 calls.push(['blur', id]);
             },
+            setAttribute(name, value) {
+                this[name] = value;
+            },
             querySelector(selector) {
                 if (selector === '.filter-panel-scroll') return scrollContainer;
                 return null;
@@ -1624,6 +1627,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(calls.includes('filter-change'));
 
     FilterController.openFilterPanel(options);
+    assert(!elements['advanced-filters'].classList.contains('hidden'));
+    assert.equal(elements['btn-advanced-toggle'].title, 'Espandi pannello filtri');
     elements['search-input'].listeners.focus();
     assert.equal(state.filterOpen, true);
     assert.equal(state.filterSearchActive, true);
@@ -1694,6 +1699,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     FilterController.openAdvancedFilters(options);
     assert.equal(state.advancedFiltersOpen, true);
+    assert(!elements['advanced-filters'].classList.contains('hidden'));
+    assert.equal(elements['btn-advanced-toggle'].title, 'Riduci pannello filtri');
     assert(elements['input-bar'].classList.contains('hidden'));
     assert(elements['app-main'].classList.contains('no-input-bar'));
     assert(!doc.body.classList.contains('no-scroll'));
@@ -1702,9 +1709,20 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.closeFilterPanel(options);
     assert.equal(state.filterOpen, false);
     assert.equal(state.advancedFiltersOpen, false);
+    assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
     assert(!elements['app-main'].classList.contains('no-input-bar'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
+
+    FilterController.openFilterPanel(options);
+    FilterController.openAdvancedFilters(options);
+    scrollContainer.scrollTop = 120;
+    FilterController.closeAdvancedFilters(options);
+    assert.equal(state.advancedFiltersOpen, false);
+    assert(!elements['advanced-filters'].classList.contains('hidden'));
+    assert(!elements['input-bar'].classList.contains('hidden'));
+    assert(!elements['app-main'].classList.contains('no-input-bar'));
+    assert.equal(scrollContainer.scrollTop, 0);
 
     FilterController.resetFilters(options);
     assert.equal(filters.query, '');
@@ -2048,7 +2066,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
             settings: 9
         },
         restoring: false,
-        filterOpen: true
+        filterOpen: true,
+        advancedFiltersOpen: false
     };
     const options = {
         document: doc,
@@ -2063,6 +2082,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         getNavigationHistoryAction: payload => ({ type: 'history', ...payload }),
         runHistoryAction: action => calls.push(['history', action]),
         isFilterOpen: () => state.filterOpen,
+        shouldHideTimelineInputBar: () => state.advancedFiltersOpen,
         closeFilterPanel: () => {
             state.filterOpen = false;
             calls.push('close-filter');
@@ -2103,6 +2123,14 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(main.scrollTop, 42);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].nextPage === 'stats'));
     assert(calls.includes('render-stats'));
+
+    state.advancedFiltersOpen = true;
+    const suppressedTimelineAction = NavigationController.navigateTo(options, 'timeline', true);
+    assert.equal(suppressedTimelineAction.fromPopstate, true);
+    assert.equal(state.currentPage, 'timeline');
+    assert(inputBar.classList.contains('hidden'));
+    assert(main.classList.contains('no-input-bar'));
+    state.advancedFiltersOpen = false;
 
     NavigationController.navigateTo(options, 'settings');
 

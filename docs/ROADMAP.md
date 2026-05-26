@@ -39,9 +39,9 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 - Su PC, permettere scroll quando il pannello filtri e completamente aperto.
 - Su PC, confermare la modifica alla spesa con Invio.
 - Aggiornare live il riepilogo nella tendina quando si aggiungono, modificano o rimuovono spese.
-- Nascondere la barra di inserimento quando il pannello filtri e completamente aperto.
-- Rendere il pannello filtri scrollabile anche quando non completamente aperto, senza mostrare la barra laterale di scroll.
-- Rivedere casi limite tra filtri parzialmente aperti, tastiera e history: corretto il rilascio centralizzato della ricerca filtri quando si toccano controlli interni come spese o pulsante filtri avanzati, evitando passaggi back invisibili.
+- Nascondere la barra di inserimento quando il pannello filtri e completamente aperto, mantenendola nascosta anche dopo passaggi timeline/statistiche con i filtri ancora aperti.
+- Rendere il pannello filtri compatto scrollabile anche quando non completamente aperto: tutti i filtri restano accessibili scrollando e la barra laterale di scroll resta nascosta.
+- Rivedere casi limite tra filtri parzialmente aperti, tastiera e history: corretto il rilascio centralizzato della ricerca filtri quando si toccano controlli interni come spese o pulsante di espansione del pannello filtri, evitando passaggi back invisibili.
 
 Ancora da affrontare:
 

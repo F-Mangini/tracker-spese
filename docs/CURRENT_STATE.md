@@ -84,11 +84,11 @@ I filtri sono condivisi tra timeline e statistiche:
 - categorie;
 - metodi di pagamento.
 
-Il pannello ha sezione base e avanzata. Il badge del pulsante filtri mostra il numero di filtri attivi.
+Il pannello ha uno stato compatto e uno completamente aperto. I contenuti dei filtri restano gli stessi in entrambi gli stati: nel pannello compatto lo spazio visibile e ridotto alla zona della ricerca e il resto dei controlli si raggiunge scrollando internamente, senza mostrare la barra laterale di scroll. Il badge del pulsante filtri mostra il numero di filtri attivi.
 
-Il riepilogo nella tendina filtri viene aggiornato anche dopo aggiunta, modifica o cancellazione di spese, non solo quando cambiano i filtri. Quando la sezione avanzata e aperta, la barra di inserimento rapido viene nascosta temporaneamente; su desktop questo stato non blocca lo scroll della pagina sottostante.
+Il riepilogo nella tendina filtri viene aggiornato anche dopo aggiunta, modifica o cancellazione di spese, non solo quando cambiano i filtri. Quando il pannello filtri e completamente aperto, la barra di inserimento rapido viene nascosta temporaneamente e resta nascosta anche se si passa alle statistiche e poi si torna alla timeline senza chiudere i filtri; su desktop questo stato non blocca lo scroll della pagina sottostante.
 
-L'area interna del pannello filtri resta scrollabile anche nella vista base quando lo spazio disponibile e ridotto; le barre di scroll laterali restano nascoste. Se una ricerca filtri e attiva e l'utente tocca un controllo interno dell'app, per esempio una spesa o il pulsante dei filtri avanzati, l'interazione di ricerca viene rilasciata prima del blur della tastiera senza consumare subito lo stato history del pannello; quello stato viene ripulito quando si chiudono i filtri, cosi i back successivi chiudono eventuali pannelli/modali, filtri e infine l'app senza passaggi invisibili.
+L'area interna del pannello filtri resta scrollabile anche nello stato compatto; le barre di scroll laterali restano nascoste. Se una ricerca filtri e attiva e l'utente tocca un controllo interno dell'app, per esempio una spesa o il pulsante di espansione del pannello filtri, l'interazione di ricerca viene rilasciata prima del blur della tastiera senza consumare subito lo stato history del pannello; quello stato viene ripulito quando si chiudono i filtri, cosi i back successivi chiudono eventuali pannelli/modali, filtri e infine l'app senza passaggi invisibili.
 
 ### Modifica Spesa
 
@@ -109,7 +109,7 @@ Il back button chiude, in ordine di priorita:
 - modale;
 - ricerca filtri;
 - input rapido attivo;
-- filtri avanzati;
+- pannello filtri completamente aperto;
 - pannello filtri;
 - pagina corrente tornando alla timeline.
 

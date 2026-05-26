@@ -182,6 +182,7 @@ const AppWiring = (() => {
                 getNavigationHistoryAction: payload => deps.UIStack.getNavigationHistoryAction(payload),
                 runHistoryAction,
                 isFilterOpen: () => app.filterOpen,
+                shouldHideTimelineInputBar: () => app.advancedFiltersOpen,
                 closeFilterPanel: () => deps.FilterController.closeFilterPanel(filterOptions()),
                 updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
                 renderTimeline: () => app.renderTimeline(),

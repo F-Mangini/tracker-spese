@@ -37,7 +37,8 @@
     --header-h: 56px;
     --input-h: 64px;
     --nav-h: 64px;
-    --filter-compact-h: 72px;
+    --filter-compact-scroll-h: 60px;
+    --filter-footer-h: 42px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -194,9 +195,9 @@ body {
 }
 
 .filter-panel-scroll {
-    max-height: var(--filter-compact-h);
-    max-height: min(var(--filter-compact-h), calc(100vh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom)));
-    max-height: min(var(--filter-compact-h), calc(100dvh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom)));
+    max-height: var(--filter-compact-scroll-h);
+    max-height: min(var(--filter-compact-scroll-h), calc(100vh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h)));
+    max-height: min(var(--filter-compact-scroll-h), calc(100dvh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h)));
     overflow-y: auto;
     padding: 10px 14px 6px;
     max-width: 540px;
@@ -208,8 +209,8 @@ body {
 }
 
 .filter-panel.input-bar-hidden .filter-panel-scroll {
-    max-height: calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-bottom));
-    max-height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--safe-bottom));
+    max-height: calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h));
+    max-height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h));
 }
 
 .filter-section {
@@ -477,7 +478,12 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 6px;
+    gap: 8px;
+    min-height: var(--filter-footer-h);
+    padding: 6px 14px;
+    max-width: 540px;
+    margin: 0 auto;
+    width: 100%;
     border-top: 1px solid var(--border);
 }
 

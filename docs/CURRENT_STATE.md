@@ -84,7 +84,7 @@ I filtri sono condivisi tra timeline e statistiche:
 - categorie;
 - metodi di pagamento.
 
-Il pannello ha uno stato compatto e uno completamente aperto. I contenuti dei filtri restano gli stessi in entrambi gli stati: nel pannello compatto lo spazio visibile e ridotto alla zona della ricerca e il resto dei controlli si raggiunge scrollando internamente, senza mostrare la barra laterale di scroll. Il badge del pulsante filtri mostra il numero di filtri attivi.
+Il pannello ha uno stato compatto e uno completamente aperto. I contenuti dei filtri restano gli stessi in entrambi gli stati: nel pannello compatto lo spazio scrollabile visibile e ridotto alla zona della ricerca e il resto dei controlli si raggiunge scrollando internamente, senza mostrare la barra laterale di scroll. La barra riassuntiva inferiore del pannello resta fuori dallo scroll ed e sempre visibile quando i filtri sono aperti. Il badge del pulsante filtri mostra il numero di filtri attivi.
 
 Il riepilogo nella tendina filtri viene aggiornato anche dopo aggiunta, modifica o cancellazione di spese, non solo quando cambiano i filtri. Quando il pannello filtri e completamente aperto, la barra di inserimento rapido viene nascosta temporaneamente e resta nascosta anche se si passa alle statistiche e poi si torna alla timeline senza chiudere i filtri; su desktop questo stato non blocca lo scroll della pagina sottostante.
 

@@ -1,6 +1,6 @@
 # Guida Sviluppo
 
-Questa guida definisce come lavorare sul progetto durante il refactor e le feature future.
+Questa guida definisce come lavorare sul progetto durante manutenzione, hardening e nuove feature.
 
 ## Priorita
 
@@ -15,7 +15,7 @@ Questa guida definisce come lavorare sul progetto durante il refactor e le featu
 
 - Mantenere il progetto statico e semplice finche possibile.
 - Evitare framework, build system o dipendenze nuove senza un beneficio evidente.
-- Preferire moduli piccoli e funzioni pure quando si estrae logica da `app.js`.
+- Preferire moduli piccoli e funzioni pure quando si estrae logica da `app/js/core/app.js` o dal wiring applicativo.
 - Non cambiare schema dati senza prevedere compatibilita o migrazione leggera.
 - Non rompere backup JSON esistenti.
 - Non forzare aggiornamenti automatici quando l'app sara offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.
@@ -47,17 +47,30 @@ Se invece solo alcune modifiche sono pronte, usare cherry-pick o un branch dedic
 
 ## Linee Guida per i Dati
 
-`localStorage` e la sorgente principale. Prima di modificare `storage.js`, controllare:
+`localStorage` e la sorgente principale. Prima di modificare `app/js/data/storage.js`, controllare:
 
 - formato attuale di `spese`;
 - comportamento di `importJSON`;
 - comportamento di `exportJSON`;
-- perdita di informazioni in `exportCSV`;
+- comportamento di `previewImportJSON`, `previewImportCSV`, `importCSV` ed `exportCSV`;
 - impatto su dati gia presenti nel browser.
+
+Dal refactor dati del 2026-05-16:
+
+- lo schema corrente e `schemaVersion: 1`;
+- le scritture storage devono restituire risultati espliciti e la UI deve controllare `success` prima di mostrare conferme positive;
+- i dati letti o importati devono passare dalla normalizzazione centralizzata in `app/js/data/storage.js`;
+- un JSON locale corrotto deve bloccare i nuovi salvataggi finche il maintainer non esporta o risolve il raw;
+- le operazioni distruttive come import in sostituzione e cancellazione completa devono creare uno snapshot locale prima del commit;
+- import JSON e CSV devono mantenere preview/validazione separata dal commit.
 
 Se si aggiungono campi alle spese, devono avere fallback sensati quando assenti nei vecchi backup.
 
 Se si modifica una categoria o un metodo di pagamento, considerare che le spese salvate usano gli `id`, non il nome visualizzato.
+
+Se si introduce una sezione di personalizzazione, definire fin dall'inizio quali dati fanno parte del backup completo del dispositivo. Impostazioni e personalizzazioni non devono restare fuori dai flussi di export/import se servono a ricostruire l'esperienza reale dell'utente su un nuovo device.
+
+Se in futuro vengono aggiunte icone, immagini o colori personalizzabili per categoria, documentare dove vivono quei riferimenti e come vengono serializzati nei backup. Evitare soluzioni che rompano il deploy statico o rendano fragile il ripristino locale.
 
 ## Linee Guida UI
 
@@ -84,6 +97,7 @@ Usare questi file come fonti:
 - `docs/CODE_REVIEW.md`: mappa dei rischi tecnici e ordine consigliato per il refactor.
 - `docs/CURRENT_STATE.md`: stato tecnico implementato.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev per testare il refactor senza rischiare l'uso quotidiano.
+- `docs/REFACTORING_SUMMARY.md`: riepilogo compatto del refactor gia svolto.
 - `docs/ROADMAP.md`: priorita e idee future ordinate.
 - `AGENTS.md`: contesto operativo per assistenti AI.
 - `note/note_di_progetto.txt`: appunti grezzi, storici, non necessariamente ordinati.
@@ -102,4 +116,12 @@ Per ogni modifica non banale:
 6. Aggiornare documentazione e roadmap se il significato del progetto cambia.
 7. Spiegare in chat cosa e stato cambiato, perche e quali test o verifiche sono stati eseguiti.
 
-Per ora non c'e una suite automatica. Quando si introduce testing, partire da parser, storage e funzioni di aggregazione statistiche: sono aree ad alto valore e basso costo rispetto alla UI mobile.
+## Test
+
+Il test runner leggero attuale non richiede dipendenze:
+
+```powershell
+node tests/run-tests.js
+```
+
+Copre i moduli principali del refactor: storage, parser, filtri, statistiche, query/cache, refresh, input rapido, timeline, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo. I prossimi test ad alto valore riguardano history/back button reale, tastiera mobile su device e interazioni DOM complesse.

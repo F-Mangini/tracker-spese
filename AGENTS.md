@@ -42,7 +42,8 @@ Leggere, nell'ordine:
 3. `docs/CODE_REVIEW.md`;
 4. `docs/DEVELOPMENT_GUIDE.md`;
 5. `docs/ROADMAP.md`;
-6. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
+6. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
+7. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
 
 Non considerare `note/note_di_progetto.txt` come specifica finale: e una raccolta raw di appunti. La roadmap curata decide priorita e raggruppamenti, ma gli appunti possono contenere dettagli utili non ancora formalizzati.
 
@@ -56,6 +57,7 @@ I file documentali ufficiali da mantenere allineati sono:
 - `docs/CODE_REVIEW.md`: rischi tecnici, priorita e ordine consigliato del refactor.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev e strategia GitHub Pages.
 - `docs/DEVELOPMENT_GUIDE.md`: regole pratiche per sviluppo, refactor e nuove feature.
+- `docs/REFACTORING_SUMMARY.md`: riepilogo ordinato del refactor gia svolto.
 - `docs/ROADMAP.md`: backlog curato e ordinato a partire dagli appunti.
 - `note/note_di_progetto.txt`: appunti raw e storici del maintainer.
 
@@ -86,14 +88,17 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 
 ## Aree Sensibili
 
-- `app/js/app.js`: molto grande, contiene UI state, rendering, eventi e workaround mobile.
-- `app/js/storage.js`: rischio dati; ogni modifica deve rispettare backup/import.
+- `app/js/core/app.js`: orchestratore sottile; non va riempito di nuovo con logica di dominio o wiring ripetitivo.
+- `app/js/core/app-wiring.js` e `app/js/core/app-wiring-modal.js`: collegano controller, stato condiviso e history; sono sensibili per filtri, modali, tastiera mobile e back button.
+- `app/js/data/storage.js`: rischio dati; ogni modifica deve rispettare backup/import.
 - `Storage.KEY`: se si pubblica una versione dev sullo stesso dominio della stabile, non deve usare la stessa chiave dati della stabile.
-- Configurazione runtime minima: `app/js/config.js`, caricato prima di `storage.js`.
+- Configurazione runtime minima: `app/js/core/config.js`, caricato prima di `data/storage.js`.
+- `app/js/domain/filters.js`: logica pura dei filtri condivisi tra timeline e statistiche; mantenere allineata ai test.
+- `app/js/domain/stats.js`: logica pura per date, riepiloghi e aggregazioni statistiche; mantenere allineata ai test.
 - Workflow Pages: `.github/workflows/pages.yml` assembla stabile da `main` e dev da `codex/refactor`.
 - Manifest stabile: `app/manifest.json`; manifest dev: `app/manifest.dev.json`, copiato dal workflow in `public/dev/manifest.json`.
 - Icone stabili: `app/icons/stable/`; icone dev: `app/icons/dev/`.
-- `app/js/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.
+- `app/js/domain/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.
 - Gestione back button, modali, filtri, tastiera mobile e scroll: molte parti sono state sistemate dopo bug concreti.
 
 ## Verifiche Locali
@@ -122,9 +127,10 @@ $node = 'C:\Users\Fabiano\.cache\codex-runtimes\codex-primary-runtime\dependenci
 $html = Get-Content -Raw -Path app\index.html; $missing = [regex]::Matches($html, '<script\s+src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '^https?://' } | Where-Object { -not (Test-Path -LiteralPath (Join-Path 'app' ($_ -replace '/', [IO.Path]::DirectorySeparatorChar))) }; if ($missing) { $missing; exit 1 }
 ```
 
-- Se il browser integrato blocca `localhost`, `127.0.0.1` o `file://` con policy URL, non continuare a riprovare la stessa verifica visuale tramite workaround. Usare test Node e controlli statici, poi dichiarare esplicitamente che la verifica visuale/mobile resta manuale.
-- Il browser integrato invece funziona su URL pubblici: verificato su `https://f-mangini.github.io/tracker-spese/dev/` con apertura pagina, snapshot DOM e click del pulsante `Filtri` senza errori console. Usarlo quindi per controlli post-deploy su `/dev/` o `/stable/`.
-- Prima di rinunciare alla verifica browser locale, controllare se esiste gia una tab utile nell'in-app browser. In questa sessione non c'erano tab dell'app aperte, quindi la navigazione diretta a `localhost`/`file://` e stata il punto bloccato, non il browser in assoluto.
+- Per verifica browser locale, la ricetta funzionante e: creare un server HTTP temporaneo dal runtime browser/Node REPL, servire la root del repo (`nodeRepl.cwd`) e aprire `http://127.0.0.1:<porta-alta>/app/index.html`. Verificato con porta `28575`: pagina caricata, ultimi script `js/core/app*.js` presenti, click su `Filtri` e nessun errore console. Chiudere sempre il server a fine prova.
+- Pattern che possono fallire e non vanno presi come verdetto definitivo: `file://`, `localhost` o server lanciati da shell su porte basse/fisse come `8765` possono essere bloccati con `ERR_BLOCKED_BY_CLIENT` o policy URL. In quel caso riprovare una volta con la ricetta sopra prima di dichiarare la verifica browser locale non disponibile.
+- Il browser integrato funziona anche su URL pubblici: verificato su `https://f-mangini.github.io/tracker-spese/dev/` con apertura pagina, snapshot DOM e click del pulsante `Filtri` senza errori console. Usarlo per controlli post-deploy su `/dev/` o `/stable/`.
+- Prima di rinunciare alla verifica browser locale, controllare se esiste gia una tab utile nell'in-app browser: il blocco puo riguardare solo la navigazione verso un URL, non necessariamente l'ispezione di una tab gia aperta.
 
 ## Stile di Lavoro Consigliato
 

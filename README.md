@@ -40,19 +40,28 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
 |   +-- CURRENT_STATE.md
 |   +-- DEPLOYMENT_STRATEGY.md
 |   +-- DEVELOPMENT_GUIDE.md
+|   +-- REFACTORING_SUMMARY.md
 |   +-- ROADMAP.md
 +-- note/
 |   +-- note_di_progetto.txt
++-- tests/
+|   +-- run-tests.js
 +-- app/
     +-- index.html
     +-- manifest.json
     +-- css/style.css
     +-- js/
-        +-- app.js
-        +-- categories.js
-        +-- config.js
-        +-- parser.js
-        +-- storage.js
+        +-- core/        # boot, stato, config, refresh e wiring applicativo
+        +-- data/        # localStorage e cache spese
+        +-- domain/      # parser, categorie, filtri, statistiche e azioni pure
+        +-- input/       # barra inserimento e submit rapido
+        +-- filters/     # pannello filtri
+        +-- timeline/    # rendering e controller timeline
+        +-- stats/       # rendering, grafici e controller statistiche
+        +-- modal/       # modifica spesa e workaround mobile
+        +-- navigation/  # pagine, stack UI e back button
+        +-- settings/    # impostazioni, import/export e info app
+        +-- ui/          # conferme, toast, tema, download e helper UI
 ```
 
 ## Documentazione
@@ -64,6 +73,7 @@ File documentali ufficiali:
 - [Review tecnica](docs/CODE_REVIEW.md): problemi, rischi e priorita del refactor.
 - [Strategia stabile/dev](docs/DEPLOYMENT_STRATEGY.md): come separare versione stabile e versione di test.
 - [Guida sviluppo](docs/DEVELOPMENT_GUIDE.md): regole pratiche per refactor e nuove feature.
+- [Riepilogo refactor](docs/REFACTORING_SUMMARY.md): cosa e stato fatto finora e cosa e rimasto fuori dalla fase conclusa.
 - [Roadmap](docs/ROADMAP.md): backlog ordinato a partire dagli appunti.
 - [Appunti raw](note/note_di_progetto.txt): fonte grezza e storica delle idee.
 
@@ -81,6 +91,14 @@ python -m http.server 8000
 ```
 
 Poi aprire `http://localhost:8000`.
+
+Test leggeri disponibili:
+
+```powershell
+node tests/run-tests.js
+```
+
+Il runner copre i moduli principali estratti durante il refactor: storage, parser, filtri, statistiche, query/cache, refresh, controller UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.
 
 ## Deploy
 

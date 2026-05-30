@@ -37,6 +37,8 @@
     --header-h: 56px;
     --input-h: 64px;
     --nav-h: 64px;
+    --filter-compact-scroll-h: 63px;
+    --filter-footer-h: 42px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -193,18 +195,22 @@ body {
 }
 
 .filter-panel-scroll {
-    max-height: calc(100vh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom));
+    max-height: var(--filter-compact-scroll-h);
+    max-height: min(var(--filter-compact-scroll-h), calc(100vh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h)));
+    max-height: min(var(--filter-compact-scroll-h), calc(100dvh - var(--header-h) - var(--input-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h)));
     overflow-y: auto;
     padding: 10px 14px 6px;
     max-width: 540px;
     margin: 0 auto;
+    width: 100%;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    touch-action: pan-y;
 }
 
-.no-input-bar~#filter-panel .filter-panel-scroll,
-body:has(.no-input-bar) .filter-panel-scroll {
-    max-height: calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-bottom));
+.filter-panel.input-bar-hidden .filter-panel-scroll {
+    max-height: calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h));
+    max-height: calc(100dvh - var(--header-h) - var(--nav-h) - var(--safe-bottom) - var(--filter-footer-h));
 }
 
 .filter-section {
@@ -472,7 +478,12 @@ body:has(.no-input-bar) .filter-panel-scroll {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 6px;
+    gap: 8px;
+    min-height: var(--filter-footer-h);
+    padding: 6px 14px;
+    max-width: 540px;
+    margin: 0 auto;
+    width: 100%;
     border-top: 1px solid var(--border);
 }
 
@@ -1461,6 +1472,7 @@ body.expense-input-active #input-bar {
 
 .confirm-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     justify-content: center;
 }
@@ -1806,6 +1818,11 @@ body.expense-input-active #input-bar {
     padding: 40px 20px;
     color: var(--text-tertiary);
     font-size: 0.95rem;
+}
+
+.stats-empty-initial {
+    padding-top: 132px;
+    z-index: 95;
 }
 
 /* ============================================

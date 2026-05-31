@@ -1,0 +1,13 @@
+{
+    "recommended": "v2026.05.30",
+    "releases": [
+        {
+            "id": "v2026.05.30",
+            "path": "releases/v2026.05.30/",
+            "date": "2026-05-30",
+            "status": "recommended",
+            "notes": "Baseline stabile della fase PWA con Chart.js locale e service worker scoped alla release.",
+            "schemaVersion": 1
+        }
+    ]
+}

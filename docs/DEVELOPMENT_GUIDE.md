@@ -34,8 +34,10 @@ Principi da rispettare quando verra progettata questa parte:
 - L'utente deve poter aprire una sezione dell'app, vedere una lista di versioni messe a disposizione dal maintainer e scegliere quale installare/attivare.
 - La UI deve consigliare di default l'ultima versione disponibile, ma senza imporla.
 - Le versioni vecchie considerate stabili devono poter restare disponibili mentre il maintainer lavora su versioni nuove.
-- La strategia tecnica e ancora da definire: service worker, cache versionate, manifest di release, percorsi GitHub Pages separati o altra soluzione equivalente.
+- La strategia tecnica della fase `pwa` e definita in `docs/PWA_OFFLINE_STRATEGY.md`: release statiche in cartelle immutabili, service worker scoped alla singola release e aggiornamenti scelti dall'utente.
 - Ogni scelta deve proteggere i dati locali e chiarire cosa succede se una versione nuova introduce cambiamenti allo schema dati.
+
+La fase `pwa` usa `docs/PWA_OFFLINE_STRATEGY.md` come documento guida. Per questa fase la scelta iniziale e versioni subito: release statiche in cartelle immutabili, Chart.js locale, service worker scoped alla singola release e aggiornamenti applicati solo su richiesta dell'utente.
 
 ## Promozione a Stabile
 
@@ -97,6 +99,7 @@ Usare questi file come fonti:
 - `docs/CODE_REVIEW.md`: mappa dei rischi tecnici e ordine consigliato per il refactor.
 - `docs/CURRENT_STATE.md`: stato tecnico implementato.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev per testare il refactor senza rischiare l'uso quotidiano.
+- `docs/PWA_OFFLINE_STRATEGY.md`: strategia per PWA/offline, release versionate, service worker e aggiornamenti controllati.
 - `docs/REFACTORING_SUMMARY.md`: riepilogo compatto del refactor gia svolto.
 - `docs/ROADMAP.md`: priorita e idee future ordinate.
 - `AGENTS.md`: contesto operativo per assistenti AI.

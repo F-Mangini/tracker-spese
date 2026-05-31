@@ -84,7 +84,7 @@ function loadStats() {
 }
 
 function loadUiViews(globals = {}) {
-    const context = { console, ...globals };
+    const context = { console, URL, ...globals };
     vm.createContext(context);
 
     const expenseStoreCode = readAppScript('data/expense-store.js');
@@ -3093,7 +3093,8 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
         settings: { tema: 'auto' },
         spese,
         sizeKB: 12.34,
-        storageStatus: { ok: false }
+        storageStatus: { ok: false },
+        appInfo: { version: 'v2026.05.30', label: 'Stabile' }
     });
     const preview = SettingsView.renderImportPreviewMessage({
         format: 'json',
@@ -3104,6 +3105,10 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
 
     assert(page.includes('btn-export-raw'));
     assert(page.includes('Spese registrate'));
+    assert(page.includes('Versioni'));
+    assert(page.includes('release-list'));
+    assert(page.includes("Where's My Money? v2026.05.30"));
+    assert(page.includes('Stabile'));
     assert(page.includes('12.3 KB'));
     assert(preview.includes('2 spese valide con impostazioni'));
     assert(preview.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
@@ -3139,6 +3144,63 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     assert.equal(json.filename, 'spese_backup_2026-05-19.json');
     assert.equal(json.mime, 'application/json');
     assert.equal(raw.filename, 'spese_raw_2026-05-19.txt');
+    assert.equal(
+        SettingsActions.getReleasesManifestUrl({ href: 'https://f-mangini.github.io/tracker-spese/stable/' }),
+        'https://f-mangini.github.io/tracker-spese/releases.json'
+    );
+    assert.equal(
+        SettingsActions.getReleasesManifestUrl({ href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' }),
+        'https://f-mangini.github.io/tracker-spese/releases.json'
+    );
+    assert.equal(
+        SettingsActions.getCurrentReleaseId({ href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' }),
+        'v2026.05.30'
+    );
+    assert.deepEqual(
+        SettingsActions.getAppInfo(
+            { channel: 'stable' },
+            { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' }
+        ),
+        {
+            channel: 'stable',
+            releaseId: 'v2026.05.30',
+            version: 'v2026.05.30',
+            label: 'Stabile'
+        }
+    );
+    assert.deepEqual(
+        SettingsActions.getAppInfo(
+            { channel: 'dev' },
+            { href: 'https://f-mangini.github.io/tracker-spese/dev/' }
+        ),
+        {
+            channel: 'dev',
+            releaseId: '',
+            version: 'dev',
+            label: 'Sviluppo'
+        }
+    );
+
+    const releaseModel = SettingsActions.normalizeReleaseManifest({
+        recommended: 'v2026.05.30',
+        releases: [
+            {
+                id: 'v2026.05.30',
+                path: 'releases/v2026.05.30/',
+                date: '2026-05-30',
+                status: 'recommended',
+                notes: '<b>ok</b>',
+                schemaVersion: 1
+            }
+        ]
+    }, {
+        releasesUrl: 'https://f-mangini.github.io/tracker-spese/releases.json',
+        currentReleaseId: 'v2026.05.30'
+    });
+
+    assert.equal(releaseModel.releases[0].url, 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/');
+    assert.equal(releaseModel.releases[0].isRecommended, true);
+    assert.equal(releaseModel.releases[0].isCurrent, true);
     assert.equal(
         SettingsActions.getImportSuccessMessage({ count: 3, regeneratedIds: 2 }, 'append'),
         '3 spese aggiunte, 2 id rigenerati ✓'
@@ -3294,6 +3356,7 @@ test('Controller impostazioni prepara modello e callback senza dipendere da App'
     assert.equal(model.settings.tema, 'auto');
     assert.equal(model.spese.length, 2);
     assert.equal(model.sizeKB, 4.2);
+    assert.equal(model.appInfo.version, 'stable/latest');
     assert(/10\/0?5\/2026/.test(model.dateRange));
     assert(/12\/0?5\/2026/.test(model.dateRange));
 
@@ -3332,6 +3395,53 @@ test('Controller impostazioni prepara modello e callback senza dipendere da App'
         ['refresh-data'],
         ['toast', 'success', '2 spese aggiunte \u2713']
     ]);
+});
+
+test('Controller impostazioni carica releases.json e renderizza la lista versioni', async () => {
+    const { SettingsController } = loadUiViews();
+    const releaseList = { innerHTML: '' };
+    const calls = [];
+    const container = {
+        querySelector(selector) {
+            return selector === '#release-list' ? releaseList : null;
+        }
+    };
+
+    await SettingsController.loadReleases(container, {
+        locationLike: { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' },
+        fetchFn(url, options) {
+            calls.push([url, options.cache]);
+
+            return Promise.resolve({
+                ok: true,
+                json() {
+                    return Promise.resolve({
+                        recommended: 'v2026.05.30',
+                        releases: [
+                            {
+                                id: 'v2026.05.30',
+                                path: 'releases/v2026.05.30/',
+                                date: '2026-05-30',
+                                status: 'recommended',
+                                notes: 'Baseline <b>PWA</b>',
+                                schemaVersion: 1
+                            }
+                        ]
+                    });
+                }
+            });
+        }
+    });
+
+    assert.deepEqual(calls, [
+        ['https://f-mangini.github.io/tracker-spese/releases.json', 'no-store']
+    ]);
+    assert(releaseList.innerHTML.includes('v2026.05.30'));
+    assert(releaseList.innerHTML.includes('Corrente'));
+    assert(releaseList.innerHTML.includes('Consigliata'));
+    assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'));
+    assert(releaseList.innerHTML.includes('Baseline &lt;b&gt;PWA&lt;/b&gt;'));
+    assert(!releaseList.innerHTML.includes('Baseline <b>PWA</b>'));
 });
 
 test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', () => {
@@ -4230,19 +4340,21 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
 
 let failed = 0;
 
-for (const { name, fn } of tests) {
-    try {
-        fn();
-        console.log(`ok - ${name}`);
-    } catch (error) {
-        failed += 1;
-        console.error(`not ok - ${name}`);
-        console.error(error);
+(async () => {
+    for (const { name, fn } of tests) {
+        try {
+            await fn();
+            console.log(`ok - ${name}`);
+        } catch (error) {
+            failed += 1;
+            console.error(`not ok - ${name}`);
+            console.error(error);
+        }
     }
-}
 
-if (failed > 0) {
-    process.exitCode = 1;
-} else {
-    console.log(`\n${tests.length} test superati.`);
-}
+    if (failed > 0) {
+        process.exitCode = 1;
+    } else {
+        console.log(`\n${tests.length} test superati.`);
+    }
+})();

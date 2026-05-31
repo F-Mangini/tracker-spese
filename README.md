@@ -27,7 +27,7 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - tema chiaro/scuro/automatico;
 - manifest web app per installazione base.
 
-Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non esiste ancora un service worker. Anche la gestione versioni/aggiornamenti e ancora da progettare.
+La fase PWA e iniziata sul branch `pwa`: Chart.js e incluso localmente, la release versionata `releases/v2026.05.30/` registra un primo service worker con scope limitato alla singola release e le impostazioni mostrano una UI minima per aprire le versioni pubblicate da `releases.json`. `/`, `/stable/` e `/dev/` non registrano service worker.
 
 ## Struttura
 
@@ -35,11 +35,15 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
 .
 +-- README.md
 +-- AGENTS.md
++-- releases.json
++-- releases/
+|   +-- v2026.05.30/
 +-- docs/
 |   +-- CODE_REVIEW.md
 |   +-- CURRENT_STATE.md
 |   +-- DEPLOYMENT_STRATEGY.md
 |   +-- DEVELOPMENT_GUIDE.md
+|   +-- PWA_OFFLINE_STRATEGY.md
 |   +-- REFACTORING_SUMMARY.md
 |   +-- ROADMAP.md
 +-- note/
@@ -50,6 +54,7 @@ Non e ancora una PWA completamente offline: Chart.js viene caricato da CDN e non
     +-- index.html
     +-- manifest.json
     +-- css/style.css
+    +-- vendor/       # librerie terze locali necessarie all'offline
     +-- js/
         +-- core/        # boot, stato, config, refresh e wiring applicativo
         +-- data/        # localStorage e cache spese
@@ -73,6 +78,7 @@ File documentali ufficiali:
 - [Review tecnica](docs/CODE_REVIEW.md): problemi, rischi e priorita del refactor.
 - [Strategia stabile/dev](docs/DEPLOYMENT_STRATEGY.md): come separare versione stabile e versione di test.
 - [Guida sviluppo](docs/DEVELOPMENT_GUIDE.md): regole pratiche per refactor e nuove feature.
+- [Strategia PWA/offline](docs/PWA_OFFLINE_STRATEGY.md): piano per offline, service worker, release versionate e aggiornamenti scelti dall'utente.
 - [Riepilogo refactor](docs/REFACTORING_SUMMARY.md): cosa e stato fatto finora e cosa e rimasto fuori dalla fase conclusa.
 - [Roadmap](docs/ROADMAP.md): backlog ordinato a partire dagli appunti.
 - [Appunti raw](note/note_di_progetto.txt): fonte grezza e storica delle idee.

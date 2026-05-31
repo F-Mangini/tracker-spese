@@ -23,7 +23,9 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
 | Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
 
-Chart.js e ancora caricato da CDN in `app/index.html`; non esiste ancora un service worker.
+Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` non registra un service worker, quindi `/`, `/stable/` e `/dev/` restano senza controllo offline diretto.
+
+La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link alla release consigliata, senza applicare aggiornamenti automatici.
 
 ## Dati Locali
 
@@ -128,10 +130,12 @@ La pagina impostazioni include:
 - tema chiaro, scuro o automatico;
 - export JSON/CSV;
 - import JSON/CSV con preview;
+- lista versioni da `releases.json` con apertura manuale della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
 - snapshot locale prima di sostituzione o cancellazione completa;
 - export raw se lo storage locale non e leggibile;
 - info su numero spese, periodo coperto e spazio usato;
+- versione/canale corrente visibili nel footer delle impostazioni;
 - cancellazione completa con conferma.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
@@ -150,9 +154,9 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 
 ## Limiti Noti
 
-- Non c'e ancora service worker: l'app non e pienamente offline.
-- Chart.js dipende dalla rete al primo caricamento.
-- Non esiste ancora un sistema di versioni installabili in parallelo o aggiornamenti scelti dall'utente.
+- `/`, `/stable/` e `/dev/` non registrano ancora service worker.
+- La prima cache offline versionata esiste solo in `releases/v2026.05.30/` e richiede ancora verifica manuale Android.
+- La UI versioni e minima: apre le release pubblicate, ma non gestisce ancora un flusso guidato di aggiornamento/applicazione.
 - Categorie e metodi sono statici.
 - Non esistono ancora cestino, selezione multipla o azioni bulk.
 - La pagina statistiche non permette ancora di aprire/modificare una spesa.

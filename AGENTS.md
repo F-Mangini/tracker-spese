@@ -14,7 +14,7 @@ Questo progetto e personale ed e mantenuto da una sola persona. Le soluzioni dev
 - Deploy: GitHub Pages / hosting statico.
 - Backend: assente.
 - Persistenza: `localStorage`.
-- Stack: HTML, CSS, JavaScript vanilla, Chart.js da CDN.
+- Stack: HTML, CSS, JavaScript vanilla, Chart.js locale.
 - Lingua documentazione e UI: italiano.
 - Obiettivo distribuzione: app installabile/offline stabile, con aggiornamenti scelti dall'utente da una lista di versioni pubblicate dal maintainer.
 - Branch stabile attuale: `main`.
@@ -42,8 +42,9 @@ Leggere, nell'ordine:
 3. `docs/CODE_REVIEW.md`;
 4. `docs/DEVELOPMENT_GUIDE.md`;
 5. `docs/ROADMAP.md`;
-6. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
-7. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
+6. `docs/PWA_OFFLINE_STRATEGY.md` se si lavora su PWA, offline, service worker o aggiornamenti;
+7. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
+8. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
 
 Non considerare `note/note_di_progetto.txt` come specifica finale: e una raccolta raw di appunti. La roadmap curata decide priorita e raggruppamenti, ma gli appunti possono contenere dettagli utili non ancora formalizzati.
 
@@ -57,6 +58,7 @@ I file documentali ufficiali da mantenere allineati sono:
 - `docs/CODE_REVIEW.md`: rischi tecnici, priorita e ordine consigliato del refactor.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev e strategia GitHub Pages.
 - `docs/DEVELOPMENT_GUIDE.md`: regole pratiche per sviluppo, refactor e nuove feature.
+- `docs/PWA_OFFLINE_STRATEGY.md`: strategia per offline, service worker, release versionate e aggiornamenti scelti dall'utente.
 - `docs/REFACTORING_SUMMARY.md`: riepilogo ordinato del refactor gia svolto.
 - `docs/ROADMAP.md`: backlog curato e ordinato a partire dagli appunti.
 - `note/note_di_progetto.txt`: appunti raw e storici del maintainer.
@@ -96,6 +98,7 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - `app/js/domain/filters.js`: logica pura dei filtri condivisi tra timeline e statistiche; mantenere allineata ai test.
 - `app/js/domain/stats.js`: logica pura per date, riepiloghi e aggregazioni statistiche; mantenere allineata ai test.
 - Workflow Pages: `.github/workflows/pages.yml` assembla stabile da `main` e dev da `codex/refactor`.
+- Release PWA: `releases.json` e `releases/v*/`; i service worker devono restare scoped alla singola release e non devono controllare `/`, `/stable/` o `/dev/`.
 - Manifest stabile: `app/manifest.json`; manifest dev: `app/manifest.dev.json`, copiato dal workflow in `public/dev/manifest.json`.
 - Icone stabili: `app/icons/stable/`; icone dev: `app/icons/dev/`.
 - `app/js/domain/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.

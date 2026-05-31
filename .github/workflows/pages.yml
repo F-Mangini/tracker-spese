@@ -40,12 +40,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          mkdir -p public public/stable public/dev
+          mkdir -p public public/stable public/dev public/releases
 
           cp -R stable-src/app/. public/
           cp -R stable-src/app/. public/stable/
           cp -R dev-src/app/. public/dev/
           cp dev-src/app/manifest.dev.json public/dev/manifest.json
+
+          if [ -f stable-src/releases.json ]; then
+            cp stable-src/releases.json public/releases.json
+          fi
+
+          if [ -d stable-src/releases ]; then
+            cp -R stable-src/releases/. public/releases/
+          fi
 
           sed -i \
             -e 's|icons/stable/favicon-32.png|icons/dev/favicon-32.png|g' \

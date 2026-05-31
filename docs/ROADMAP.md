@@ -11,20 +11,20 @@ La fase di refactor strutturale e completata per lo scopo previsto:
 - test runner leggero;
 - spacchettamento primario di `core/app.js`;
 - verifica manuale Android dei flussi principali.
+- promozione della dev refactor a stabile su `main`.
 
 Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hardening o nuove feature, non come completamento dello spacchettamento.
 
 ## Prossime Priorita
 
-1. Stabilizzare la dev per eventuale promozione a stabile.
-2. Eseguire una review privacy esplicita.
-3. Progettare PWA/offline e aggiornamenti controllati prima di scrivere service worker.
-4. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-5. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
+1. Progettare e implementare PWA/offline con versioni controllate, seguendo `docs/PWA_OFFLINE_STRATEGY.md`.
+2. Eseguire una review privacy esplicita dopo la fase PWA/offline, quando asset locali, service worker e aggiornamenti saranno piu chiari.
+3. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
+4. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 ## Repository e Canali
 
-Stato: completato.
+Stato: completato. La dev refactor e stata promossa a stabile; la nuova fase attiva vive sul branch `pwa`.
 
 - Repository target: `tracker-spese`.
 - Stabile: `main`, `Where's My Money?`, short name `WMM`, storage `spesa-tracker-data`.
@@ -63,28 +63,35 @@ Ancora da affrontare:
 
 ## Offline e Installazione
 
-Obiettivo: app installabile e funzionante offline, con aggiornamenti controllati.
+Stato: fase attiva su branch `pwa`.
 
-Passi probabili:
+Obiettivo: app installabile e funzionante offline, con versioni controllate e aggiornamenti scelti dall'utente. La strategia e descritta in `docs/PWA_OFFLINE_STRATEGY.md`.
 
-- rendere Chart.js locale;
-- aggiungere service worker;
-- definire cache versionata per HTML, CSS, JS, manifest e icone;
-- verificare comportamento su GitHub Pages;
-- migliorare icone, favicon e manifest;
-- evitare update automatici silenziosi.
+Passi iniziali:
+
+- verificare installazione, refresh offline e grafici offline su Android.
+- definire il flusso di promozione della prossima release senza cambiare automaticamente quella installata.
+
+Completato:
+
+- Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
+- `releases.json` e la cartella sorgente `releases/v2026.05.30/` definiscono la prima baseline versionata.
+- i manifest dichiarano `scope` esplicito.
+- `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
+- le impostazioni leggono `releases.json` e mostrano una UI minima per aprire la release consigliata, senza applicare update automatici.
+- il footer impostazioni mostra versione/canale corrente, inclusa la release versionata quando si apre `/releases/vYYYY.MM.DD/`.
 
 ## Versioni e Aggiornamenti Controllati
 
-Da progettare:
+Strategia scelta: release statiche in cartelle versionate, con ultima versione consigliata ma non applicata automaticamente.
 
 - lista versioni disponibili pubblicata dal maintainer;
 - ultima versione consigliata ma non installata automaticamente;
 - possibilita di mantenere disponibili versioni vecchie stabili;
 - UI per scegliere e applicare aggiornamenti;
-- strategia per piu versioni su hosting statico;
-- compatibilita dati tra versioni.
-- numero versione visibile nelle impostazioni e aggiornato a ogni release/push significativo.
+- strategia per piu versioni su hosting statico tramite cartelle release immutabili;
+- compatibilita dati tra versioni;
+- flusso guidato per applicare una release scelta dopo il test Android.
 
 ## Filtri e Ricerca
 

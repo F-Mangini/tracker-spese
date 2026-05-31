@@ -33,7 +33,7 @@ const SettingsView = (() => {
         const badges = [];
 
         if (release.isCurrent) {
-            badges.push('<span class="release-badge current">Corrente</span>');
+            badges.push('<span class="release-badge current">Installata</span>');
         }
 
         if (release.isRecommended) {
@@ -135,7 +135,7 @@ const SettingsView = (() => {
             <div class="settings-section">
                 <h3>\uD83D\uDCE6 Versioni</h3>
                 <p class="settings-hint">Puoi cambiare la versione installata quando vuoi.</p>
-                <button id="btn-release-chooser" class="btn btn-secondary btn-block">Scegli Versione...</button>
+                <button id="btn-release-chooser" class="btn btn-secondary btn-block">Scegli versione...</button>
             </div>
 
             <div class="settings-section">

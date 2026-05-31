@@ -163,6 +163,49 @@ const SettingsActions = (() => {
         return targetUrl === currentUrl ? '' : targetUrl;
     }
 
+    function shouldRegisterLaunchServiceWorker(locationLike = {}) {
+        const href = locationLike.href || 'http://localhost/';
+        const path = new URL(href).pathname;
+
+        return /\/stable\/(?:index\.html)?$/.test(path);
+    }
+
+    function registerLaunchServiceWorker(options = {}) {
+        const navigatorLike = options.navigatorLike;
+        const waitMs = Number.isFinite(options.waitMs) ? options.waitMs : 2000;
+        const setTimer = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : null);
+
+        if (
+            !shouldRegisterLaunchServiceWorker(options.locationLike || {}) ||
+            !navigatorLike ||
+            !navigatorLike.serviceWorker ||
+            typeof navigatorLike.serviceWorker.register !== 'function'
+        ) {
+            return Promise.resolve(false);
+        }
+
+        return navigatorLike.serviceWorker
+            .register('./stable-launch-service-worker.js', { scope: './' })
+            .then(() => {
+                const ready = navigatorLike.serviceWorker.ready;
+
+                if (!ready || typeof ready.then !== 'function') {
+                    return true;
+                }
+
+                if (!setTimer) {
+                    return ready.then(() => true);
+                }
+
+                return Promise.race([
+                    ready.then(() => true),
+                    new Promise(resolve => setTimer(() => resolve(true), waitMs))
+                ]);
+            })
+            .catch(() => false);
+    }
+
     function getAppInfo(config = {}, locationLike = {}) {
         const channel = String(config.channel || 'stable');
         const releaseId = getCurrentReleaseId(locationLike);
@@ -188,7 +231,7 @@ const SettingsActions = (() => {
             url: new URL('stable/', releasesUrl).href,
             date: '',
             status: 'stable',
-            notes: 'Entrypoint stabile aggiornato dal maintainer. Non installarlo se vuoi restare su una release immutabile.',
+            notes: 'Entrypoint stabile. Riceve aggiornamenti automatici.',
             schemaVersion: null,
             isRecommended: false,
             isCurrent: !currentReleaseId && channel !== 'dev',
@@ -331,6 +374,8 @@ const SettingsActions = (() => {
         getCurrentReleaseId,
         setLaunchTarget,
         getPreferredLaunchUrl,
+        registerLaunchServiceWorker,
+        shouldRegisterLaunchServiceWorker,
         getAppInfo,
         normalizeReleaseManifest,
         previewImportFile,

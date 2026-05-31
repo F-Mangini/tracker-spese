@@ -3107,7 +3107,7 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
     assert(page.includes('Puoi cambiare la versione installata quando vuoi.'));
-    assert(page.includes('btn-release-chooser'));
+    assert(page.includes('Scegli versione...'));
     assert(!page.includes('release-modal-list'));
     assert(page.includes("Where's My Money? v2026.05.30"));
     assert(page.includes('Stabile'));
@@ -3548,7 +3548,7 @@ test('Controller impostazioni carica releases.json e renderizza la lista version
     assert(releaseList.innerHTML.includes('v2026.05.30'));
     assert(releaseList.innerHTML.includes('stable/latest'));
     assert(releaseList.innerHTML.includes('Canale'));
-    assert(releaseList.innerHTML.includes('Corrente'));
+    assert(releaseList.innerHTML.includes('Installata'));
     assert(releaseList.innerHTML.includes('Consigliata'));
     assert(releaseList.innerHTML.includes('Installa'));
     assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/stable/'));

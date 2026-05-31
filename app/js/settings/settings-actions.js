@@ -231,7 +231,7 @@ const SettingsActions = (() => {
             url: new URL('stable/', releasesUrl).href,
             date: '',
             status: 'stable',
-            notes: 'Entrypoint stabile aggiornato dal maintainer. Non installarlo se vuoi restare su una release immutabile.',
+            notes: 'Entrypoint stabile. Riceve aggiornamenti automatici.',
             schemaVersion: null,
             isRecommended: false,
             isCurrent: !currentReleaseId && channel !== 'dev',

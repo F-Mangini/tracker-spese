@@ -1944,8 +1944,9 @@ body.expense-input-active #input-bar {
 }
 
 .release-badge.recommended {
-    background: var(--accent-light);
-    color: var(--accent-text);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
 }
 
 .release-badge.channel {

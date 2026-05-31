@@ -89,7 +89,7 @@ const SettingsView = (() => {
                             <p class="settings-hint">${AppUI.escapeHtml(release.notes || 'Release pubblicata.')}</p>
                             ${renderReleaseMeta(release)}
                         </div>
-                        <a class="btn btn-secondary release-open-link" href="${AppUI.escapeHtml(release.url)}">Apri</a>
+                        <a class="btn btn-secondary release-open-link" href="${AppUI.escapeHtml(release.url)}" data-launch-path="${AppUI.escapeHtml(release.launchPath || '')}">Apri</a>
                     </div>
                 `).join('')}
             </div>

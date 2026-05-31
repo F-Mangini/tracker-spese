@@ -25,7 +25,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 
 Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` non registra un service worker, quindi `/`, `/stable/` e `/dev/` restano senza controllo offline diretto.
 
-La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici.
+La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici. Quando l'utente apre una release immutabile dalla stable, il path scelto viene salvato come preferenza di avvio; aprendo `stable/latest` la preferenza viene rimossa.
 
 ## Dati Locali
 

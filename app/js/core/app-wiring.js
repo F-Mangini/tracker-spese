@@ -402,6 +402,7 @@ const AppWiring = (() => {
                 fetchFn: deps.window.fetch ? deps.window.fetch.bind(deps.window) : null,
                 locationLike: deps.window.location,
                 appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
+                localStorage: deps.window.localStorage,
                 dateStamp: () => deps.AppUI.dateStamp(),
                 download: (content, filename, mime) => deps.DownloadController.download(content, filename, mime, {
                     document: deps.document,

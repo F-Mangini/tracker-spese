@@ -3,6 +3,8 @@
    ============================================ */
 
 const SettingsActions = (() => {
+    const LAUNCH_TARGET_KEY = 'spesa-tracker-launch-target';
+
     function detectImportFormat(file = {}) {
         const fileName = String(file.name || '').toLowerCase();
         const fileType = String(file.type || '').toLowerCase();
@@ -105,6 +107,62 @@ const SettingsActions = (() => {
         return match ? match[1] : '';
     }
 
+    function getLaunchBaseUrl(locationLike = {}) {
+        return getReleasesManifestUrl(locationLike);
+    }
+
+    function normalizeLaunchPath(path) {
+        const value = String(path || '');
+
+        return /^releases\/[^/]+\/$/.test(value) ? value : '';
+    }
+
+    function readLaunchTarget(storageLike) {
+        if (!storageLike || typeof storageLike.getItem !== 'function') return '';
+
+        try {
+            return normalizeLaunchPath(storageLike.getItem(LAUNCH_TARGET_KEY));
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function setLaunchTarget(path, storageLike) {
+        if (!storageLike) return;
+
+        const normalizedPath = normalizeLaunchPath(path);
+
+        try {
+            if (!normalizedPath) {
+                if (typeof storageLike.removeItem === 'function') {
+                    storageLike.removeItem(LAUNCH_TARGET_KEY);
+                }
+                return;
+            }
+
+            if (typeof storageLike.setItem === 'function') {
+                storageLike.setItem(LAUNCH_TARGET_KEY, normalizedPath);
+            }
+        } catch (_) { }
+    }
+
+    function getPreferredLaunchUrl(options = {}) {
+        const config = options.config || {};
+        const locationLike = options.locationLike || {};
+        const channel = String(config.channel || 'stable');
+        const targetPath = readLaunchTarget(options.storageLike);
+        const currentReleaseId = getCurrentReleaseId(locationLike);
+
+        if (channel === 'dev' || !targetPath || currentReleaseId) {
+            return '';
+        }
+
+        const targetUrl = new URL(targetPath, getLaunchBaseUrl(locationLike)).href;
+        const currentUrl = new URL(locationLike.href || 'http://localhost/').href;
+
+        return targetUrl === currentUrl ? '' : targetUrl;
+    }
+
     function getAppInfo(config = {}, locationLike = {}) {
         const channel = String(config.channel || 'stable');
         const releaseId = getCurrentReleaseId(locationLike);
@@ -134,7 +192,8 @@ const SettingsActions = (() => {
             schemaVersion: null,
             isRecommended: false,
             isCurrent: !currentReleaseId && channel !== 'dev',
-            isChannel: true
+            isChannel: true,
+            launchPath: ''
         };
 
         return {
@@ -157,7 +216,8 @@ const SettingsActions = (() => {
                         schemaVersion: release.schemaVersion,
                         isRecommended: id === recommended || status === 'recommended',
                         isCurrent: id === currentReleaseId,
-                        isChannel: false
+                        isChannel: false,
+                        launchPath: String(release.path)
                     };
                 })
             ]
@@ -269,6 +329,8 @@ const SettingsActions = (() => {
         getImportSuccessMessage,
         getReleasesManifestUrl,
         getCurrentReleaseId,
+        setLaunchTarget,
+        getPreferredLaunchUrl,
         getAppInfo,
         normalizeReleaseManifest,
         previewImportFile,

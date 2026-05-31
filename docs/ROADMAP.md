@@ -79,6 +79,7 @@ Completato:
 - i manifest dichiarano `scope` esplicito.
 - `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
 - le impostazioni leggono `releases.json` e mostrano una UI minima per aprire `stable/latest` o la release consigliata, senza applicare update automatici.
+- la PWA installata dalla stable riapre la release scelta tramite preferenza locale, finche l'utente non torna a `stable/latest`.
 - il footer impostazioni mostra versione/canale corrente, inclusa la release versionata quando si apre `/releases/vYYYY.MM.DD/`.
 
 ## Versioni e Aggiornamenti Controllati

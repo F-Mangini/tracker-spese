@@ -3180,6 +3180,41 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             label: 'Sviluppo'
         }
     );
+    const launchStorage = createLocalStorage();
+    SettingsActions.setLaunchTarget('releases/v2026.05.30/', launchStorage);
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/stable/' },
+            storageLike: launchStorage
+        }),
+        'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'
+    );
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' },
+            storageLike: launchStorage
+        }),
+        ''
+    );
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'dev' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/dev/' },
+            storageLike: launchStorage
+        }),
+        ''
+    );
+    SettingsActions.setLaunchTarget('', launchStorage);
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/stable/' },
+            storageLike: launchStorage
+        }),
+        ''
+    );
 
     const releaseModel = SettingsActions.normalizeReleaseManifest({
         recommended: 'v2026.05.30',

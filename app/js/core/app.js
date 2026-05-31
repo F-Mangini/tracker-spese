@@ -8,6 +8,17 @@ const App = {
        INIT
        ===================== */
     init() {
+        const preferredLaunchUrl = SettingsActions.getPreferredLaunchUrl({
+            config: window.SPESA_TRACKER_CONFIG || {},
+            locationLike: window.location,
+            storageLike: window.localStorage
+        });
+
+        if (preferredLaunchUrl) {
+            window.location.replace(preferredLaunchUrl);
+            return;
+        }
+
         if (!Storage.isAvailable()) {
             document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>⚠️ Storage non disponibile</h2></div>';
             return;

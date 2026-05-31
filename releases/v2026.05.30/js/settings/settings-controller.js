@@ -248,6 +248,16 @@ const SettingsController = (() => {
         container.querySelector('#btn-clear-all').addEventListener('click', () => {
             options.showConfirm('Eliminare TUTTI i dati?', () => clearAll(options));
         });
+
+        container.addEventListener('click', event => {
+            const link = event.target.closest('.release-open-link');
+            if (!link) return;
+
+            SettingsActions.setLaunchTarget(
+                link.dataset.launchPath || '',
+                options.localStorage
+            );
+        });
     }
 
     function render(options = {}) {

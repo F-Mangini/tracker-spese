@@ -10,7 +10,7 @@ La fase non deve cambiare lo schema dati corrente. Eventuali modifiche future a 
 
 Il codice sorgente `app/` non registra un service worker: `/`, `/stable/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 
-La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale di `stable/latest` o della release consigliata e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
+La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
 
 ## Obiettivo
 
@@ -126,7 +126,8 @@ Procedura consigliata:
 7. Attivare modalita aereo.
 8. Riaprire l'app installata e fare refresh della pagina.
 9. Verificare che CSS, JS, icone e grafici Chart.js restino disponibili offline.
-10. Tornare online e controllare che `https://f-mangini.github.io/tracker-spese/dev/` continui a caricare senza essere controllata dal service worker della release.
+10. Chiudere e riaprire l'app installata: se dalla stable era stata scelta `v2026.05.30`, deve riaprire quella release.
+11. Tornare online e controllare che `https://f-mangini.github.io/tracker-spese/dev/` continui a caricare senza essere controllata dal service worker della release.
 
 ### Test Locale Avanzato Con Android
 

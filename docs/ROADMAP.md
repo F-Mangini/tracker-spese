@@ -17,10 +17,9 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 
 ## Prossime Priorita
 
-1. Progettare e implementare PWA/offline con versioni controllate, seguendo `docs/PWA_OFFLINE_STRATEGY.md`.
-2. Eseguire una review privacy esplicita dopo la fase PWA/offline, quando asset locali, service worker e aggiornamenti saranno piu chiari.
-3. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-4. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
+1. Eseguire una review privacy esplicita ora che asset locali, service worker e aggiornamenti sono piu chiari.
+2. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
+3. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 ## Repository e Canali
 
@@ -63,14 +62,9 @@ Ancora da affrontare:
 
 ## Offline e Installazione
 
-Stato: fase attiva pubblicata su `main`.
+Stato: baseline completata e pubblicata su `main`.
 
 Obiettivo: app installabile e funzionante offline, con versioni controllate e aggiornamenti scelti dall'utente. La strategia e descritta in `docs/PWA_OFFLINE_STRATEGY.md`.
-
-Passi iniziali:
-
-- verificare installazione, refresh offline e grafici offline su Android.
-- definire il flusso di promozione della prossima release senza cambiare automaticamente quella installata.
 
 Completato:
 
@@ -78,22 +72,29 @@ Completato:
 - `releases.json` e la cartella sorgente `releases/v2026.05.30/` definiscono la prima baseline versionata.
 - i manifest dichiarano `scope` esplicito.
 - `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
-- le impostazioni leggono `releases.json` e mostrano una finestra versioni per installare `stable/latest` o la release consigliata, senza applicare update automatici.
+- le impostazioni leggono `releases.json` e mostrano una finestra versioni per installare `stable/latest` o la release consigliata, con badge `Installata` e senza applicare update automatici.
 - la PWA installata dalla stable riapre la release scelta tramite preferenza locale, finche l'utente non torna a `stable/latest`.
 - `/stable/` registra un launcher offline scoped che permette allo start URL installato dalla stable di avviarsi offline e raggiungere la release scelta, senza controllare `/`, `/dev/` o `/releases/`.
 - il footer impostazioni mostra versione/canale corrente, inclusa la release versionata quando si apre `/releases/vYYYY.MM.DD/`.
+- installazione, riapertura offline e comportamento Android della baseline sono stati verificati dal maintainer.
 
 ## Versioni e Aggiornamenti Controllati
 
-Strategia scelta: release statiche in cartelle versionate, con ultima versione consigliata ma non applicata automaticamente.
+Stato: baseline completata. La strategia scelta e release statiche in cartelle versionate, con ultima versione consigliata ma non applicata automaticamente.
+
+Completato:
 
 - lista versioni disponibili pubblicata dal maintainer;
 - ultima versione consigliata ma non installata automaticamente;
-- possibilita di mantenere disponibili versioni vecchie stabili;
-- UI per scegliere e applicare aggiornamenti;
-- strategia per piu versioni su hosting statico tramite cartelle release immutabili;
-- compatibilita dati tra versioni;
-- flusso guidato per applicare una release scelta dopo il test Android.
+- possibilita di mantenere disponibili versioni vecchie stabili tramite cartelle release immutabili;
+- UI per scegliere e installare una versione esplicita;
+- flusso guidato minimo per applicare una release scelta.
+
+Da riprendere solo quando servira:
+
+- procedura di pubblicazione della prossima release;
+- compatibilita dati tra versioni se cambiera lo schema;
+- gestione di piu release reali oltre alla prima baseline.
 
 ## Filtri e Ricerca
 

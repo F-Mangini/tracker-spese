@@ -18,7 +18,7 @@ Questa guida definisce come lavorare sul progetto durante manutenzione, hardenin
 - Preferire moduli piccoli e funzioni pure quando si estrae logica da `app/js/core/app.js` o dal wiring applicativo.
 - Non cambiare schema dati senza prevedere compatibilita o migrazione leggera.
 - Non rompere backup JSON esistenti.
-- Non forzare aggiornamenti automatici quando l'app sara offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.
+- Non forzare aggiornamenti automatici sulla release offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.
 - Ogni modifica UI mobile va verificata almeno su viewport stretta.
 - Le soluzioni per tastiera, back button e scroll mobile vanno trattate con cautela: spesso sono workaround costruiti dopo bug reali.
 - Non sostituire automaticamente i `textarea` monoriga con `input`: in diversi punti sono usati per evitare suggerimenti/autofill invasivi della tastiera mobile.
@@ -26,7 +26,7 @@ Questa guida definisce come lavorare sul progetto durante manutenzione, hardenin
 
 ## Versioni e Aggiornamenti
 
-Obiettivo futuro: permettere al maintainer di pubblicare piu versioni disponibili allo stesso tempo, lasciando l'utente su una versione stabile finche non decide di aggiornare.
+Obiettivo: permettere al maintainer di pubblicare piu versioni disponibili allo stesso tempo, lasciando l'utente su una versione stabile finche non decide di aggiornare.
 
 Principi da rispettare quando verra progettata questa parte:
 
@@ -37,7 +37,7 @@ Principi da rispettare quando verra progettata questa parte:
 - La strategia tecnica della fase `pwa` e definita in `docs/PWA_OFFLINE_STRATEGY.md`: release statiche in cartelle immutabili, service worker scoped alla singola release e aggiornamenti scelti dall'utente.
 - Ogni scelta deve proteggere i dati locali e chiarire cosa succede se una versione nuova introduce cambiamenti allo schema dati.
 
-La fase `pwa` usa `docs/PWA_OFFLINE_STRATEGY.md` come documento guida. Per questa fase la scelta iniziale e versioni subito: release statiche in cartelle immutabili, Chart.js locale, service worker scoped alla singola release e aggiornamenti applicati solo su richiesta dell'utente.
+La baseline `pwa` e completata e usa `docs/PWA_OFFLINE_STRATEGY.md` come documento guida. La scelta iniziale e versioni subito: release statiche in cartelle immutabili, Chart.js locale, service worker scoped alla singola release e aggiornamenti applicati solo su richiesta dell'utente.
 
 ## Promozione a Stabile
 

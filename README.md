@@ -10,7 +10,7 @@ L'app nasce per essere veloce da usare, soprattutto da smartphone Android: si ap
 - **Semplice da mantenere**: HTML, CSS e JavaScript vanilla, con deploy statico.
 - **Mobile-first pragmatico**: Android e uso quotidiano personale sono la priorita; iOS e browser desktop vanno mantenuti dignitosi senza complicare troppo il progetto.
 - **Backup esplicito**: l'app supporta import/export JSON e CSV; ogni modifica ai dati deve rispettare questa possibilita.
-- **Aggiornamenti controllati**: quando l'app sara installabile/offline, dovra restare stabile e aggiornarsi solo su richiesta esplicita dell'utente.
+- **Aggiornamenti controllati**: l'app installabile/offline resta su una versione scelta e si aggiorna solo su richiesta esplicita dell'utente.
 - **Refactor senza overengineering**: il progetto resta personale, quindi le astrazioni devono servire davvero.
 
 ## Stato Attuale
@@ -25,9 +25,10 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - statistiche con grafici Chart.js;
 - import/export JSON e CSV;
 - tema chiaro/scuro/automatico;
-- manifest web app per installazione base.
+- manifest web app per installazione base;
+- baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.
 
-La fase PWA e iniziata sul branch `pwa`: Chart.js e incluso localmente, la release versionata `releases/v2026.05.30/` registra un primo service worker con scope limitato alla singola release e le impostazioni mostrano una UI minima per aprire le versioni pubblicate da `releases.json`. `/`, `/stable/` e `/dev/` non registrano service worker.
+La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso localmente, la release versionata `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release, `/stable/` registra un launcher offline scoped e le impostazioni mostrano una finestra versioni alimentata da `releases.json`. `/` e `/dev/` non registrano service worker.
 
 ## Struttura
 

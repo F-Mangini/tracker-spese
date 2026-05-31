@@ -22,7 +22,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | 2. Logica pura e rendering testabile | Completata | Filtri, statistiche, rendering, query, cache e controller principali sono separati e coperti da test. |
 | 3. UI stack e mobile behavior | Completata per i flussi attuali | Back button, modale, filtri e tastiera mobile sono modularizzati e verificati; resta prudenza su nuovi casi Android/iOS. |
 | 4. Modularizzazione UI | Completata | `core/app.js` e un orchestratore sottile; stato e wiring sono in moduli dedicati. |
-| 5. Offline e versioni controllate | In corso | Strategia dedicata in `docs/PWA_OFFLINE_STRATEGY.md`; prima release scoped in `releases/v2026.05.30/`. |
+| 5. Offline e versioni controllate | Completata per la baseline | Strategia dedicata in `docs/PWA_OFFLINE_STRATEGY.md`; prima release scoped in `releases/v2026.05.30/`, launcher stable scoped e UI versioni pubblicati. |
 
 ## Findings Aggiornati
 
@@ -34,14 +34,14 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | CR-04 | Back button/history fragile | Stabilizzato | I flussi attuali sono verificati; nuovi pannelli/modali vanno aggiunti allo stack con test e prova Android. |
 | CR-05 | Parser/importi ambigui | Completato per casi noti | Aggiungere test quando emergono frasi reali ambigue. |
 | CR-06 | Assenza test automatici | Mitigato | Manca ancora E2E/browser mobile reale. |
-| CR-07 | Offline/PWA/versioni | In corso | Strategia dedicata in `docs/PWA_OFFLINE_STRATEGY.md`; Chart.js e locale, `releases.json` esiste, la prima release ha service worker scoped e le impostazioni mostrano una lista versioni minima. Restano verifica Android e flusso aggiornamento piu guidato. |
+| CR-07 | Offline/PWA/versioni | Completato per la baseline | Chart.js e locale, `releases.json` esiste, la prima release ha service worker scoped, `/stable/` ha launcher offline scoped e la finestra versioni permette installazione esplicita. Verifica Android eseguita dal maintainer. |
 | CR-08 | CSV fragile/lossy | Mitigato | JSON resta backup completo; CSV non e formato ideale per futuri dati complessi. |
 | CR-09 | Sanitizzazione rendering | Mitigato | I dati utente principali sono escapati; personalizzazioni future richiederanno disciplina ulteriore. |
 | CR-10 | Schema dati non versionato | Completato | Schema v1 presente; future feature richiederanno migrazioni idempotenti. |
 | CR-11 | CSS/mobile accoppiato | Aperto | Layout, z-index, fixed/sticky e tastiera restano delicati. |
 | CR-12 | Letture/render ripetuti | Mitigato | Cache e query riducono ricalcoli; misurare prima di ottimizzare oltre. |
 | CR-13 | Categorie/metodi statici | Aperto | Da riprogettare prima della personalizzazione. |
-| CR-14 | Manifest/PWA incompleti | Aperto | Manifest e prima cache release-scoped sono presenti; restano verifica installazione/offline e UI versioni. |
+| CR-14 | Manifest/PWA incompleti | Mitigato | Manifest, prima cache release-scoped, launcher stable e UI versioni sono presenti; rivalutare quando verranno pubblicate nuove release o cambi schema. |
 | CR-15 | Accessibilita/semantica | Aperto | Dropdown custom, label e zoom sono migliorabili. |
 | CR-16 | Cleanup minori | Aperto | Da gestire localmente, senza mescolare con feature grandi. |
 
@@ -74,7 +74,7 @@ Nota specifica: timer/frame browser vanno richiamati tramite wrapper bound a `wi
 
 ### Offline e aggiornamenti
 
-La fase ad alto impatto attiva e la PWA/offline. La strategia e fissata in `docs/PWA_OFFLINE_STRATEGY.md` e guida l'implementazione progressiva, perche tocca:
+La baseline PWA/offline e completata. La strategia resta fissata in `docs/PWA_OFFLINE_STRATEGY.md` e va riletta quando si pubblicano nuove release o si toccano:
 
 - cache di HTML, CSS, JS, manifest e icone;
 - Chart.js locale;

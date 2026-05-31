@@ -4,13 +4,13 @@ Questo documento definisce la fase `pwa`, separata dal refactor strutturale gia 
 
 ## Stato
 
-Fase progettata su branch `pwa` dopo la promozione della dev a stabile; la baseline PWA/offline e ora pubblicata su `main` per permettere test reali su GitHub Pages.
+Fase progettata su branch `pwa` dopo la promozione della dev a stabile; la baseline PWA/offline e stata pubblicata su `main` e verificata dal maintainer su Android.
 
 La fase non deve cambiare lo schema dati corrente. Eventuali modifiche future a schema, storage, backup o import/export richiederanno una decisione dedicata, fallback per dati vecchi e test specifici.
 
 Il codice sorgente `app/` registra un service worker leggero solo quando viene servito da `/stable/`: e un launcher offline scoped alla stable, utile a riaprire la release scelta anche se lo start URL della PWA installata resta `/stable/`. `/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 
-La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per aprire una finestra alimentata da `releases.json`, installazione manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata, launcher offline scoped per `/stable/` e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
+La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI nelle impostazioni per aprire una finestra alimentata da `releases.json`, installazione manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata, launcher offline scoped per `/stable/` e versione/canale visibili nel footer impostazioni. La verifica Android pubblica e stata completata dal maintainer; il flusso guidato minimo e ora presente.
 
 ## Obiettivo
 
@@ -91,19 +91,26 @@ Il file serve alla UI delle impostazioni per mostrare le versioni disponibili e 
 
 La prima release sorgente e `releases/v2026.05.30/`: e una baseline stabile con Chart.js locale, manifest scoped al proprio path e primo service worker release-scoped.
 
-## Ordine Operativo
+## Baseline Completata
 
-1. Pubblicare la fase `pwa` quando la baseline e pronta per un test reale su HTTPS.
-2. Verificare installazione, refresh offline e grafici offline su Android per `releases/v2026.05.30/`.
-3. Definire il flusso di promozione della prossima release senza cambiare automaticamente quella installata.
+La baseline PWA/offline e considerata completata per lo stato attuale dell'app:
 
-Ogni passo deve restare piccolo e verificabile. Se una modifica tocca storage, import/export o schema dati, va trattata come cambio dati e non come semplice lavoro PWA.
+1. Chart.js e servito localmente.
+2. `releases.json` elenca le versioni disponibili.
+3. `releases/v2026.05.30/` e una release installabile con service worker scoped e cache offline.
+4. `/stable/` ha un launcher offline scoped per riaprire la release scelta dalla PWA installata.
+5. Le impostazioni mostrano una sezione `Versioni` con finestra dedicata, stato installato e installazione esplicita.
+6. La verifica pubblica su Android e stata eseguita dal maintainer.
+
+Le evoluzioni future, come nuove release, eventuali migrazioni dati o compatibilita tra schema diversi, vanno trattate come lavori dedicati. Se una modifica tocca storage, import/export o schema dati, va trattata come cambio dati e non come semplice lavoro PWA.
 
 ## Test Android
 
-### Quando Iniziare
+### Stato
 
-Il test Android consigliato inizia dopo merge/deploy su `main`, quando la UI versioni e la release versionata sono disponibili su GitHub Pages via HTTPS.
+Il test Android pubblico della baseline `v2026.05.30` e stato eseguito dal maintainer dopo il deploy su `main`.
+
+La procedura sotto resta come checklist di regressione per future release o modifiche a service worker, manifest, cache e UI versioni.
 
 URL previsto dopo deploy:
 

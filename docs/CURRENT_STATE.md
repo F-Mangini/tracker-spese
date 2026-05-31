@@ -25,7 +25,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 
 Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` registra `stable-launch-service-worker.js` solo quando e servito da `/stable/`; il service worker ha scope `./`, cachea gli asset della stable scoped e serve a far partire la preferenza di avvio verso una release scelta anche offline. `/` e `/dev/` restano senza controllo offline diretto.
 
-La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici. Quando l'utente apre una release immutabile dalla stable, il path scelto viene salvato come preferenza di avvio; aprendo `stable/latest` la preferenza viene rimossa. Se la PWA e installata da `/stable/`, il launcher offline permette alla stable scoped di avviarsi anche offline quanto basta per leggere la preferenza e reindirizzare alla release.
+La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con un pulsante che apre una finestra dedicata per installare `stable/latest` o una release consigliata, senza applicare aggiornamenti automatici. Quando l'utente apre una release immutabile dalla stable, il path scelto viene salvato come preferenza di avvio; aprendo `stable/latest` la preferenza viene rimossa. Se la PWA e installata da `/stable/`, il launcher offline permette alla stable scoped di avviarsi anche offline quanto basta per leggere la preferenza e reindirizzare alla release.
 
 ## Dati Locali
 
@@ -130,7 +130,7 @@ La pagina impostazioni include:
 - tema chiaro, scuro o automatico;
 - export JSON/CSV;
 - import JSON/CSV con preview;
-- lista versioni da `releases.json` con apertura manuale di `stable/latest` o della release scelta;
+- finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
 - snapshot locale prima di sostituzione o cancellazione completa;
 - export raw se lo storage locale non e leggibile;

@@ -396,6 +396,7 @@ const AppWiring = (() => {
         function settingsOptions() {
             return {
                 container: deps.document.getElementById('settings-content'),
+                document: deps.document,
                 storage: deps.Storage,
                 getSpese: () => deps.ExpenseStore.getSpese(),
                 FileReaderClass: deps.FileReaderClass,

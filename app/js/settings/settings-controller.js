@@ -34,8 +34,10 @@ const SettingsController = (() => {
         };
     }
 
-    function renderReleaseModel(container, model) {
-        const releaseList = container && container.querySelector('#release-list');
+    function renderReleaseModel(container, model, options = {}) {
+        const doc = options.document || null;
+        const releaseList = (container && container.querySelector('#release-modal-list')) ||
+            (doc && doc.getElementById('release-modal-list'));
         if (!releaseList) return;
 
         releaseList.innerHTML = SettingsView.renderReleaseList(model);
@@ -49,14 +51,14 @@ const SettingsController = (() => {
             renderReleaseModel(container, {
                 status: 'error',
                 message: 'Apri l app da server HTTP/HTTPS per leggere releases.json.'
-            });
+            }, options);
             return Promise.resolve();
         }
 
         const releasesUrl = SettingsActions.getReleasesManifestUrl(locationLike);
         const currentReleaseId = SettingsActions.getCurrentReleaseId(locationLike);
 
-        renderReleaseModel(container, { status: 'loading' });
+        renderReleaseModel(container, { status: 'loading' }, options);
 
         return fetchFn(releasesUrl, { cache: 'no-store' })
             .then(response => {
@@ -76,14 +78,35 @@ const SettingsController = (() => {
                 renderReleaseModel(container, {
                     status: 'ready',
                     ...releaseModel
-                });
+                }, options);
             })
             .catch(error => {
                 renderReleaseModel(container, {
                     status: 'error',
                     message: error && error.message ? error.message : 'Errore sconosciuto.'
-                });
+                }, options);
             });
+    }
+
+    function getReleaseModal(options = {}) {
+        const doc = options.document || (typeof document === 'undefined' ? null : document);
+        if (!doc || typeof doc.getElementById !== 'function') return null;
+
+        return doc.getElementById('release-modal-overlay');
+    }
+
+    function openReleaseModal(options = {}) {
+        const modal = getReleaseModal(options);
+        if (!modal) return;
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeReleaseModal(options = {}) {
+        const modal = getReleaseModal(options);
+        if (!modal) return;
+
+        modal.classList.add('hidden');
     }
 
     function createExportChoices(options = {}) {
@@ -249,8 +272,30 @@ const SettingsController = (() => {
             options.showConfirm('Eliminare TUTTI i dati?', () => clearAll(options));
         });
 
-        container.addEventListener('click', event => {
-            const link = event.target.closest('.release-open-link');
+        const releaseChooser = container.querySelector('#btn-release-chooser');
+        if (releaseChooser) {
+            releaseChooser.addEventListener('click', () => openReleaseModal(options));
+        }
+    }
+
+    function bindReleaseModal(options = {}) {
+        const modal = getReleaseModal(options);
+        if (!modal || modal.dataset.bound === 'true') return;
+
+        modal.dataset.bound = 'true';
+
+        const closeBtn = modal.querySelector('#release-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => closeReleaseModal(options));
+        }
+
+        modal.addEventListener('click', event => {
+            if (event.target.id === 'release-modal-overlay') {
+                closeReleaseModal(options);
+                return;
+            }
+
+            const link = event.target.closest('.release-install-link');
             if (!link) return;
 
             SettingsActions.setLaunchTarget(
@@ -266,6 +311,7 @@ const SettingsController = (() => {
 
         container.innerHTML = SettingsView.renderPage(getRenderModel(options));
         bindEvents(container, options);
+        bindReleaseModal(options);
         loadReleases(container, options);
     }
 
@@ -274,6 +320,8 @@ const SettingsController = (() => {
         createExportChoices,
         createImportChoices,
         loadReleases,
+        openReleaseModal,
+        closeReleaseModal,
         render
     };
 })();

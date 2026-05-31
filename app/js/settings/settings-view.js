@@ -89,7 +89,7 @@ const SettingsView = (() => {
                             <p class="settings-hint">${AppUI.escapeHtml(release.notes || 'Release pubblicata.')}</p>
                             ${renderReleaseMeta(release)}
                         </div>
-                        <a class="btn btn-secondary release-open-link" href="${AppUI.escapeHtml(release.url)}" data-launch-path="${AppUI.escapeHtml(release.launchPath || '')}">Apri</a>
+                        ${release.isCurrent ? '' : `<a class="btn btn-secondary release-install-link" href="${AppUI.escapeHtml(release.url)}" data-launch-path="${AppUI.escapeHtml(release.launchPath || '')}">Installa</a>`}
                     </div>
                 `).join('')}
             </div>
@@ -134,10 +134,8 @@ const SettingsView = (() => {
 
             <div class="settings-section">
                 <h3>\uD83D\uDCE6 Versioni</h3>
-                <p class="settings-hint">Apri una release pubblicata per installarla o provarla. Nessun aggiornamento viene applicato automaticamente.</p>
-                <div id="release-list" class="release-list-container">
-                    ${renderReleaseList(options.releaseModel || { status: 'loading' })}
-                </div>
+                <p class="settings-hint">Puoi cambiare la versione installata quando vuoi.</p>
+                <button id="btn-release-chooser" class="btn btn-secondary btn-block">Scegli Versione...</button>
             </div>
 
             <div class="settings-section">

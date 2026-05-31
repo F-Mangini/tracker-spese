@@ -3106,7 +3106,9 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(page.includes('btn-export-raw'));
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
-    assert(page.includes('release-list'));
+    assert(page.includes('Puoi cambiare la versione installata quando vuoi.'));
+    assert(page.includes('btn-release-chooser'));
+    assert(!page.includes('release-modal-list'));
     assert(page.includes("Where's My Money? v2026.05.30"));
     assert(page.includes('Stabile'));
     assert(page.includes('12.3 KB'));
@@ -3510,7 +3512,7 @@ test('Controller impostazioni carica releases.json e renderizza la lista version
     const calls = [];
     const container = {
         querySelector(selector) {
-            return selector === '#release-list' ? releaseList : null;
+            return selector === '#release-modal-list' ? releaseList : null;
         }
     };
 
@@ -3548,8 +3550,9 @@ test('Controller impostazioni carica releases.json e renderizza la lista version
     assert(releaseList.innerHTML.includes('Canale'));
     assert(releaseList.innerHTML.includes('Corrente'));
     assert(releaseList.innerHTML.includes('Consigliata'));
+    assert(releaseList.innerHTML.includes('Installa'));
     assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/stable/'));
-    assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'));
+    assert(!releaseList.innerHTML.includes('href="https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/"'));
     assert(releaseList.innerHTML.includes('Baseline &lt;b&gt;PWA&lt;/b&gt;'));
     assert(!releaseList.innerHTML.includes('Baseline <b>PWA</b>'));
 });

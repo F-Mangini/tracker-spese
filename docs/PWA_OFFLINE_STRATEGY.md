@@ -10,7 +10,7 @@ La fase non deve cambiare lo schema dati corrente. Eventuali modifiche future a 
 
 Il codice sorgente `app/` non registra un service worker: `/`, `/stable/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 
-La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale della release consigliata e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
+La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale di `stable/latest` o della release consigliata e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
 
 ## Obiettivo
 
@@ -119,7 +119,7 @@ Procedura consigliata:
 
 1. Aprire la stabile o la release pubblica da Chrome Android.
 2. Entrare in Impostazioni e controllare la sezione `Versioni`.
-3. Aprire la release consigliata `v2026.05.30`.
+3. Aprire la release consigliata `v2026.05.30`; dalla release verificare anche che `stable/latest` riporti alla stabile.
 4. Caricare la pagina una volta online e verificare che timeline, statistiche e impostazioni si aprano.
 5. Installare l'app da Chrome usando `Aggiungi a schermata Home` o `Installa app`, se disponibile.
 6. Aprire l'app installata almeno una volta mentre il telefono e ancora online.

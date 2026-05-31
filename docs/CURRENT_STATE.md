@@ -25,7 +25,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 
 Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` non registra un service worker, quindi `/`, `/stable/` e `/dev/` restano senza controllo offline diretto.
 
-La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link alla release consigliata, senza applicare aggiornamenti automatici.
+La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici.
 
 ## Dati Locali
 
@@ -130,7 +130,7 @@ La pagina impostazioni include:
 - tema chiaro, scuro o automatico;
 - export JSON/CSV;
 - import JSON/CSV con preview;
-- lista versioni da `releases.json` con apertura manuale della release scelta;
+- lista versioni da `releases.json` con apertura manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
 - snapshot locale prima di sostituzione o cancellazione completa;
 - export raw se lo storage locale non e leggibile;

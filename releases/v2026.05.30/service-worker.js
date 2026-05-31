@@ -1,6 +1,6 @@
 const RELEASE_ID = "v2026.05.30";
 const CACHE_PREFIX = `wmm-${RELEASE_ID}-`;
-const STATIC_CACHE = `${CACHE_PREFIX}static-v3`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v4`;
 
 const PRECACHE_URLS = [
   "./",

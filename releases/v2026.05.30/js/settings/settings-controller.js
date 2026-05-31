@@ -69,7 +69,8 @@ const SettingsController = (() => {
             .then(manifest => {
                 const releaseModel = SettingsActions.normalizeReleaseManifest(manifest, {
                     releasesUrl,
-                    currentReleaseId
+                    currentReleaseId,
+                    channel: (options.appConfig || {}).channel
                 });
 
                 renderReleaseModel(container, {

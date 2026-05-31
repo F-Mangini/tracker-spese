@@ -3198,9 +3198,12 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         currentReleaseId: 'v2026.05.30'
     });
 
-    assert.equal(releaseModel.releases[0].url, 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/');
-    assert.equal(releaseModel.releases[0].isRecommended, true);
-    assert.equal(releaseModel.releases[0].isCurrent, true);
+    assert.equal(releaseModel.releases[0].id, 'stable/latest');
+    assert.equal(releaseModel.releases[0].url, 'https://f-mangini.github.io/tracker-spese/stable/');
+    assert.equal(releaseModel.releases[0].isCurrent, false);
+    assert.equal(releaseModel.releases[1].url, 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/');
+    assert.equal(releaseModel.releases[1].isRecommended, true);
+    assert.equal(releaseModel.releases[1].isCurrent, true);
     assert.equal(
         SettingsActions.getImportSuccessMessage({ count: 3, regeneratedIds: 2 }, 'append'),
         '3 spese aggiunte, 2 id rigenerati ✓'
@@ -3437,8 +3440,11 @@ test('Controller impostazioni carica releases.json e renderizza la lista version
         ['https://f-mangini.github.io/tracker-spese/releases.json', 'no-store']
     ]);
     assert(releaseList.innerHTML.includes('v2026.05.30'));
+    assert(releaseList.innerHTML.includes('stable/latest'));
+    assert(releaseList.innerHTML.includes('Canale'));
     assert(releaseList.innerHTML.includes('Corrente'));
     assert(releaseList.innerHTML.includes('Consigliata'));
+    assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/stable/'));
     assert(releaseList.innerHTML.includes('https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'));
     assert(releaseList.innerHTML.includes('Baseline &lt;b&gt;PWA&lt;/b&gt;'));
     assert(!releaseList.innerHTML.includes('Baseline <b>PWA</b>'));

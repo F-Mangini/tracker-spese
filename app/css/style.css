@@ -1948,6 +1948,12 @@ body.expense-input-active #input-bar {
     color: var(--accent-text);
 }
 
+.release-badge.channel {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
 .release-meta {
     display: block;
     font-size: 0.75rem;

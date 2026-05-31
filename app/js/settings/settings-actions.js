@@ -121,12 +121,27 @@ const SettingsActions = (() => {
     function normalizeReleaseManifest(manifest = {}, options = {}) {
         const releasesUrl = options.releasesUrl || 'http://localhost/releases.json';
         const currentReleaseId = options.currentReleaseId || '';
+        const channel = String(options.channel || 'stable');
         const recommended = String(manifest.recommended || '');
         const releases = Array.isArray(manifest.releases) ? manifest.releases : [];
+        const stableEntry = {
+            id: 'stable/latest',
+            path: 'stable/',
+            url: new URL('stable/', releasesUrl).href,
+            date: '',
+            status: 'stable',
+            notes: 'Entrypoint stabile aggiornato dal maintainer. Non installarlo se vuoi restare su una release immutabile.',
+            schemaVersion: null,
+            isRecommended: false,
+            isCurrent: !currentReleaseId && channel !== 'dev',
+            isChannel: true
+        };
 
         return {
             recommended,
-            releases: releases
+            releases: [
+                stableEntry,
+                ...releases
                 .filter(release => release && release.id && release.path)
                 .map(release => {
                     const id = String(release.id);
@@ -141,9 +156,11 @@ const SettingsActions = (() => {
                         notes: String(release.notes || ''),
                         schemaVersion: release.schemaVersion,
                         isRecommended: id === recommended || status === 'recommended',
-                        isCurrent: id === currentReleaseId
+                        isCurrent: id === currentReleaseId,
+                        isChannel: false
                     };
                 })
+            ]
         };
     }
 

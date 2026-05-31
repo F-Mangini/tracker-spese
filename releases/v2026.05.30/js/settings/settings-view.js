@@ -40,7 +40,27 @@ const SettingsView = (() => {
             badges.push('<span class="release-badge recommended">Consigliata</span>');
         }
 
+        if (release.isChannel) {
+            badges.push('<span class="release-badge channel">Canale</span>');
+        }
+
         return badges.length ? `<div class="release-badges">${badges.join('')}</div>` : '';
+    }
+
+    function renderReleaseMeta(release = {}) {
+        const items = [];
+
+        if (release.date) {
+            items.push(`Data ${AppUI.escapeHtml(release.date)}`);
+        }
+
+        if (release.schemaVersion != null) {
+            items.push(`Schema dati ${AppUI.escapeHtml(String(release.schemaVersion))}`);
+        }
+
+        return items.length
+            ? `<span class="release-meta">${items.join(' \u00b7 ')}</span>`
+            : '';
     }
 
     function renderReleaseList(model = {}) {
@@ -67,7 +87,7 @@ const SettingsView = (() => {
                                 ${renderReleaseBadges(release)}
                             </div>
                             <p class="settings-hint">${AppUI.escapeHtml(release.notes || 'Release pubblicata.')}</p>
-                            <span class="release-meta">Data ${AppUI.escapeHtml(release.date || 'n/d')} · Schema dati ${AppUI.escapeHtml(String(release.schemaVersion || 'n/d'))}</span>
+                            ${renderReleaseMeta(release)}
                         </div>
                         <a class="btn btn-secondary release-open-link" href="${AppUI.escapeHtml(release.url)}">Apri</a>
                     </div>

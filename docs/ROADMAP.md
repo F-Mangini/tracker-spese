@@ -78,7 +78,7 @@ Completato:
 - `releases.json` e la cartella sorgente `releases/v2026.05.30/` definiscono la prima baseline versionata.
 - i manifest dichiarano `scope` esplicito.
 - `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
-- le impostazioni leggono `releases.json` e mostrano una UI minima per aprire la release consigliata, senza applicare update automatici.
+- le impostazioni leggono `releases.json` e mostrano una UI minima per aprire `stable/latest` o la release consigliata, senza applicare update automatici.
 - il footer impostazioni mostra versione/canale corrente, inclusa la release versionata quando si apre `/releases/vYYYY.MM.DD/`.
 
 ## Versioni e Aggiornamenti Controllati

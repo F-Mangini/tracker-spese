@@ -320,6 +320,11 @@ const AppWiring = (() => {
                     ...confirmOptions(),
                     fromPopstate
                 }),
+                isReleaseModalOpen: () => deps.SettingsController.isReleaseModalOpen(settingsOptions()),
+                closeReleaseModal: fromPopstate => deps.SettingsController.closeReleaseModal(
+                    settingsOptions(),
+                    fromPopstate
+                ),
                 isModalOpen: () => deps.ModalController.isOpen(modalWiring.modalOptions()),
                 closeModal: fromPopstate => deps.ModalController.close(modalWiring.modalOptions(), fromPopstate),
                 isFilterSearchActive: () => app._filterSearchActive,
@@ -404,6 +409,8 @@ const AppWiring = (() => {
                 locationLike: deps.window.location,
                 appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
                 localStorage: deps.window.localStorage,
+                pushUiState,
+                consumeUiState: () => consumeUiState(),
                 dateStamp: () => deps.AppUI.dateStamp(),
                 download: (content, filename, mime) => deps.DownloadController.download(content, filename, mime, {
                     document: deps.document,

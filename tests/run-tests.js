@@ -3557,6 +3557,51 @@ test('Controller impostazioni carica releases.json e renderizza la lista version
     assert(!releaseList.innerHTML.includes('Baseline <b>PWA</b>'));
 });
 
+test('Controller impostazioni collega finestra versioni a history e back button', () => {
+    const { SettingsController } = loadUiViews();
+    const classes = new Set(['hidden']);
+    const calls = [];
+    const modal = {
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'release-modal-overlay' ? modal : null;
+            }
+        },
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: () => calls.push(['consume'])
+    };
+
+    SettingsController.openReleaseModal(options);
+    assert.equal(SettingsController.isReleaseModalOpen(options), true);
+    assert.deepEqual(calls, [['push', { panel: 'release-modal' }]]);
+
+    SettingsController.openReleaseModal(options);
+    assert.deepEqual(calls, [['push', { panel: 'release-modal' }]]);
+
+    SettingsController.closeReleaseModal(options);
+    assert.equal(SettingsController.isReleaseModalOpen(options), false);
+    assert.deepEqual(calls, [
+        ['push', { panel: 'release-modal' }],
+        ['consume']
+    ]);
+
+    SettingsController.openReleaseModal(options);
+    SettingsController.closeReleaseModal(options, true);
+    assert.equal(SettingsController.isReleaseModalOpen(options), false);
+    assert.deepEqual(calls, [
+        ['push', { panel: 'release-modal' }],
+        ['consume'],
+        ['push', { panel: 'release-modal' }]
+    ]);
+});
+
 test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', () => {
     const { ConfirmDialog } = loadUiViews();
     const yes = () => {};
@@ -4110,6 +4155,10 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_CONFIRM
     );
     assert.equal(
+        UIStack.getPopstateAction({ releaseModalOpen: true, modalOpen: true }),
+        UIStack.ACTIONS.CLOSE_RELEASE_MODAL
+    );
+    assert.equal(
         UIStack.getPopstateAction({ modalOpen: true, filterOpen: true }),
         UIStack.ACTIONS.HANDLE_MODAL
     );
@@ -4343,6 +4392,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     const state = {
         suppress: false,
         confirmOpen: false,
+        releaseModalOpen: false,
         modalOpen: false,
         filterSearchActive: false,
         expenseInputActive: false,
@@ -4364,6 +4414,8 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         },
         isConfirmOpen: () => state.confirmOpen,
         closeConfirm: fromPopstate => calls.push(['close-confirm', fromPopstate]),
+        isReleaseModalOpen: () => state.releaseModalOpen,
+        closeReleaseModal: fromPopstate => calls.push(['close-release-modal', fromPopstate]),
         isModalOpen: () => state.modalOpen,
         closeModal: fromPopstate => calls.push(['close-modal', fromPopstate]),
         isFilterSearchActive: () => state.filterSearchActive,
@@ -4423,6 +4475,14 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);
 
     state.suppress = false;
+    state.releaseModalOpen = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLOSE_RELEASE_MODAL
+    );
+    assert.deepEqual(calls[calls.length - 1], ['close-release-modal', true]);
+
+    state.releaseModalOpen = false;
     state.modalOpen = true;
     state.interactionActive = true;
     assert.equal(

@@ -21,6 +21,7 @@ const UIStackController = (() => {
         return {
             suppressNextPopstate: !!(options.getSuppressNextPopstate && options.getSuppressNextPopstate()),
             confirmOpen: !!(options.isConfirmOpen && options.isConfirmOpen()),
+            releaseModalOpen: !!(options.isReleaseModalOpen && options.isReleaseModalOpen()),
             modalOpen: !!(options.isModalOpen && options.isModalOpen()),
             filterSearchActive: !!(options.isFilterSearchActive && options.isFilterSearchActive()),
             expenseInputActive: !!(options.isExpenseInputActive && options.isExpenseInputActive()),
@@ -40,6 +41,11 @@ const UIStackController = (() => {
 
         if (action === stack.ACTIONS.CLOSE_CONFIRM) {
             (options.closeConfirm || noop)(true);
+            return action;
+        }
+
+        if (action === stack.ACTIONS.CLOSE_RELEASE_MODAL) {
+            (options.closeReleaseModal || noop)(true);
             return action;
         }
 

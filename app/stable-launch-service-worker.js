@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wmm-stable-launch-";
-const STATIC_CACHE = `${CACHE_PREFIX}static-v2`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v3`;
 
 const PRECACHE_URLS = [
   "./",

@@ -99,14 +99,30 @@ const SettingsController = (() => {
         const modal = getReleaseModal(options);
         if (!modal) return;
 
+        const wasOpen = !modal.classList.contains('hidden');
         modal.classList.remove('hidden');
+
+        if (!wasOpen && typeof options.pushUiState === 'function') {
+            options.pushUiState({ panel: 'release-modal' });
+        }
     }
 
-    function closeReleaseModal(options = {}) {
+    function closeReleaseModal(options = {}, fromPopstate = false) {
         const modal = getReleaseModal(options);
         if (!modal) return;
 
+        const wasOpen = !modal.classList.contains('hidden');
         modal.classList.add('hidden');
+
+        if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
+            options.consumeUiState();
+        }
+    }
+
+    function isReleaseModalOpen(options = {}) {
+        const modal = getReleaseModal(options);
+
+        return !!(modal && !modal.classList.contains('hidden'));
     }
 
     function createExportChoices(options = {}) {
@@ -322,6 +338,7 @@ const SettingsController = (() => {
         loadReleases,
         openReleaseModal,
         closeReleaseModal,
+        isReleaseModalOpen,
         render
     };
 })();

@@ -101,6 +101,7 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - Release PWA: `releases.json` e `releases/v*/`; i service worker devono restare scoped alla singola release e non devono controllare `/`, `/stable/` o `/dev/`.
 - Manifest stabile: `app/manifest.json`; manifest dev: `app/manifest.dev.json`, copiato dal workflow in `public/dev/manifest.json`.
 - Icone stabili: `app/icons/stable/`; icone dev: `app/icons/dev/`.
+- Launcher offline stable: `app/stable-launch-service-worker.js`, registrato solo da `/stable/` con scope `./`; non deve diventare un service worker root-scope.
 - `app/js/domain/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.
 - Gestione back button, modali, filtri, tastiera mobile e scroll: molte parti sono state sistemate dopo bug concreti.
 

@@ -8,6 +8,11 @@ const App = {
        INIT
        ===================== */
     init() {
+        const launchServiceWorkerReady = SettingsActions.registerLaunchServiceWorker({
+            locationLike: window.location,
+            navigatorLike: window.navigator,
+            setTimeout: window.setTimeout.bind(window)
+        });
         const preferredLaunchUrl = SettingsActions.getPreferredLaunchUrl({
             config: window.SPESA_TRACKER_CONFIG || {},
             locationLike: window.location,
@@ -15,7 +20,11 @@ const App = {
         });
 
         if (preferredLaunchUrl) {
-            window.location.replace(preferredLaunchUrl);
+            launchServiceWorkerReady.then(() => {
+                window.location.replace(preferredLaunchUrl);
+            }, () => {
+                window.location.replace(preferredLaunchUrl);
+            });
             return;
         }
 

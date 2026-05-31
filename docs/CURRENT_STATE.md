@@ -23,9 +23,9 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
 | Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
 
-Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` non registra un service worker, quindi `/`, `/stable/` e `/dev/` restano senza controllo offline diretto.
+Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` registra `stable-launch-service-worker.js` solo quando e servito da `/stable/`; il service worker ha scope `./`, cachea gli asset della stable scoped e serve a far partire la preferenza di avvio verso una release scelta anche offline. `/` e `/dev/` restano senza controllo offline diretto.
 
-La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici. Quando l'utente apre una release immutabile dalla stable, il path scelto viene salvato come preferenza di avvio; aprendo `stable/latest` la preferenza viene rimossa.
+La fase PWA ha una prima struttura di release statiche: `releases.json` descrive le versioni pubblicate e `releases/v2026.05.30/` contiene una baseline stabile versionata. I manifest dichiarano `scope` esplicito; la release `v2026.05.30` registra `service-worker.js` solo dal proprio path e usa una cache offline namespaced per gli asset locali della release. Le impostazioni leggono `releases.json` e mostrano una sezione `Versioni` con link a `stable/latest` e alla release consigliata, senza applicare aggiornamenti automatici. Quando l'utente apre una release immutabile dalla stable, il path scelto viene salvato come preferenza di avvio; aprendo `stable/latest` la preferenza viene rimossa. Se la PWA e installata da `/stable/`, il launcher offline permette alla stable scoped di avviarsi anche offline quanto basta per leggere la preferenza e reindirizzare alla release.
 
 ## Dati Locali
 
@@ -154,7 +154,7 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 
 ## Limiti Noti
 
-- `/`, `/stable/` e `/dev/` non registrano ancora service worker.
+- `/` e `/dev/` non registrano service worker; `/stable/` registra solo un launcher scoped, non una release immutabile.
 - La prima cache offline versionata esiste solo in `releases/v2026.05.30/` e richiede ancora verifica manuale Android.
 - La UI versioni e minima: apre le release pubblicate, ma non gestisce ancora un flusso guidato di aggiornamento/applicazione.
 - Categorie e metodi sono statici.

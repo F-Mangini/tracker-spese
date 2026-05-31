@@ -4,13 +4,13 @@ Questo documento definisce la fase `pwa`, separata dal refactor strutturale gia 
 
 ## Stato
 
-Fase attiva su branch `pwa`, creato da `main` dopo la promozione della dev a stabile.
+Fase progettata su branch `pwa` dopo la promozione della dev a stabile; la baseline PWA/offline e ora pubblicata su `main` per permettere test reali su GitHub Pages.
 
 La fase non deve cambiare lo schema dati corrente. Eventuali modifiche future a schema, storage, backup o import/export richiederanno una decisione dedicata, fallback per dati vecchi e test specifici.
 
-Il codice sorgente `app/` non registra un service worker: `/`, `/stable/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
+Il codice sorgente `app/` registra un service worker leggero solo quando viene servito da `/stable/`: e un launcher offline scoped alla stable, utile a riaprire la release scelta anche se lo start URL della PWA installata resta `/stable/`. `/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 
-La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
+La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI minima nelle impostazioni per leggere `releases.json`, apertura manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata, launcher offline scoped per `/stable/` e versione/canale visibili nel footer impostazioni. Restano da completare verifica Android pubblica e flusso di aggiornamento piu guidato.
 
 ## Obiettivo
 
@@ -42,6 +42,8 @@ Il canale `/dev/` resta separato e non deve condividere storage key con la stabi
 Ogni release installabile deve avere manifest e service worker coerenti con il proprio path.
 
 Regola critica: non usare un service worker root-scope che controlli anche `/dev/`, `/stable/` o release diverse.
+
+Eccezione controllata: `/stable/` registra `stable-launch-service-worker.js` con scope `./`. Questo service worker non rende la stable una release immutabile e non controlla `/`, `/dev/` o `/releases/`: cachea solo gli asset della stable scoped per permettere allo start URL installato da `/stable/` di avviarsi offline, leggere `spesa-tracker-launch-target` e reindirizzare alla release scelta dall'utente.
 
 Per una release:
 
@@ -122,12 +124,14 @@ Procedura consigliata:
 3. Aprire la release consigliata `v2026.05.30`; dalla release verificare anche che `stable/latest` riporti alla stabile.
 4. Caricare la pagina una volta online e verificare che timeline, statistiche e impostazioni si aprano.
 5. Installare l'app da Chrome usando `Aggiungi a schermata Home` o `Installa app`, se disponibile.
-6. Aprire l'app installata almeno una volta mentre il telefono e ancora online.
+6. Aprire l'app installata almeno una volta mentre il telefono e ancora online, cosi il launcher offline di `/stable/` e/o il service worker della release possono completare la cache.
 7. Attivare modalita aereo.
 8. Riaprire l'app installata e fare refresh della pagina.
 9. Verificare che CSS, JS, icone e grafici Chart.js restino disponibili offline.
 10. Chiudere e riaprire l'app installata: se dalla stable era stata scelta `v2026.05.30`, deve riaprire quella release.
 11. Tornare online e controllare che `https://f-mangini.github.io/tracker-spese/dev/` continui a caricare senza essere controllata dal service worker della release.
+
+Nota installazione: il launcher offline della stable funziona per app installate da `https://f-mangini.github.io/tracker-spese/stable/`. Se l'icona era stata installata da `/` prima di questa fase, lo start URL puo restare root e non essere coperto dal launcher scoped; in quel caso reinstallare dalla stable scoped o installare direttamente dalla release versionata.
 
 ### Test Locale Avanzato Con Android
 

@@ -3245,6 +3245,75 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     );
 });
 
+test('Azioni impostazioni registrano il launcher offline solo su /stable/', async () => {
+    const { SettingsActions } = loadUiViews();
+    const registered = [];
+    const navigatorLike = {
+        serviceWorker: {
+            ready: Promise.resolve(true),
+            register(script, options) {
+                registered.push([script, options]);
+                return Promise.resolve({});
+            }
+        }
+    };
+
+    assert.equal(
+        SettingsActions.shouldRegisterLaunchServiceWorker({
+            href: 'https://f-mangini.github.io/tracker-spese/stable/'
+        }),
+        true
+    );
+    assert.equal(
+        SettingsActions.shouldRegisterLaunchServiceWorker({
+            href: 'https://f-mangini.github.io/tracker-spese/stable/index.html'
+        }),
+        true
+    );
+    assert.equal(
+        SettingsActions.shouldRegisterLaunchServiceWorker({
+            href: 'https://f-mangini.github.io/tracker-spese/'
+        }),
+        false
+    );
+    assert.equal(
+        SettingsActions.shouldRegisterLaunchServiceWorker({
+            href: 'https://f-mangini.github.io/tracker-spese/dev/'
+        }),
+        false
+    );
+    assert.equal(
+        SettingsActions.shouldRegisterLaunchServiceWorker({
+            href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'
+        }),
+        false
+    );
+
+    assert.equal(
+        await SettingsActions.registerLaunchServiceWorker({
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/stable/' },
+            navigatorLike,
+            setTimeout: callback => callback(),
+            waitMs: 0
+        }),
+        true
+    );
+    assert.deepEqual(registered, [
+        ['./stable-launch-service-worker.js', { scope: './' }]
+    ]);
+
+    assert.equal(
+        await SettingsActions.registerLaunchServiceWorker({
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/dev/' },
+            navigatorLike,
+            setTimeout: callback => callback(),
+            waitMs: 0
+        }),
+        false
+    );
+    assert.equal(registered.length, 1);
+});
+
 test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     const { SettingsActions } = loadUiViews();
     const calls = [];

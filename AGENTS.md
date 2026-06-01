@@ -19,7 +19,7 @@ Questo progetto e personale ed e mantenuto da una sola persona. Le soluzioni dev
 - Obiettivo distribuzione: app installabile/offline stabile, con aggiornamenti scelti dall'utente da una lista di versioni pubblicate dal maintainer.
 - Branch stabile attuale: `main`.
 - Branch aggregatore per test pubblico/dev: `dev`.
-- Branch di fase attuale: `privacy`.
+- Branch di fase attuale: `ux`.
 - Branch di lavoro/refactor storico: `codex/refactor`.
 - GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `dev`.
 - Il workflow Pages deve partire da `main`: l'environment `github-pages` non accetta deploy diretti dai branch di lavoro.

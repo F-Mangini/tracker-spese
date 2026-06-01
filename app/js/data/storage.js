@@ -365,6 +365,42 @@ const Storage = {
         return this._ok({ count: initialCount - data.spese.length, warnings: saved.warnings || [] });
     },
 
+    deleteSpese(ids, options = {}) {
+        const idSet = new Set(
+            (Array.isArray(ids) ? ids : [])
+                .map(id => String(id || '').trim())
+                .filter(Boolean)
+        );
+
+        if (idSet.size === 0) {
+            return this._fail('Nessuna spesa selezionata.', 'empty-selection');
+        }
+
+        const current = this._loadForWrite();
+        if (!current.success) return current;
+
+        const data = current.data;
+        const initialCount = data.spese.length;
+        const nextSpese = data.spese.filter(spesa => !idSet.has(spesa.id));
+        const deletedCount = initialCount - nextSpese.length;
+
+        if (deletedCount === 0) {
+            return this._fail('Nessuna spesa selezionata trovata.', 'selection-not-found');
+        }
+
+        if (options.createSnapshot !== false) {
+            const snapshot = this._saveSnapshot(data, 'bulk-delete');
+            if (!snapshot.success) return snapshot;
+        }
+
+        data.spese = nextSpese;
+
+        const saved = this._save(data);
+        if (!saved.success) return saved;
+
+        return this._ok({ count: deletedCount, warnings: saved.warnings || [] });
+    },
+
     /* --- Impostazioni --- */
     getSettings() {
         return this._clone(this._load().impostazioni);
@@ -385,10 +421,22 @@ const Storage = {
     },
 
     /* --- Export --- */
-    exportCSV() {
+    _resolveExportData(options = {}) {
         const current = this._readStoredData();
         if (!current.success) return current;
 
+        if (!Array.isArray(options.spese)) {
+            return current;
+        }
+
+        return this._normalizeData({
+            schemaVersion: this.SCHEMA_VERSION,
+            spese: options.spese,
+            impostazioni: current.data.impostazioni
+        }, { source: 'export' });
+    },
+
+    _serializeCSV(spese) {
         const header = [
             'id',
             'data',
@@ -403,7 +451,7 @@ const Storage = {
             'modificatoIl'
         ];
 
-        const rows = current.data.spese.map(s => {
+        const rows = spese.map(s => {
             const d = new Date(s.data);
             const data = d.toLocaleDateString('it-IT');
             const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -423,11 +471,18 @@ const Storage = {
             ].map(value => this._escapeCSV(value)).join(',');
         });
 
-        return this._ok({ content: header.join(',') + '\n' + rows.join('\n'), count: rows.length });
+        return { content: header.join(',') + '\n' + rows.join('\n'), count: rows.length };
     },
 
-    exportJSON() {
-        const current = this._readStoredData();
+    exportCSV(options = {}) {
+        const current = this._resolveExportData(options);
+        if (!current.success) return current;
+
+        return this._ok(this._serializeCSV(current.data.spese));
+    },
+
+    exportJSON(options = {}) {
+        const current = this._resolveExportData(options);
         if (!current.success) return current;
         return this._ok({
             content: JSON.stringify(current.data, null, 2),

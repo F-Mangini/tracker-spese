@@ -26,6 +26,12 @@
                 🔍
                 <span id="filter-badge" class="filter-badge hidden">0</span>
             </button>
+            <button id="btn-selection-select-all" class="header-btn selection-header-btn hidden"
+                aria-label="Seleziona spese filtrate" title="Seleziona tutte le spese filtrate">☑</button>
+            <button id="btn-selection-export" class="header-btn selection-header-btn hidden"
+                aria-label="Esporta spese selezionate" title="Esporta spese selezionate">⇩</button>
+            <button id="btn-selection-delete" class="header-btn header-btn-danger selection-header-btn hidden"
+                aria-label="Elimina spese selezionate" title="Elimina spese selezionate">🗑️</button>
             <button id="theme-toggle" class="header-btn" aria-label="Cambia tema">🌓</button>
         </div>
     </header>
@@ -247,6 +253,7 @@
     <script src="js/filters/filter-controller.js"></script>
     <script src="js/timeline/timeline-view.js"></script>
     <script src="js/timeline/timeline-controller.js"></script>
+    <script src="js/timeline/timeline-selection-controller.js"></script>
     <script src="js/navigation/navigation-controller.js"></script>
     <script src="js/stats/stats-view.js"></script>
     <script src="js/stats/stats-charts.js"></script>

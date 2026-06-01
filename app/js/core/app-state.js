@@ -27,6 +27,9 @@ const AppState = (() => {
             editingId: null,
             newCardId: null,
             recognition: null,
+            timelineSelectionActive: false,
+            timelineSelectedIds: new Set(),
+            timelineSelectionDeletePending: false,
 
             statsPeriod: 'month',
             statsOffset: 0,

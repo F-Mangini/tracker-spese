@@ -16,7 +16,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Config e dominio statico | `core/config.js`, `domain/categories.js` | Config runtime minima, chiave storage configurabile, categorie e metodi statici. |
 | Persistenza e dati derivati | `data/storage.js`, `data/expense-store.js`, `domain/expense-query.js`, `core/app-refresh.js` | Storage protetto, cache UI, modelli filtrati/statistici e policy di refresh post-commit. |
 | Inserimento e spese | `domain/parser.js`, `domain/expense-actions.js`, `input/expense-submit-controller.js`, `input/expense-input-controller.js`, `input/input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
-| Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/filter-controller.js` | Rendering timeline, modello filtrato, pannello filtri, slider, badge e ricerca. |
+| Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `timeline/timeline-selection-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/filter-controller.js` | Rendering timeline, selezione multipla volatile, modello filtrato, pannello filtri, slider, badge e ricerca. |
 | Statistiche | `domain/stats.js`, `stats/stats-view.js`, `stats/stats-charts.js`, `stats/stats-controller.js` | Periodi, aggregazioni, template statistiche e configurazione Chart.js. |
 | Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, focus/picker mobile, viewport/tastiera e lifecycle modale. |
 | Navigazione e stack UI | `navigation/navigation-controller.js`, `navigation/ui-stack.js`, `navigation/history-controller.js`, `navigation/ui-stack-effects.js`, `navigation/ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
@@ -62,6 +62,8 @@ Una spesa contiene normalmente:
 
 Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccati per evitare perdita dati silenziosa. La pagina impostazioni permette l'export del raw.
 
+La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.
+
 JSON e il backup completo. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
 
 ## Funzioni Implementate
@@ -75,6 +77,8 @@ Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri
 ### Timeline
 
 La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana e mese; con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
+
+Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il toggle tema dell'header viene nascosto e compaiono le azioni per selezionare tutte le spese visibili/filtrate, esportare la selezione in JSON/CSV o eliminare la selezione con conferma. `Seleziona tutte` sostituisce la selezione corrente con tutte e sole le spese filtrate al momento.
 
 ### Filtri
 
@@ -114,6 +118,7 @@ Il back button chiude, in ordine di priorita:
 - input rapido attivo;
 - pannello filtri completamente aperto;
 - pannello filtri;
+- modalita selezione timeline;
 - pagina corrente tornando alla timeline.
 
 Le decisioni sono in `ui-stack.js`; l'esecuzione concreta di push/back/go/replace e in `history-controller.js`.
@@ -134,6 +139,7 @@ La pagina impostazioni include:
 - finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
 - snapshot locale prima di import in aggiunta, import in sostituzione, cambio versione o cancellazione completa;
+- snapshot locale prima di cancellazione multipla dalla timeline;
 - ripristino dall'ultimo snapshot locale disponibile;
 - export raw se lo storage locale non e leggibile;
 - info su numero spese, periodo coperto e spazio usato;
@@ -151,7 +157,7 @@ Il runner locale e:
 node tests/run-tests.js
 ```
 
-Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.
+Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, selezione timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.
 
 Mancano ancora test automatici su browser mobile reale, tastiera Android reale e interazioni DOM complete.
 
@@ -161,7 +167,7 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 - La prima cache offline versionata esiste solo in `releases/v2026.05.30/`; le prossime release richiederanno una nuova cartella immutabile e un nuovo cache namespace.
 - La UI versioni copre il flusso guidato minimo; eventuali migrazioni dati tra versioni andranno progettate quando cambiera lo schema.
 - Categorie e metodi sono statici.
-- Non esistono ancora cestino, selezione multipla o azioni bulk.
+- Non esistono ancora cestino, swipe su card, copia negli appunti o finestra export custom completa.
 - La pagina statistiche non permette ancora di aprire/modificare una spesa.
 - Desktop e iOS sono usabili ma meno rifiniti dell'esperienza Android.
 - Accessibilita e semantica dei controlli custom sono migliorabili.

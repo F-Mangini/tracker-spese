@@ -7,6 +7,7 @@ const TimelineView = (() => {
         const filtered = Array.isArray(options.filtered) ? options.filtered : [];
         const isFiltered = !!options.isFiltered;
         const quickTotals = options.quickTotals || {};
+        const selection = options.selection || {};
 
         let firstLabel;
         let firstValue;
@@ -15,7 +16,14 @@ const TimelineView = (() => {
         let thirdLabel;
         let thirdValue;
 
-        if (isFiltered) {
+        if (selection.active) {
+            firstLabel = 'Selezione';
+            firstValue = '\u2713';
+            secondLabel = 'Totale';
+            secondValue = AppUI.money(selection.selectedTotal);
+            thirdLabel = 'N. spese';
+            thirdValue = Number(selection.selectedCount || 0);
+        } else if (isFiltered) {
             const filteredTotal = filtered.reduce((sum, item) => sum + Number(item.importo || 0), 0);
             firstLabel = 'Filtro Attivo';
             firstValue = '\uD83D\uDD0D';
@@ -63,9 +71,20 @@ const TimelineView = (() => {
         const time = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
         const isNew = !!options.isNew;
         const hasTags = Array.isArray(spesa.tags) && spesa.tags.length > 0;
+        const selectionActive = !!options.selectionActive;
+        const isSelected = !!options.isSelected;
+        const deletePending = !!options.deletePending;
+        const cardClasses = [
+            'expense-card',
+            isNew ? 'new-card' : '',
+            selectionActive ? 'selection-mode' : '',
+            isSelected ? 'selected' : '',
+            deletePending && isSelected ? 'delete-pending' : ''
+        ].filter(Boolean).join(' ');
 
         return `
-            <div class="expense-card${isNew ? ' new-card' : ''}" data-id="${AppUI.escapeHtml(spesa.id)}">
+            <div class="${cardClasses}" data-id="${AppUI.escapeHtml(spesa.id)}" aria-selected="${isSelected ? 'true' : 'false'}">
+                ${selectionActive ? `<div class="expense-select-mark" aria-hidden="true">${isSelected ? '\u2713' : ''}</div>` : ''}
                 <div class="expense-emoji">${AppUI.escapeHtml(category.emoji || '')}</div>
                 <div class="expense-info">
                     <div class="expense-desc"><span class="expense-met-icon">${AppUI.escapeHtml(method.emoji || '')}</span>${AppUI.escapeHtml(spesa.descrizione)}</div>
@@ -98,7 +117,10 @@ const TimelineView = (() => {
                     ${expenses.map(spesa => renderExpenseCard(spesa, {
                 category: options.getCategory ? options.getCategory(spesa.categoria) : {},
                 method: options.getMethod ? options.getMethod(spesa.metodo) : {},
-                isNew: spesa.id === options.newCardId
+                isNew: spesa.id === options.newCardId,
+                selectionActive: !!options.selectionActive,
+                isSelected: options.selectedIds instanceof Set && options.selectedIds.has(spesa.id),
+                deletePending: !!options.deletePending
             })).join('')}
                 </div>
             `;

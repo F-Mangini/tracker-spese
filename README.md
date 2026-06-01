@@ -21,9 +21,9 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - categorie e metodi di pagamento predefiniti;
 - tag, note e modifica delle spese;
 - filtri per ricerca, periodo, importo, categoria e metodo;
-- timeline con riepilogo giornaliero/settimanale/mensile;
+- timeline con riepilogo giornaliero/settimanale/mensile e selezione multipla;
 - statistiche con grafici Chart.js;
-- import/export JSON e CSV;
+- import/export JSON e CSV, anche per le spese selezionate dalla timeline;
 - tema chiaro/scuro/automatico;
 - manifest web app per installazione base;
 - baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.

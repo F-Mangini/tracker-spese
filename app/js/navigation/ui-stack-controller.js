@@ -27,6 +27,7 @@ const UIStackController = (() => {
             expenseInputActive: !!(options.isExpenseInputActive && options.isExpenseInputActive()),
             advancedFiltersOpen: !!(options.isAdvancedFiltersOpen && options.isAdvancedFiltersOpen()),
             filterOpen: !!(options.isFilterOpen && options.isFilterOpen()),
+            timelineSelectionActive: !!(options.isTimelineSelectionActive && options.isTimelineSelectionActive()),
             currentPage: options.getCurrentPage ? options.getCurrentPage() : null
         };
     }
@@ -71,6 +72,11 @@ const UIStackController = (() => {
 
         if (action === stack.ACTIONS.CLOSE_FILTER) {
             (options.closeFilterPanel || noop)(true);
+            return action;
+        }
+
+        if (action === stack.ACTIONS.CLOSE_TIMELINE_SELECTION) {
+            (options.closeTimelineSelection || noop)(true);
             return action;
         }
 

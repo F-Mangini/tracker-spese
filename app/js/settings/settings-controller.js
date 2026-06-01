@@ -356,6 +356,19 @@ const SettingsController = (() => {
             const link = event.target.closest('.release-install-link');
             if (!link) return;
 
+            const snapshot = SettingsActions.createVersionChangeSnapshot({
+                storage: options.storage
+            });
+
+            if (!snapshot.success) {
+                event.preventDefault();
+                options.showToast(
+                    snapshot.error || 'Snapshot prima del cambio versione non riuscito',
+                    'error'
+                );
+                return;
+            }
+
             SettingsActions.setLaunchTarget(
                 link.dataset.launchPath || '',
                 options.localStorage
@@ -381,6 +394,7 @@ const SettingsController = (() => {
         openReleaseModal,
         closeReleaseModal,
         isReleaseModalOpen,
+        bindReleaseModal,
         render
     };
 })();

@@ -133,7 +133,7 @@ La pagina impostazioni include:
 - import JSON/CSV con preview;
 - finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
-- snapshot locale prima di sostituzione o cancellazione completa;
+- snapshot locale prima di import in aggiunta, import in sostituzione, cambio versione o cancellazione completa;
 - ripristino dall'ultimo snapshot locale disponibile;
 - export raw se lo storage locale non e leggibile;
 - info su numero spese, periodo coperto e spazio usato;

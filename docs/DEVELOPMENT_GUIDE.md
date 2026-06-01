@@ -63,7 +63,7 @@ Dal refactor dati del 2026-05-16:
 - le scritture storage devono restituire risultati espliciti e la UI deve controllare `success` prima di mostrare conferme positive;
 - i dati letti o importati devono passare dalla normalizzazione centralizzata in `app/js/data/storage.js`;
 - un JSON locale corrotto deve bloccare i nuovi salvataggi finche il maintainer non esporta o risolve il raw;
-- le operazioni distruttive come import in sostituzione e cancellazione completa devono creare uno snapshot locale prima del commit;
+- le operazioni che cambiano il set dati o il contesto di esecuzione, come import in aggiunta, import in sostituzione, cambio versione e cancellazione completa, devono creare uno snapshot locale prima del commit;
 - lo snapshot locale e ripristinabile dalle impostazioni; prima del ripristino i dati correnti vengono salvati come nuovo snapshot per permettere un undo manuale;
 - la cancellazione completa puo rimuovere anche lo snapshot locale tramite una spunta esplicita nella conferma; la preferenza release non e considerata dato sensibile;
 - import JSON e CSV devono mantenere preview/validazione separata dal commit.

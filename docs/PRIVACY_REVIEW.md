@@ -105,9 +105,9 @@ Controlli gia presenti:
 - guardrail su JSON locale corrotto;
 - blocco dei salvataggi quando i dati locali non sono leggibili;
 - export raw quando lo storage non e parseabile;
-- snapshot locale prima di sostituzione import o cancellazione completa.
+- snapshot locale prima di import in aggiunta, import in sostituzione, cambio versione o cancellazione completa.
 
-Nota privacy importante: lo snapshot locale e una misura anti-perdita dati. Dopo una sostituzione o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo la conferma di cancellazione completa include una spunta, disattivata di default, per rimuovere anche lo snapshot locale.
+Nota privacy importante: lo snapshot locale e una misura anti-perdita dati. Dopo un import, un cambio versione o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo la conferma di cancellazione completa include una spunta, disattivata di default, per rimuovere anche lo snapshot locale.
 
 Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e salva prima i dati correnti come nuovo snapshot. In questo modo, se il ripristino non era quello desiderato, resta una possibilita di tornare allo stato immediatamente precedente.
 

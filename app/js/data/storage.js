@@ -283,6 +283,10 @@ const Storage = {
         return this._ok();
     },
 
+    createSnapshot(reason = 'manual') {
+        return this._saveCurrentSnapshot(reason);
+    },
+
     /* --- CRUD Spese --- */
     getSpese() {
         return this._clone(this._load().spese);
@@ -498,12 +502,11 @@ const Storage = {
         const existingIds = mode === 'append' ? new Set(data.spese.map(s => s.id)) : new Set();
         const prepared = this._prepareImportedSpese(preview.data.spese, existingIds);
         warnings.push(...prepared.warnings);
+        const snapshot = this._saveSnapshot(data, `${options.source}-${mode}`);
+        if (!snapshot.success) return snapshot;
 
         let nextData;
         if (mode === 'replace') {
-            const snapshot = this._saveSnapshot(data, `${options.source}-replace`);
-            if (!snapshot.success) return snapshot;
-
             nextData = {
                 schemaVersion: this.SCHEMA_VERSION,
                 spese: prepared.spese,

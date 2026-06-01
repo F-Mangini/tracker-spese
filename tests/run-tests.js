@@ -329,10 +329,14 @@ test('Import JSON in aggiunta rigenera id duplicati e conserva le impostazioni a
     assert.equal(result.regeneratedIds, 1);
 
     const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const snapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
     assert.equal(saved.spese.length, 2);
     assert.equal(saved.spese[0].descrizione, 'Importata');
     assert.notEqual(saved.spese[0].id, 'same-id');
     assert.equal(saved.impostazioni.tema, 'dark');
+    assert.equal(snapshot.reason, 'json-append');
+    assert.equal(snapshot.data.spese[0].id, 'same-id');
 });
 
 test('Import JSON in sostituzione crea snapshot e importa le impostazioni del backup', () => {
@@ -360,6 +364,7 @@ test('Import JSON in sostituzione crea snapshot e importa le impostazioni del ba
     assert.equal(saved.spese.length, 1);
     assert.equal(saved.spese[0].id, 'new-id');
     assert.equal(saved.impostazioni.tema, 'light');
+    assert.equal(snapshot.reason, 'json-replace');
     assert.equal(snapshot.data.spese[0].id, 'old-id');
 });
 
@@ -3418,6 +3423,10 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
             calls.push(['restore-snapshot']);
             return { success: true, count: 1, restoredRaw: false };
         },
+        createSnapshot(reason) {
+            calls.push(['snapshot', reason]);
+            return { success: true };
+        },
         importJSON(content, options) {
             calls.push(['import-json', content, options.mode]);
             return { success: true, count: 1, regeneratedIds: 0 };
@@ -3484,6 +3493,7 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     const clearResult = SettingsActions.clearAll({ storage });
     const clearSnapshotResult = SettingsActions.clearAll({ storage, clearSnapshot: true });
     const restoreResult = SettingsActions.restoreSnapshot({ storage });
+    const versionSnapshot = SettingsActions.createVersionChangeSnapshot({ storage });
 
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
@@ -3493,6 +3503,7 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.equal(clearResult.toast, 'Dati eliminati');
     assert.equal(clearSnapshotResult.toast, 'Dati e snapshot eliminati');
     assert.equal(restoreResult.toast, '1 spese ripristinate dallo snapshot \u2713');
+    assert.equal(versionSnapshot.success, true);
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
@@ -3503,7 +3514,8 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         ['update-settings', 'dark'],
         ['clear-all', { clearSnapshot: false }],
         ['clear-all', { clearSnapshot: true }],
-        ['restore-snapshot']
+        ['restore-snapshot'],
+        ['snapshot', 'version-change']
     ]);
 });
 
@@ -3675,6 +3687,101 @@ test('Controller impostazioni collega finestra versioni a history e back button'
         ['push', { panel: 'release-modal' }],
         ['consume'],
         ['push', { panel: 'release-modal' }]
+    ]);
+});
+
+test('Controller impostazioni crea snapshot prima del cambio versione', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    const launchStorage = createLocalStorage();
+    let clickHandler = null;
+    const modal = {
+        dataset: {},
+        querySelector() {
+            return null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const storage = {
+        createSnapshot(reason) {
+            calls.push(['snapshot', reason]);
+            return { success: true };
+        }
+    };
+    const link = {
+        dataset: { launchPath: 'releases/v2026.05.30/' },
+        closest(selector) {
+            return selector === '.release-install-link' ? link : null;
+        }
+    };
+
+    SettingsController.bindReleaseModal({
+        document: {
+            getElementById(id) {
+                return id === 'release-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage: launchStorage,
+        showToast: (message, type) => calls.push(['toast', type, message])
+    });
+
+    clickHandler({ target: link });
+
+    assert.deepEqual(calls, [['snapshot', 'version-change']]);
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'releases/v2026.05.30/');
+});
+
+test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    const launchStorage = createLocalStorage();
+    let clickHandler = null;
+    let prevented = false;
+    const modal = {
+        dataset: {},
+        querySelector() {
+            return null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const link = {
+        dataset: { launchPath: 'releases/v2026.05.30/' },
+        closest(selector) {
+            return selector === '.release-install-link' ? link : null;
+        }
+    };
+
+    SettingsController.bindReleaseModal({
+        document: {
+            getElementById(id) {
+                return id === 'release-modal-overlay' ? modal : null;
+            }
+        },
+        storage: {
+            createSnapshot(reason) {
+                calls.push(['snapshot', reason]);
+                return { success: false, error: 'Snapshot fallito' };
+            }
+        },
+        localStorage: launchStorage,
+        showToast: (message, type) => calls.push(['toast', type, message])
+    });
+
+    clickHandler({
+        target: link,
+        preventDefault: () => { prevented = true; }
+    });
+
+    assert.equal(prevented, true);
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), null);
+    assert.deepEqual(calls, [
+        ['snapshot', 'version-change'],
+        ['toast', 'error', 'Snapshot fallito']
     ]);
 });
 

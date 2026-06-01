@@ -388,6 +388,16 @@ const SettingsActions = (() => {
         };
     }
 
+    function createVersionChangeSnapshot(options = {}) {
+        const { storage } = options;
+
+        if (!storage || typeof storage.createSnapshot !== 'function') {
+            return { success: true };
+        }
+
+        return storage.createSnapshot('version-change');
+    }
+
     return {
         detectImportFormat,
         getExportChoices,
@@ -409,6 +419,7 @@ const SettingsActions = (() => {
         commitImport,
         updateTheme,
         clearAll,
-        restoreSnapshot
+        restoreSnapshot,
+        createVersionChangeSnapshot
     };
 })();

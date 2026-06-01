@@ -25,9 +25,6 @@ const SettingsController = (() => {
             spese,
             sizeKB: storage.getStorageSizeKB(),
             storageStatus: storage.getStatus(),
-            snapshotInfo: typeof storage.getSnapshotInfo === 'function'
-                ? storage.getSnapshotInfo()
-                : { exists: false },
             dateRange: SettingsView.getDateRange(spese),
             releaseModel: options.releaseModel,
             appInfo: SettingsActions.getAppInfo(
@@ -240,35 +237,6 @@ const SettingsController = (() => {
         options.showToast(result.toast, 'info');
     }
 
-    function restoreSnapshot(options = {}) {
-        const result = SettingsActions.restoreSnapshot({
-            storage: options.storage
-        });
-
-        if (!result.success) {
-            options.showToast(result.error || 'Ripristino snapshot non riuscito', 'error');
-            return;
-        }
-
-        options.refreshAfterDataChange();
-        options.showToast(result.toast, result.result.restoredRaw ? 'info' : 'success');
-    }
-
-    function privacyWipe(options = {}) {
-        const result = SettingsActions.privacyWipe({
-            storage: options.storage,
-            localStorage: options.localStorage
-        });
-
-        if (!result.success) {
-            options.showToast(result.error || 'Cancellazione privacy non riuscita', 'error');
-            return;
-        }
-
-        options.refreshAfterDataChange();
-        options.showToast(result.toast, 'info');
-    }
-
     function handleImportFile(fileInput, file, options = {}) {
         const Reader = options.FileReaderClass || FileReader;
         const reader = new Reader();
@@ -308,16 +276,6 @@ const SettingsController = (() => {
             rawBtn.addEventListener('click', () => downloadRawData(options));
         }
 
-        const restoreBtn = container.querySelector('#btn-restore-snapshot');
-        if (restoreBtn) {
-            restoreBtn.addEventListener('click', () => {
-                options.showConfirm(
-                    'Ripristinare lo snapshot locale? I dati attuali verranno sostituiti e salvati prima come nuovo snapshot.',
-                    () => restoreSnapshot(options)
-                );
-            });
-        }
-
         const fileInput = container.querySelector('#import-file');
         container.querySelector('#btn-import').addEventListener('click', () => fileInput.click());
 
@@ -329,16 +287,6 @@ const SettingsController = (() => {
         container.querySelector('#btn-clear-all').addEventListener('click', () => {
             options.showConfirm('Eliminare TUTTI i dati?', () => clearAll(options));
         });
-
-        const privacyWipeBtn = container.querySelector('#btn-privacy-wipe');
-        if (privacyWipeBtn) {
-            privacyWipeBtn.addEventListener('click', () => {
-                options.showConfirm(
-                    'Cancellare dati, snapshot locale e preferenza versione? Questa azione non crea un nuovo snapshot.',
-                    () => privacyWipe(options)
-                );
-            });
-        }
 
         const releaseChooser = container.querySelector('#btn-release-chooser');
         if (releaseChooser) {

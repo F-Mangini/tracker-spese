@@ -17,12 +17,9 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 
 ## Prossime Priorita
 
-1. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-2. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
-
-Completato il 2026-06-01:
-
-- Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
+1. Eseguire una review privacy esplicita ora che asset locali, service worker e aggiornamenti sono piu chiari.
+2. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
+3. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 ## Repository e Canali
 
@@ -53,9 +50,7 @@ Ancora da affrontare:
 
 ## Dati, Privacy e Import/Export
 
-- Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
-- Ripristino dall'ultimo snapshot locale e cancellazione privacy forte aggiunti alle impostazioni.
-- Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
+- Eseguire una review privacy: dati nel browser, asset caricati da rete, backup esportati, device condivisi, eventuale cifratura locale.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Aggiungere export/copia rapida per spese selezionate o filtrate: JSON, CSV/TSV e tabella Markdown.
 - Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.

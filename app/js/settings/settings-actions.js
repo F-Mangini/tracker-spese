@@ -267,14 +267,6 @@ const SettingsActions = (() => {
         };
     }
 
-    function getSnapshotRestoreSuccessMessage(result = {}) {
-        if (result.restoredRaw) {
-            return 'Snapshot grezzo ripristinato. Controlla i dati grezzi se l app segnala errori.';
-        }
-
-        return `${Number(result.count || 0)} spese ripristinate dallo snapshot \u2713`;
-    }
-
     function fail(error, code) {
         return {
             success: false,
@@ -371,37 +363,6 @@ const SettingsActions = (() => {
         };
     }
 
-    function restoreSnapshot(options = {}) {
-        const { storage } = options;
-        const result = storage.restoreSnapshot();
-
-        if (!result.success) return result;
-
-        return {
-            success: true,
-            result,
-            toast: getSnapshotRestoreSuccessMessage(result)
-        };
-    }
-
-    function privacyWipe(options = {}) {
-        const { storage, localStorage } = options;
-        const result = storage.clearAll({
-            createSnapshot: false,
-            clearSnapshot: true
-        });
-
-        if (!result.success) return result;
-
-        setLaunchTarget('', localStorage);
-
-        return {
-            success: true,
-            result,
-            toast: 'Dati e snapshot eliminati'
-        };
-    }
-
     return {
         detectImportFormat,
         getExportChoices,
@@ -422,8 +383,6 @@ const SettingsActions = (() => {
         buildRawDownload,
         commitImport,
         updateTheme,
-        clearAll,
-        restoreSnapshot,
-        privacyWipe
+        clearAll
     };
 })();

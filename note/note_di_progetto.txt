@@ -2,6 +2,10 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 30/05/2026
+
+BUG in BROWSER: chiudendo il pannello filtri, il riassunto rimane bloccato a metà sotto l'header, ma succede solo se la pagina è stata prima refreshata.
+
 ### Aggiunte del 23/05/2026
 
 FEAT: Migliorare esteticamente finestra scelta formato di export. E anche quello di import quando si può scegliere tra sostituzione e aggiunta.

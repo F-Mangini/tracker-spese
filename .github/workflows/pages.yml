@@ -32,7 +32,7 @@ jobs:
       - name: Checkout dev branch
         uses: actions/checkout@v4
         with:
-          ref: codex/refactor
+          ref: dev
           path: dev-src
 
       - name: Build Pages artifact

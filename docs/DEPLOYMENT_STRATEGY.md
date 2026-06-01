@@ -5,8 +5,10 @@ Questo documento definisce il minimo necessario per lavorare al refactor senza p
 ## Stato Attuale
 
 - `main` e la versione stabile.
-- `codex/refactor` e il branch su cui avviene il refactor.
-- GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `codex/refactor`.
+- `dev` e il branch aggregatore pubblicato su `/dev/` per test Android delle modifiche non ancora stabili.
+- I branch di fase, per esempio `privacy`, restano dedicati a una fase o tema specifico.
+- `codex/refactor` resta un branch storico del refactor.
+- GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `dev`.
 - Il workflow Pages parte solo da `main`, per rispettare le protection rules dell'environment `github-pages`.
 - La versione stabile e usata dal maintainer e da amici.
 - Il maintainer usa GitHub Free e non vuole fare upgrade.
@@ -62,7 +64,7 @@ Usare GitHub Pages con un unico sito, ma pubblicare due cartelle:
 
 ```text
 /stable/  -> contenuto da main
-/dev/     -> contenuto da codex/refactor
+/dev/     -> contenuto da dev
 /         -> redirect o copia della stabile
 ```
 
@@ -70,7 +72,7 @@ Per farlo in modo pulito, usare una GitHub Action che assembla l'artefatto Pages
 
 1. checkout di `main`;
 2. copia di `app/` in `public/stable/` e opzionalmente in `public/`;
-3. checkout di `codex/refactor`;
+3. checkout di `dev`;
 4. copia di `app/` in `public/dev/`;
 5. per la build dev, impostare una storage key separata;
 6. deploy di `public/` su GitHub Pages.
@@ -107,7 +109,7 @@ Il workflow `.github/workflows/pages.yml`:
 
 - parte su push verso `main` o con avvio manuale;
 - fa checkout di `main` in `stable-src`;
-- fa checkout di `codex/refactor` in `dev-src`;
+- fa checkout di `dev` in `dev-src`;
 - copia `stable-src/app/` in `public/` e `public/stable/`;
 - copia `dev-src/app/` in `public/dev/`;
 - sostituisce `public/dev/manifest.json` con `dev-src/app/manifest.dev.json`;
@@ -115,20 +117,20 @@ Il workflow `.github/workflows/pages.yml`:
 - sovrascrive la config dev con storage key separata;
 - pubblica `public/` su GitHub Pages.
 
-Nota importante: il workflow deve esistere sul branch di default (`main`) e il deploy deve partire da `main`. L'environment `github-pages` rifiuta deploy diretti da `codex/refactor`, quindi un push sulla dev non pubblica da solo il sito.
+Nota importante: il workflow deve esistere sul branch di default (`main`) e il deploy deve partire da `main`. L'environment `github-pages` rifiuta deploy diretti dai branch di lavoro, quindi un push su `dev` non pubblica da solo il sito: dopo il push va avviato il workflow Pages da `main`.
 
 ## Promozione Dev a Stabile
 
 Quando la versione dev e stata testata ed e pronta per l'uso quotidiano:
 
 1. verificare `https://f-mangini.github.io/tracker-spese/dev/`;
-2. fare merge intenzionale di `codex/refactor` in `main`;
+2. fare merge intenzionale del branch o dei commit pronti in `main`;
 3. controllare che `.github/workflows/pages.yml` resti triggerato solo da `main`;
 4. pushare `main`;
 5. attendere il workflow Pages;
 6. verificare `https://f-mangini.github.io/tracker-spese/` e `https://f-mangini.github.io/tracker-spese/stable/`.
 
-Portare tutto `codex/refactor` su `main` va bene quando tutto cio che contiene e pronto per diventare stabile. Se solo una parte e pronta, preferire cherry-pick o un branch di release. Copiare solo `app/` e sconsigliato come abitudine, perche anche documentazione, workflow, manifest e config possono essere parte della release.
+Portare tutto `dev` su `main` va bene solo quando tutto cio che contiene e pronto per diventare stabile. Se solo una parte e pronta, preferire cherry-pick o un branch di release. Copiare solo `app/` e sconsigliato come abitudine, perche anche documentazione, workflow, manifest e config possono essere parte della release.
 
 ## Azione Manuale Richiesta al Maintainer
 
@@ -175,6 +177,6 @@ Completato:
 - il workflow pubblica stabile e dev da GitHub Actions;
 - gli URL stabile/dev sono verificabili;
 - `main` resta fonte stabile;
-- `codex/refactor` resta fonte della dev.
+- `dev` resta fonte della dev pubblica; i branch di fase confluiscono in `dev` solo per i test pubblici.
 
 La Fase 5 della code review resta valida per la PWA/version manager definitiva, ma viene preceduta da una fase piu piccola: canale stabile/dev sicuro.

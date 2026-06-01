@@ -116,8 +116,8 @@ Il progetto e pensato per GitHub Pages: la repository pubblica target e `tracker
 Durante il refactor, il deploy previsto separa stabile e sviluppo:
 
 - `/` e `/stable/`: versione stabile da `main`;
-- `/dev/`: versione di sviluppo da `codex/refactor`, con storage locale separato.
+- `/dev/`: versione di sviluppo dal branch aggregatore `dev`, con storage locale separato.
 
-Quando una versione dev e stata testata ed e pronta per l'uso quotidiano, puo essere promossa con un merge intenzionale di `codex/refactor` in `main`. Il workflow GitHub Pages parte da `main` e pubblica sia la stabile sia la dev.
+I branch di fase, per esempio `privacy`, restano dedicati al lavoro corrente. Quando una modifica va provata su Android, viene portata su `dev`; quando una versione testata e pronta per l'uso quotidiano, puo essere promossa con un merge intenzionale verso `main`. Il workflow GitHub Pages parte da `main` e pubblica sia la stabile sia la dev.
 
 Prima di modificare la logica dei dati, leggere `docs/CURRENT_STATE.md` e `docs/DEVELOPMENT_GUIDE.md`.

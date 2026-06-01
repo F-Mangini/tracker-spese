@@ -64,6 +64,8 @@ Dal refactor dati del 2026-05-16:
 - i dati letti o importati devono passare dalla normalizzazione centralizzata in `app/js/data/storage.js`;
 - un JSON locale corrotto deve bloccare i nuovi salvataggi finche il maintainer non esporta o risolve il raw;
 - le operazioni distruttive come import in sostituzione e cancellazione completa devono creare uno snapshot locale prima del commit;
+- lo snapshot locale e ripristinabile dalle impostazioni; prima del ripristino i dati correnti vengono salvati come nuovo snapshot per permettere un undo manuale;
+- la cancellazione privacy forte deve rimuovere dati principali, snapshot locale e preferenza release senza creare un nuovo snapshot;
 - import JSON e CSV devono mantenere preview/validazione separata dal commit.
 
 Se si aggiungono campi alle spese, devono avere fallback sensati quando assenti nei vecchi backup.
@@ -100,6 +102,7 @@ Usare questi file come fonti:
 - `docs/CURRENT_STATE.md`: stato tecnico implementato.
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev per testare il refactor senza rischiare l'uso quotidiano.
 - `docs/PWA_OFFLINE_STRATEGY.md`: strategia per PWA/offline, release versionate, service worker e aggiornamenti controllati.
+- `docs/PRIVACY_REVIEW.md`: mappa tecnica dei dati locali, rete, export, service worker e rischi privacy residui.
 - `docs/REFACTORING_SUMMARY.md`: riepilogo compatto del refactor gia svolto.
 - `docs/ROADMAP.md`: priorita e idee future ordinate.
 - `AGENTS.md`: contesto operativo per assistenti AI.

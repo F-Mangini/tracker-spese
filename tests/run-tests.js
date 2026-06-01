@@ -363,6 +363,72 @@ test('Import JSON in sostituzione crea snapshot e importa le impostazioni del ba
     assert.equal(snapshot.data.spese[0].id, 'old-id');
 });
 
+test('Storage ripristina lo snapshot e conserva undo dei dati correnti', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'current-id', descrizione: 'Corrente' })],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+    const snapshotData = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'snapshot-id', descrizione: 'Snapshot' })],
+        impostazioni: { tema: 'light', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+    const snapshot = {
+        schemaVersion: 1,
+        creatoIl: '2026-05-20T12:30:00.000Z',
+        reason: 'clear-all',
+        data: snapshotData
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+    localStorage.setItem(`${Storage.KEY}:snapshot`, JSON.stringify(snapshot));
+
+    const info = Storage.getSnapshotInfo();
+    const result = Storage.restoreSnapshot();
+
+    assert.equal(info.exists, true);
+    assert.equal(info.readable, true);
+    assert.equal(info.count, 1);
+    assert.equal(result.success, true);
+    assert.equal(result.count, 1);
+
+    const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const undoSnapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
+    assert.equal(saved.spese[0].id, 'snapshot-id');
+    assert.equal(saved.impostazioni.tema, 'light');
+    assert.equal(undoSnapshot.reason, 'restore-before');
+    assert.equal(undoSnapshot.data.spese[0].id, 'current-id');
+});
+
+test('Storage cancellazione privacy elimina dati e snapshot senza crearne uno nuovo', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'current-id' })],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+    localStorage.setItem(`${Storage.KEY}:snapshot`, JSON.stringify({
+        schemaVersion: 1,
+        creatoIl: '2026-05-20T12:30:00.000Z',
+        reason: 'clear-all',
+        data: current
+    }));
+
+    const result = Storage.clearAll({
+        createSnapshot: false,
+        clearSnapshot: true
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(localStorage.getItem(Storage.KEY), null);
+    assert.equal(localStorage.getItem(`${Storage.KEY}:snapshot`), null);
+});
+
 test('Import CSV valida decimali italiani, delimiter punto e virgola e campi quotati', () => {
     const { Storage } = loadStorage();
     const csv = [
@@ -3344,9 +3410,13 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
             calls.push(['update-settings', updates.tema]);
             return { success: true, impostazioni: { tema: updates.tema } };
         },
-        clearAll() {
-            calls.push(['clear-all']);
+        clearAll(options) {
+            calls.push(['clear-all', options || null]);
             return { success: true };
+        },
+        restoreSnapshot() {
+            calls.push(['restore-snapshot']);
+            return { success: true, count: 1, restoredRaw: false };
         },
         importJSON(content, options) {
             calls.push(['import-json', content, options.mode]);
@@ -3412,6 +3482,10 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         storage
     });
     const clearResult = SettingsActions.clearAll({ storage });
+    const restoreResult = SettingsActions.restoreSnapshot({ storage });
+    const launchStorage = createLocalStorage();
+    SettingsActions.setLaunchTarget('releases/v2026.05.30/', launchStorage);
+    const privacyResult = SettingsActions.privacyWipe({ storage, localStorage: launchStorage });
 
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
@@ -3419,6 +3493,9 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
     assert.equal(themeResult.theme, 'dark');
     assert.equal(clearResult.toast, 'Dati eliminati');
+    assert.equal(restoreResult.toast, '1 spese ripristinate dallo snapshot \u2713');
+    assert.equal(privacyResult.toast, 'Dati e snapshot eliminati');
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), null);
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
@@ -3427,7 +3504,9 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         ['export-raw'],
         ['import-csv', 'a,b', 'append'],
         ['update-settings', 'dark'],
-        ['clear-all']
+        ['clear-all', null],
+        ['restore-snapshot'],
+        ['clear-all', { createSnapshot: false, clearSnapshot: true }]
     ]);
 });
 

@@ -403,7 +403,7 @@ test('Storage ripristina lo snapshot e conserva undo dei dati correnti', () => {
     assert.equal(undoSnapshot.data.spese[0].id, 'current-id');
 });
 
-test('Storage cancellazione privacy elimina dati e snapshot senza crearne uno nuovo', () => {
+test('Storage cancellazione completa puo eliminare anche lo snapshot locale', () => {
     const { Storage, localStorage } = loadStorage();
     const current = {
         schemaVersion: 1,
@@ -3482,10 +3482,8 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         storage
     });
     const clearResult = SettingsActions.clearAll({ storage });
+    const clearSnapshotResult = SettingsActions.clearAll({ storage, clearSnapshot: true });
     const restoreResult = SettingsActions.restoreSnapshot({ storage });
-    const launchStorage = createLocalStorage();
-    SettingsActions.setLaunchTarget('releases/v2026.05.30/', launchStorage);
-    const privacyResult = SettingsActions.privacyWipe({ storage, localStorage: launchStorage });
 
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
@@ -3493,9 +3491,8 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
     assert.equal(themeResult.theme, 'dark');
     assert.equal(clearResult.toast, 'Dati eliminati');
+    assert.equal(clearSnapshotResult.toast, 'Dati e snapshot eliminati');
     assert.equal(restoreResult.toast, '1 spese ripristinate dallo snapshot \u2713');
-    assert.equal(privacyResult.toast, 'Dati e snapshot eliminati');
-    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), null);
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
@@ -3504,9 +3501,9 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         ['export-raw'],
         ['import-csv', 'a,b', 'append'],
         ['update-settings', 'dark'],
-        ['clear-all', null],
-        ['restore-snapshot'],
-        ['clear-all', { createSnapshot: false, clearSnapshot: true }]
+        ['clear-all', { clearSnapshot: false }],
+        ['clear-all', { clearSnapshot: true }],
+        ['restore-snapshot']
     ]);
 });
 

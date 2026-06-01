@@ -25,6 +25,43 @@ const ConfirmDialog = (() => {
         ];
     }
 
+    function removeExtra(activeDoc) {
+        const extra = activeDoc && activeDoc.getElementById
+            ? activeDoc.getElementById('confirm-extra')
+            : null;
+
+        if (extra && extra.parentNode) {
+            extra.parentNode.removeChild(extra);
+        }
+    }
+
+    function renderExtra(activeDoc, options = {}) {
+        removeExtra(activeDoc);
+
+        if (!options.checkbox) return null;
+
+        const buttons = activeDoc.querySelector('#confirm-dialog .confirm-buttons');
+        const extra = activeDoc.createElement('div');
+        const label = activeDoc.createElement('label');
+        const checkbox = activeDoc.createElement('input');
+        const text = activeDoc.createElement('span');
+
+        extra.id = 'confirm-extra';
+        extra.className = 'confirm-extra';
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!options.checkbox.checked;
+        checkbox.dataset.key = options.checkbox.key || 'checked';
+        text.textContent = options.checkbox.label || '';
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        extra.appendChild(label);
+
+        buttons.parentNode.insertBefore(extra, buttons);
+
+        return checkbox;
+    }
+
     function showChoices(options = {}) {
         const activeDoc = getDocument(options.document);
         if (!activeDoc) return;
@@ -38,6 +75,7 @@ const ConfirmDialog = (() => {
 
         const buttons = activeDoc.querySelector('#confirm-dialog .confirm-buttons');
         buttons.innerHTML = '';
+        const checkbox = renderExtra(activeDoc, options);
 
         (options.choices || []).forEach(choice => {
             const btn = activeDoc.createElement('button');
@@ -50,7 +88,11 @@ const ConfirmDialog = (() => {
                 }
 
                 if (typeof choice.onClick === 'function') {
-                    choice.onClick();
+                    const extraState = checkbox
+                        ? { [checkbox.dataset.key || 'checked']: checkbox.checked }
+                        : {};
+
+                    choice.onClick(extraState);
                 }
             });
             buttons.appendChild(btn);
@@ -74,6 +116,7 @@ const ConfirmDialog = (() => {
         if (!activeDoc) return;
 
         activeDoc.getElementById('confirm-overlay').classList.add('hidden');
+        removeExtra(activeDoc);
 
         if (typeof options.closeHistory === 'function') {
             options.closeHistory(!!options.fromPopstate);

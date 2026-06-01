@@ -226,9 +226,10 @@ const SettingsController = (() => {
         options.refreshSettings();
     }
 
-    function clearAll(options = {}) {
+    function clearAll(options = {}, clearSnapshot = false) {
         const result = SettingsActions.clearAll({
-            storage: options.storage
+            storage: options.storage,
+            clearSnapshot
         });
 
         if (!result.success) {
@@ -252,21 +253,6 @@ const SettingsController = (() => {
 
         options.refreshAfterDataChange();
         options.showToast(result.toast, result.result.restoredRaw ? 'info' : 'success');
-    }
-
-    function privacyWipe(options = {}) {
-        const result = SettingsActions.privacyWipe({
-            storage: options.storage,
-            localStorage: options.localStorage
-        });
-
-        if (!result.success) {
-            options.showToast(result.error || 'Cancellazione privacy non riuscita', 'error');
-            return;
-        }
-
-        options.refreshAfterDataChange();
-        options.showToast(result.toast, 'info');
     }
 
     function handleImportFile(fileInput, file, options = {}) {
@@ -312,8 +298,12 @@ const SettingsController = (() => {
         if (restoreBtn) {
             restoreBtn.addEventListener('click', () => {
                 options.showConfirm(
-                    'Ripristinare lo snapshot locale? I dati attuali verranno sostituiti e salvati prima come nuovo snapshot.',
-                    () => restoreSnapshot(options)
+                    'Ripristinare lo snapshot locale? I dati attuali verranno sostituiti.',
+                    () => restoreSnapshot(options),
+                    {
+                        yesText: 'Ripristina',
+                        yesClass: 'btn-warning'
+                    }
                 );
             });
         }
@@ -327,18 +317,18 @@ const SettingsController = (() => {
         });
 
         container.querySelector('#btn-clear-all').addEventListener('click', () => {
-            options.showConfirm('Eliminare TUTTI i dati?', () => clearAll(options));
+            options.showConfirm(
+                'Eliminare TUTTI i dati?',
+                state => clearAll(options, !!(state && state.clearSnapshot)),
+                {
+                    checkbox: {
+                        key: 'clearSnapshot',
+                        label: 'Elimina anche lo snapshot locale',
+                        checked: false
+                    }
+                }
+            );
         });
-
-        const privacyWipeBtn = container.querySelector('#btn-privacy-wipe');
-        if (privacyWipeBtn) {
-            privacyWipeBtn.addEventListener('click', () => {
-                options.showConfirm(
-                    'Cancellare dati, snapshot locale e preferenza versione? Questa azione non crea un nuovo snapshot.',
-                    () => privacyWipe(options)
-                );
-            });
-        }
 
         const releaseChooser = container.querySelector('#btn-release-chooser');
         if (releaseChooser) {

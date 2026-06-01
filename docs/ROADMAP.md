@@ -54,7 +54,7 @@ Ancora da affrontare:
 ## Dati, Privacy e Import/Export
 
 - Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
-- Ripristino dall'ultimo snapshot locale e cancellazione privacy forte aggiunti alle impostazioni.
+- Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni.
 - Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Aggiungere export/copia rapida per spese selezionate o filtrate: JSON, CSV/TSV e tabella Markdown.

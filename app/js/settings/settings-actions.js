@@ -360,14 +360,18 @@ const SettingsActions = (() => {
 
     function clearAll(options = {}) {
         const { storage } = options;
-        const result = storage.clearAll();
+        const result = storage.clearAll({
+            clearSnapshot: !!options.clearSnapshot
+        });
 
         if (!result.success) return result;
 
         return {
             success: true,
             result,
-            toast: 'Dati eliminati'
+            toast: options.clearSnapshot
+                ? 'Dati e snapshot eliminati'
+                : 'Dati eliminati'
         };
     }
 
@@ -381,24 +385,6 @@ const SettingsActions = (() => {
             success: true,
             result,
             toast: getSnapshotRestoreSuccessMessage(result)
-        };
-    }
-
-    function privacyWipe(options = {}) {
-        const { storage, localStorage } = options;
-        const result = storage.clearAll({
-            createSnapshot: false,
-            clearSnapshot: true
-        });
-
-        if (!result.success) return result;
-
-        setLaunchTarget('', localStorage);
-
-        return {
-            success: true,
-            result,
-            toast: 'Dati e snapshot eliminati'
         };
     }
 
@@ -423,7 +409,6 @@ const SettingsActions = (() => {
         commitImport,
         updateTheme,
         clearAll,
-        restoreSnapshot,
-        privacyWipe
+        restoreSnapshot
     };
 })();

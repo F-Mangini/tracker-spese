@@ -72,6 +72,7 @@ const ConfirmController = (() => {
             yesText: options.yesText,
             noText: options.noText,
             yesClass: options.yesClass,
+            checkbox: options.checkbox,
             pushState: state => call(options.pushUiState, state),
             close: fromPopstate => close({
                 ...options,

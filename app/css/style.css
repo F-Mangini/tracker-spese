@@ -1470,6 +1470,26 @@ body.expense-input-active #input-bar {
     line-height: 1.5;
 }
 
+.confirm-extra {
+    margin: -4px 0 18px;
+    text-align: left;
+}
+
+.confirm-extra label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.confirm-extra input {
+    margin-top: 2px;
+    accent-color: var(--danger);
+    flex-shrink: 0;
+}
+
 .confirm-buttons {
     display: flex;
     flex-wrap: wrap;

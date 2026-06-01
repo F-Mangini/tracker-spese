@@ -139,7 +139,7 @@ La pagina impostazioni include:
 - info su numero spese, periodo coperto e spazio usato;
 - versione/canale corrente visibili nel footer delle impostazioni;
 - cancellazione completa con conferma.
-- cancellazione privacy forte, che rimuove dati principali, snapshot locale e preferenza release senza creare un nuovo snapshot.
+- opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 

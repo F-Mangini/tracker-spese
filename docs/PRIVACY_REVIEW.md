@@ -107,7 +107,7 @@ Controlli gia presenti:
 - export raw quando lo storage non e parseabile;
 - snapshot locale prima di sostituzione import o cancellazione completa.
 
-Nota privacy importante: lo snapshot locale e una misura anti-perdita dati, non una cancellazione forte. Dopo una sostituzione o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo nelle impostazioni esiste una cancellazione privacy forte che rimuove dati principali, snapshot locale e preferenza release senza creare un nuovo snapshot.
+Nota privacy importante: lo snapshot locale e una misura anti-perdita dati. Dopo una sostituzione o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo la conferma di cancellazione completa include una spunta, disattivata di default, per rimuovere anche lo snapshot locale.
 
 Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e salva prima i dati correnti come nuovo snapshot. In questo modo, se il ripristino non era quello desiderato, resta una possibilita di tornare allo stato immediatamente precedente.
 
@@ -168,7 +168,7 @@ Regola: qualsiasi canale sperimentale pubblicato sulla stessa origine deve usare
 | PR-03 | `releases.json` | Bassa | Accettato | Fetch solo di metadati pubblici; se la fonte cambia, validare path e origine. |
 | PR-04 | Service worker scope | Bassa | OK | Scope limitati a stable o release; evitare root-scope in futuro. |
 | PR-05 | Stabile/dev stessa origine | Alta se regressione | Mitigato | La dev pubblicata deve restare su storage key separata. |
-| PR-06 | Snapshot dopo cancellazione | Media | Mitigato | Ripristinabile da UI; la cancellazione privacy forte rimuove anche lo snapshot. |
+| PR-06 | Snapshot dopo cancellazione | Media | Mitigato | Ripristinabile da UI; la conferma di cancellazione puo rimuovere anche lo snapshot. |
 | PR-07 | Export plaintext | Media | Accettato | File JSON/CSV/raw in chiaro dopo download. |
 | PR-08 | Dettatura vocale | Media | Accettato | API browser/OS potenzialmente esterna, opzionale e manuale. |
 | PR-09 | Rendering HTML | Media se regressione | Mitigato | Campi utente principali escapati; mantenere disciplina su `innerHTML`. |

@@ -65,7 +65,7 @@ Dal refactor dati del 2026-05-16:
 - un JSON locale corrotto deve bloccare i nuovi salvataggi finche il maintainer non esporta o risolve il raw;
 - le operazioni distruttive come import in sostituzione e cancellazione completa devono creare uno snapshot locale prima del commit;
 - lo snapshot locale e ripristinabile dalle impostazioni; prima del ripristino i dati correnti vengono salvati come nuovo snapshot per permettere un undo manuale;
-- la cancellazione privacy forte deve rimuovere dati principali, snapshot locale e preferenza release senza creare un nuovo snapshot;
+- la cancellazione completa puo rimuovere anche lo snapshot locale tramite una spunta esplicita nella conferma; la preferenza release non e considerata dato sensibile;
 - import JSON e CSV devono mantenere preview/validazione separata dal commit.
 
 Se si aggiungono campi alle spese, devono avere fallback sensati quando assenti nei vecchi backup.

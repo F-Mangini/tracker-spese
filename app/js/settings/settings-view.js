@@ -211,9 +211,8 @@ const SettingsView = (() => {
 
             <div class="settings-section danger-zone">
                 <h3>\u26A0\uFE0F Zona pericolosa</h3>
-                <p class="settings-hint">La cancellazione normale crea prima uno snapshot locale. La cancellazione privacy elimina anche quello.</p>
+                <p class="settings-hint">La cancellazione crea prima uno snapshot locale. Nella conferma puoi scegliere se eliminare anche lo snapshot.</p>
                 <button id="btn-clear-all" class="btn btn-danger btn-block">\uD83D\uDDD1\uFE0F Cancella tutti i dati</button>
-                <button id="btn-privacy-wipe" class="btn btn-danger btn-block">Cancella tutto per privacy</button>
             </div>
 
             <div class="about-section">

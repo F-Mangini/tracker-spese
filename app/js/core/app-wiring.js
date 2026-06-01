@@ -423,10 +423,11 @@ const AppWiring = (() => {
                     message,
                     choices
                 }),
-                showConfirm: (message, onYes) => deps.ConfirmController.showConfirm({
+                showConfirm: (message, onYes, dialogOptions = {}) => deps.ConfirmController.showConfirm({
                     ...confirmOptions(),
                     message,
-                    onYes
+                    onYes,
+                    ...dialogOptions
                 }),
                 applyTheme: theme => deps.ThemeController.applyTheme(theme, {
                     document: deps.document,

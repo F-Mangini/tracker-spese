@@ -41,6 +41,7 @@ const App = {
         this.initInput();
         ModalController.init(wiring.modalOptions());
         FilterController.init(wiring.filterOptions());
+        TimelineSelectionController.bindHeader(wiring.timelineSelectionOptions());
         this.renderTimeline();
         this._lastViewportHeight = ModalMobileController.getViewportHeight(wiring.modalMobileOptions());
 

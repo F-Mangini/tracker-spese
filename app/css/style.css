@@ -139,6 +139,23 @@ body {
     background: var(--accent-light);
 }
 
+.header-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.header-btn:disabled:active {
+    background: none;
+}
+
+.header-btn-danger {
+    color: var(--danger);
+}
+
+#app-header.selection-active {
+    border-bottom-color: var(--accent);
+}
+
 /* Filter badge */
 .filter-badge {
     position: absolute;
@@ -715,7 +732,7 @@ body {
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
     border: 1px solid var(--border);
 }
 
@@ -784,6 +801,46 @@ body {
 
 .expense-card.new-card {
     animation: slideIn 0.3s ease;
+}
+
+.expense-card.selection-mode {
+    padding-left: 12px;
+}
+
+.expense-card.selection-mode.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.expense-card.selection-mode.delete-pending {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
+.expense-select-mark {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #fff;
+    background: var(--bg-primary);
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.expense-card.selected .expense-select-mark {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.expense-card.delete-pending .expense-select-mark {
+    border-color: var(--danger);
+    background: var(--danger);
 }
 
 @keyframes slideIn {

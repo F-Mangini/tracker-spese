@@ -50,6 +50,7 @@ const SettingsView = (() => {
             'csv-replace': 'prima di un import CSV in sostituzione',
             'clear-all': 'prima della cancellazione dati',
             'clear-all-raw': 'prima della cancellazione dati grezzi',
+            'bulk-delete': 'prima di una cancellazione multipla',
             'restore-before': 'prima di un ripristino snapshot',
             'restore-before-raw': 'prima di un ripristino snapshot'
         };

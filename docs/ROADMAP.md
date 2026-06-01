@@ -23,6 +23,7 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
 
 ## Repository e Canali
 
@@ -31,7 +32,7 @@ Stato: completato. La dev refactor e stata promossa a stabile; la baseline della
 - Repository target: `tracker-spese`.
 - Stabile: `main`, `Where's My Money?`, short name `WMM`, storage `spesa-tracker-data`.
 - Dev pubblica: branch aggregatore `dev`, `Where's My Bug?`, short name `WMB`, storage separato.
-- Branch di fase attuale: `privacy`.
+- Branch di fase attuale: `ux`.
 - GitHub Pages pubblica `/` e `/stable/` da `main`, `/dev/` da `dev`.
 - Il workflow Pages parte da `main`.
 
@@ -55,10 +56,11 @@ Ancora da affrontare:
 ## Dati, Privacy e Import/Export
 
 - Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
-- Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta e cambio versione.
+- Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
 - Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
-- Aggiungere export/copia rapida per spese selezionate o filtrate: JSON, CSV/TSV e tabella Markdown.
+- Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
+- Aggiungere copia rapida e altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
 - Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
 - Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
@@ -128,12 +130,9 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Pressione lunga per modalita selezione.
-- Evidenza visuale dedicata per selezione e cancellazione.
-- Azioni bulk: elimina, copia negli appunti, export selezionate.
-- Header adattato alla modalita selezione con conteggio e valore totale selezionato.
-- Seleziona tutte limitato alle spese visibili/filtrate.
-- Modalita selezione riusabile anche per export filtrato: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con seleziona filtrate/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte limitato alle spese visibili/filtrate.
+- Azioni bulk ancora da completare: copia negli appunti e formati TSV/tabella Markdown.
+- Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

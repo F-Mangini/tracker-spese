@@ -50,6 +50,7 @@ const AppWiring = (() => {
             FilterView: typeof FilterView === 'undefined' ? null : FilterView,
             FilterController: typeof FilterController === 'undefined' ? null : FilterController,
             TimelineController: typeof TimelineController === 'undefined' ? null : TimelineController,
+            TimelineSelectionController: typeof TimelineSelectionController === 'undefined' ? null : TimelineSelectionController,
             NavigationController: typeof NavigationController === 'undefined' ? null : NavigationController,
             StatsController: typeof StatsController === 'undefined' ? null : StatsController,
             ModalView: typeof ModalView === 'undefined' ? null : ModalView,
@@ -81,6 +82,7 @@ const AppWiring = (() => {
                 callback();
                 return null;
             }),
+            clearTimeout: getBoundGlobalFunction('clearTimeout', noop),
             setInterval: getBoundGlobalFunction('setInterval', noop),
             clearInterval: getBoundGlobalFunction('clearInterval', noop)
         };
@@ -117,6 +119,7 @@ const AppWiring = (() => {
             expenseInputOptions,
             expenseSubmitOptions,
             timelineOptions,
+            timelineSelectionOptions,
             modalMobileOptions: modalWiring.modalMobileOptions,
             modalOptions: modalWiring.modalOptions,
             uiStackOptions,
@@ -185,9 +188,14 @@ const AppWiring = (() => {
                 shouldHideTimelineInputBar: () => app.advancedFiltersOpen,
                 closeFilterPanel: () => deps.FilterController.closeFilterPanel(filterOptions()),
                 updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
+                syncTimelineSelectionHeader: () => deps.TimelineSelectionController.syncHeader(
+                    timelineSelectionOptions()
+                ),
                 renderTimeline: () => app.renderTimeline(),
                 renderStats: () => app.renderStats(),
                 renderSettings: () => app.renderSettings(),
+                getCurrentPage: () => app.currentPage,
+                isTimelineSelectionActive: () => app.timelineSelectionActive,
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
                 defer: callback => deps.setTimeout(callback, 0)
             };
@@ -304,7 +312,64 @@ const AppWiring = (() => {
                 getMethod: id => deps.AppUI.getMethod(id, deps.PAYMENT_METHODS),
                 formatDayLabel: date => deps.AppUI.formatDayLabel(date),
                 clearNewCardId: () => { app.newCardId = null; },
-                openEditModal: id => deps.ModalController.open(modalWiring.modalOptions(), id)
+                openEditModal: id => deps.ModalController.open(modalWiring.modalOptions(), id),
+                selection: {
+                    active: app.timelineSelectionActive,
+                    selectedIds: app.timelineSelectedIds,
+                    deletePending: app.timelineSelectionDeletePending
+                },
+                getSelectionSummary: (filtered, allSpese) => deps.TimelineSelectionController.getSummary(
+                    timelineSelectionOptions(),
+                    filtered,
+                    allSpese
+                ),
+                onSelectionSummary: summary => deps.TimelineSelectionController.syncHeader(
+                    timelineSelectionOptions(),
+                    summary
+                ),
+                isSelectionActive: () => app.timelineSelectionActive,
+                enterSelection: id => deps.TimelineSelectionController.enter(timelineSelectionOptions(), id),
+                toggleSelection: id => deps.TimelineSelectionController.toggle(timelineSelectionOptions(), id),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: id => deps.clearTimeout(id)
+            };
+        }
+
+        function timelineSelectionOptions() {
+            return {
+                document: deps.document,
+                storage: deps.Storage,
+                getSpese: () => deps.ExpenseStore.getSpese(),
+                getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
+                    spese: deps.ExpenseStore.getSpese(),
+                    filters: app.filters
+                }),
+                getSelectedIds: () => app.timelineSelectedIds,
+                setSelectedIds: ids => { app.timelineSelectedIds = ids; },
+                isActive: () => app.timelineSelectionActive,
+                setActive: value => { app.timelineSelectionActive = value; },
+                isDeletePending: () => app.timelineSelectionDeletePending,
+                setDeletePending: value => { app.timelineSelectionDeletePending = value; },
+                getCurrentPage: () => app.currentPage,
+                pushUiState,
+                consumeUiState: () => consumeUiState(),
+                renderTimeline: () => app.renderTimeline(),
+                refreshAfterDataChange: () => app.refreshExpenseViews({
+                    updateFilterSlider: true,
+                    includeSettings: app.currentPage === 'settings'
+                }),
+                dateStamp: () => deps.AppUI.dateStamp(),
+                download: (content, filename, mime) => deps.DownloadController.download(content, filename, mime, {
+                    document: deps.document,
+                    URL: deps.URL,
+                    Blob: deps.Blob
+                }),
+                showToast: (message, type) => app.showToast(message, type),
+                showChoices: (message, choices) => deps.ConfirmController.showChoices({
+                    ...confirmOptions(),
+                    message,
+                    choices
+                })
             };
         }
 
@@ -316,10 +381,18 @@ const AppWiring = (() => {
                 getSuppressNextPopstate: () => app._suppressNextPopstate,
                 setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
-                closeConfirm: fromPopstate => deps.ConfirmController.close({
-                    ...confirmOptions(),
-                    fromPopstate
-                }),
+                closeConfirm: fromPopstate => {
+                    const result = deps.ConfirmController.close({
+                        ...confirmOptions(),
+                        fromPopstate
+                    });
+
+                    if (app.timelineSelectionDeletePending) {
+                        deps.TimelineSelectionController.clearDeletePending(timelineSelectionOptions());
+                    }
+
+                    return result;
+                },
                 isReleaseModalOpen: () => deps.SettingsController.isReleaseModalOpen(settingsOptions()),
                 closeReleaseModal: fromPopstate => deps.SettingsController.closeReleaseModal(
                     settingsOptions(),
@@ -339,6 +412,11 @@ const AppWiring = (() => {
                 isFilterOpen: () => app.filterOpen,
                 closeFilterPanel: fromPopstate => deps.FilterController.closeFilterPanel(
                     filterOptions(),
+                    fromPopstate
+                ),
+                isTimelineSelectionActive: () => app.currentPage === 'timeline' && app.timelineSelectionActive,
+                closeTimelineSelection: fromPopstate => deps.TimelineSelectionController.exit(
+                    timelineSelectionOptions(),
                     fromPopstate
                 ),
                 getCurrentPage: () => app.currentPage,

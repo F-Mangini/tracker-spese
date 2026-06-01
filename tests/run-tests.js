@@ -102,6 +102,7 @@ function loadUiViews(globals = {}) {
     const filterControllerCode = readAppScript('filters/filter-controller.js');
     const timelineViewCode = readAppScript('timeline/timeline-view.js');
     const timelineControllerCode = readAppScript('timeline/timeline-controller.js');
+    const timelineSelectionControllerCode = readAppScript('timeline/timeline-selection-controller.js');
     const navigationControllerCode = readAppScript('navigation/navigation-controller.js');
     const statsViewCode = readAppScript('stats/stats-view.js');
     const statsChartsCode = readAppScript('stats/stats-charts.js');
@@ -143,6 +144,7 @@ function loadUiViews(globals = {}) {
             filterControllerCode,
             timelineViewCode,
             timelineControllerCode,
+            timelineSelectionControllerCode,
             navigationControllerCode,
             statsViewCode,
             statsChartsCode,
@@ -180,6 +182,7 @@ function loadUiViews(globals = {}) {
             'globalThis.FilterController = FilterController;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.TimelineController = TimelineController;',
+            'globalThis.TimelineSelectionController = TimelineSelectionController;',
             'globalThis.NavigationController = NavigationController;',
             'globalThis.StatsView = StatsView;',
             'globalThis.StatsCharts = StatsCharts;',
@@ -221,6 +224,7 @@ function loadUiViews(globals = {}) {
         FilterController: context.FilterController,
         TimelineView: context.TimelineView,
         TimelineController: context.TimelineController,
+        TimelineSelectionController: context.TimelineSelectionController,
         NavigationController: context.NavigationController,
         StatsView: context.StatsView,
         StatsCharts: context.StatsCharts,
@@ -432,6 +436,44 @@ test('Storage cancellazione completa puo eliminare anche lo snapshot locale', ()
     assert.equal(result.success, true);
     assert.equal(localStorage.getItem(Storage.KEY), null);
     assert.equal(localStorage.getItem(`${Storage.KEY}:snapshot`), null);
+});
+
+test('Storage esporta subset e cancella selezione multipla con snapshot', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [
+            expense({ id: 'a', descrizione: 'A', importo: 2 }),
+            expense({ id: 'b', descrizione: 'B', importo: 3 }),
+            expense({ id: 'c', descrizione: 'C', importo: 4 })
+        ],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: '€', ultimoBackup: null }
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+
+    const json = Storage.exportJSON({ spese: [current.spese[1]] });
+    const csv = Storage.exportCSV({ spese: [current.spese[0], current.spese[2]] });
+    const deleted = Storage.deleteSpese(['a', 'c']);
+
+    assert.equal(json.success, true);
+    assert.equal(JSON.parse(json.content).spese.length, 1);
+    assert.equal(JSON.parse(json.content).spese[0].id, 'b');
+    assert.equal(JSON.parse(json.content).impostazioni.tema, 'dark');
+    assert.equal(csv.success, true);
+    assert(csv.content.includes('\na,'));
+    assert(csv.content.includes('\nc,'));
+    assert(!csv.content.includes('\nb,'));
+    assert.equal(deleted.success, true);
+    assert.equal(deleted.count, 2);
+
+    const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const snapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
+    assert.deepEqual(saved.spese.map(item => item.id), ['b']);
+    assert.equal(snapshot.reason, 'bulk-delete');
+    assert.deepEqual(snapshot.data.spese.map(item => item.id), ['a', 'b', 'c']);
+    assert.equal(Storage.deleteSpese([]).success, false);
 });
 
 test('Import CSV valida decimali italiani, delimiter punto e virgola e campi quotati', () => {
@@ -2055,6 +2097,160 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert.equal(elements['timeline-content'].innerHTML, '');
     assert.equal(elements['timeline-summary'].innerHTML, '');
     assert(!elements['timeline-empty'].classList.contains('hidden'));
+});
+
+test('Controller selezione timeline gestisce selezione, export e delete bulk', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: false,
+        selectedIds: new Set(),
+        deletePending: false
+    };
+    const spese = [
+        expense({ id: 'a', importo: 2 }),
+        expense({ id: 'b', importo: 3 }),
+        expense({ id: 'c', importo: 4 })
+    ];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        storage: {
+            exportCSV(payload) {
+                calls.push(['export-csv', payload.spese.map(item => item.id)]);
+                return { success: true, content: 'csv' };
+            },
+            exportJSON(payload) {
+                calls.push(['export-json', payload.spese.map(item => item.id)]);
+                return { success: true, content: '{}' };
+            },
+            deleteSpese(ids) {
+                calls.push(['delete-many', ids]);
+                return { success: true, count: ids.length };
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese.filter(item => item.id !== 'a')
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => { state.deletePending = value; },
+        getCurrentPage: () => 'timeline',
+        pushUiState: payload => calls.push(['push', payload.panel]),
+        consumeUiState: () => calls.push('consume'),
+        renderTimeline: () => calls.push('render'),
+        refreshAfterDataChange: () => calls.push('refresh'),
+        dateStamp: () => '2026-06-01',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message]),
+        showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)])
+    };
+
+    assert.equal(TimelineSelectionController.enter(options, 'a'), true);
+    assert.equal(state.active, true);
+    assert.deepEqual(Array.from(state.selectedIds), ['a']);
+
+    TimelineSelectionController.toggle(options, 'b');
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b']);
+
+    const selectedVisible = TimelineSelectionController.selectVisible(options);
+    assert.equal(selectedVisible, 2);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['b', 'c']);
+
+    const summary = TimelineSelectionController.getSummary(options);
+    assert.equal(summary.selectedCount, 2);
+    assert.equal(summary.selectedTotal, 7);
+    assert.equal(summary.visibleCount, 2);
+
+    assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
+    assert.equal(TimelineSelectionController.showExportChoices(options), true);
+    assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
+    assert.equal(state.deletePending, true);
+    assert.equal(TimelineSelectionController.deleteSelected(options), true);
+    assert.equal(state.active, false);
+    assert.equal(state.selectedIds.size, 0);
+
+    assert.deepEqual(calls.filter(call => Array.isArray(call) && call[0] === 'push'), [
+        ['push', 'timeline-selection']
+    ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'b,c'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'b,c'));
+    assert(calls.includes('refresh'));
+});
+
+test('Controller timeline in modalita selezione non apre la modale al click card', () => {
+    const { TimelineController } = loadUiViews();
+    const calls = [];
+    const card = {
+        dataset: { id: 'a' },
+        handlers: {},
+        addEventListener(event, handler) {
+            this.handlers[event] = handler;
+        }
+    };
+    const elements = {
+        'timeline-content': {
+            innerHTML: '',
+            querySelectorAll(selector) {
+                return selector === '.expense-card' ? [card] : [];
+            }
+        },
+        'timeline-empty': {
+            classList: {
+                add() {},
+                remove() {}
+            }
+        },
+        'timeline-summary': { innerHTML: '' }
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    TimelineController.render({
+        document: doc,
+        spese: [expense({ id: 'a', importo: 5 })],
+        hasActiveFilters: () => false,
+        getQuickTotals: () => ({ todayTotal: 5, weekTotal: 5, monthTotal: 5, monthName: 'Giugno' }),
+        groupByDay: items => [{ date: '2026-06-01', spese: items }],
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        getMethod: () => ({ emoji: 'm', nome: 'Carta' }),
+        formatDayLabel: date => date,
+        selection: {
+            active: true,
+            selectedIds: new Set(['a'])
+        },
+        getSelectionSummary: () => ({
+            active: true,
+            selectedIds: new Set(['a']),
+            selectedCount: 1,
+            selectedTotal: 5,
+            visibleCount: 1
+        }),
+        isSelectionActive: () => true,
+        toggleSelection: id => calls.push(['toggle', id]),
+        enterSelection: id => calls.push(['enter', id]),
+        openEditModal: id => calls.push(['open', id])
+    });
+
+    assert(elements['timeline-content'].innerHTML.includes('selection-mode'));
+    assert(elements['timeline-content'].innerHTML.includes('selected'));
+    assert(elements['timeline-summary'].innerHTML.includes('Selezione'));
+
+    card.handlers.click();
+
+    assert.deepEqual(calls, [['toggle', 'a']]);
 });
 
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
@@ -3896,6 +4092,9 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.filters.query = 'caffe';
     first.filters.categories.add('bar');
     first.pageScrollTop.timeline = 120;
+    first.timelineSelectionActive = true;
+    first.timelineSelectedIds.add('expense-a');
+    first.timelineSelectionDeletePending = true;
     first._sdInstances.test = {};
     first._editTags.push('lavoro');
 
@@ -3908,6 +4107,9 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second.timelineSelectionActive, false);
+    assert.equal(second.timelineSelectedIds.size, 0);
+    assert.equal(second.timelineSelectionDeletePending, false);
 });
 
 test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {
@@ -4362,6 +4564,14 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_FILTER
     );
     assert.equal(
+        UIStack.getPopstateAction({ filterOpen: true, timelineSelectionActive: true }),
+        UIStack.ACTIONS.CLOSE_FILTER
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ timelineSelectionActive: true, currentPage: 'timeline' }),
+        UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
+    );
+    assert.equal(
         UIStack.getPopstateAction({ currentPage: 'stats' }),
         UIStack.ACTIONS.NAVIGATE_TIMELINE
     );
@@ -4581,6 +4791,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         expenseInputActive: false,
         advancedFiltersOpen: false,
         filterOpen: false,
+        timelineSelectionActive: false,
         currentPage: 'timeline',
         interactionActive: false,
         dropdownOpen: false,
@@ -4615,6 +4826,11 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         closeAdvancedFilters: fromPopstate => calls.push(['close-advanced', fromPopstate]),
         isFilterOpen: () => state.filterOpen,
         closeFilterPanel: fromPopstate => calls.push(['close-filter', fromPopstate]),
+        isTimelineSelectionActive: () => state.timelineSelectionActive,
+        closeTimelineSelection: fromPopstate => {
+            state.timelineSelectionActive = false;
+            calls.push(['close-selection', fromPopstate]);
+        },
         getCurrentPage: () => state.currentPage,
         navigateTo: (page, fromPopstate) => calls.push(['navigate', page, fromPopstate]),
         stopExpenseInputBarWatch: () => calls.push('stop-watch'),
@@ -4653,6 +4869,13 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     ]);
 
     state.expenseInputActive = false;
+    state.timelineSelectionActive = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
+    );
+    assert.deepEqual(calls[calls.length - 1], ['close-selection', true]);
+
     state.suppress = true;
     UIStackController.handlePopstate(options);
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);

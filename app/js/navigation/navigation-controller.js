@@ -143,6 +143,8 @@ const NavigationController = (() => {
 
         const filterToggle = doc.getElementById('btn-filter-toggle');
         if (filterToggle) filterToggle.style.display = page === 'settings' ? 'none' : '';
+
+        (options.syncTimelineSelectionHeader || noop)();
     }
 
     function syncPageContent(options = {}, page) {

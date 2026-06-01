@@ -38,6 +38,8 @@ File e aree considerate:
 - `app/js/settings/settings-actions.js`;
 - `app/js/settings/settings-controller.js`;
 - `app/js/settings/settings-view.js`;
+- `app/js/timeline/timeline-selection-controller.js`;
+- `app/js/timeline/timeline-controller.js`;
 - `app/js/ui/download-controller.js`;
 - `app/stable-launch-service-worker.js`;
 - `releases.json`;
@@ -52,10 +54,10 @@ File e aree considerate:
 | --- | --- | --- | --- |
 | Spese, note, tag, categorie, metodi e impostazioni | `localStorage`, chiave stabile `spesa-tracker-data` | No | Sono dati sensibili per contesto personale anche se non includono account o dati bancari. |
 | Dati dev | `localStorage`, chiave dev `spesa-tracker-data-dev` nel deploy `/dev/` | No | Separazione necessaria perche GitHub Pages condivide origine tra path diversi. |
-| Snapshot locali | `localStorage`, chiave `${Storage.KEY}:snapshot` | No | Proteggono da perdita dati e sono ripristinabili dalle impostazioni, ma possono mantenere una copia dopo sostituzione o cancellazione completa. |
+| Snapshot locali | `localStorage`, chiave `${Storage.KEY}:snapshot` | No | Proteggono da perdita dati e sono ripristinabili dalle impostazioni, ma possono mantenere una copia dopo sostituzione, cancellazione multipla o cancellazione completa. |
 | Preferenza release installata | `localStorage`, `spesa-tracker-launch-target` | No | Contiene solo un path tipo `releases/vYYYY.MM.DD/`. |
 | Cache service worker | Cache Storage browser | No | Contiene asset statici dell'app, non dati utente. |
-| Export JSON/CSV/raw | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. |
+| Export JSON/CSV/raw e selezioni timeline | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. Gli export da selezione contengono solo le spese selezionate; il JSON mantiene anche la struttura backup con impostazioni correnti. |
 | Import JSON/CSV | File scelto dall'utente, letto con `FileReader` | No | Il contenuto viene validato localmente prima del commit. |
 | Dettatura vocale | API `SpeechRecognition` / `webkitSpeechRecognition` del browser | Potenzialmente si | Dipende dal browser/OS: puo usare servizi esterni del provider. La funzione e opzionale e attivata dall'utente. |
 | Richieste asset e `releases.json` | GitHub Pages / hosting statico | Si, come metadati HTTP | IP, user agent, path richiesto e timestamp sono visibili all'hosting; i dati delle spese no. |
@@ -105,9 +107,9 @@ Controlli gia presenti:
 - guardrail su JSON locale corrotto;
 - blocco dei salvataggi quando i dati locali non sono leggibili;
 - export raw quando lo storage non e parseabile;
-- snapshot locale prima di import in aggiunta, import in sostituzione, cambio versione o cancellazione completa.
+- snapshot locale prima di import in aggiunta, import in sostituzione, cambio versione, cancellazione multipla dalla timeline o cancellazione completa.
 
-Nota privacy importante: lo snapshot locale e una misura anti-perdita dati. Dopo un import, un cambio versione o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo la conferma di cancellazione completa include una spunta, disattivata di default, per rimuovere anche lo snapshot locale.
+Nota privacy importante: lo snapshot locale e una misura anti-perdita dati. Dopo un import, un cambio versione, una cancellazione multipla o una cancellazione completa puo restare una copia precedente in `localStorage` sotto la chiave snapshot. Per questo la conferma di cancellazione completa include una spunta, disattivata di default, per rimuovere anche lo snapshot locale.
 
 Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e salva prima i dati correnti come nuovo snapshot. In questo modo, se il ripristino non era quello desiderato, resta una possibilita di tornare allo stato immediatamente precedente.
 
@@ -115,7 +117,7 @@ Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e s
 
 Gli export sono avviati localmente tramite `Blob` e object URL temporaneo, poi l'object URL viene revocato. Non c'e upload automatico.
 
-JSON e raw sono backup completi e possono contenere descrizioni, note, tag, timestamp e impostazioni. CSV e piu limitato ma resta un file in chiaro. Il rischio principale e successivo al download: cartella Download condivisa, sincronizzazioni cloud del device, invio manuale a terzi o salvataggio in aree non protette.
+JSON e raw sono backup completi e possono contenere descrizioni, note, tag, timestamp e impostazioni. CSV e piu limitato ma resta un file in chiaro. Dalla timeline e possibile esportare anche solo le spese selezionate in JSON o CSV: il contenuto e piu ristretto, ma resta comunque in chiaro dopo il download. Il rischio principale e successivo al download: cartella Download condivisa, sincronizzazioni cloud del device, invio manuale a terzi o salvataggio in aree non protette.
 
 Gli import sono letti con `FileReader` e validati localmente. In sostituzione viene creato uno snapshot locale prima del commit.
 
@@ -168,7 +170,7 @@ Regola: qualsiasi canale sperimentale pubblicato sulla stessa origine deve usare
 | PR-03 | `releases.json` | Bassa | Accettato | Fetch solo di metadati pubblici; se la fonte cambia, validare path e origine. |
 | PR-04 | Service worker scope | Bassa | OK | Scope limitati a stable o release; evitare root-scope in futuro. |
 | PR-05 | Stabile/dev stessa origine | Alta se regressione | Mitigato | La dev pubblicata deve restare su storage key separata. |
-| PR-06 | Snapshot dopo cancellazione | Media | Mitigato | Ripristinabile da UI; la conferma di cancellazione puo rimuovere anche lo snapshot. |
+| PR-06 | Snapshot dopo cancellazione | Media | Mitigato | Ripristinabile da UI; le cancellazioni multiple creano snapshot e la conferma di cancellazione completa puo rimuovere anche lo snapshot. |
 | PR-07 | Export plaintext | Media | Accettato | File JSON/CSV/raw in chiaro dopo download. |
 | PR-08 | Dettatura vocale | Media | Accettato | API browser/OS potenzialmente esterna, opzionale e manuale. |
 | PR-09 | Rendering HTML | Media se regressione | Mitigato | Campi utente principali escapati; mantenere disciplina su `innerHTML`. |

@@ -2229,6 +2229,85 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert(calls.includes('refresh'));
 });
 
+test('Controller selezione mantiene header e nav attivi anche nelle statistiche', () => {
+    const { TimelineSelectionController } = loadUiViews();
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function button(id) {
+        return {
+            id,
+            disabled: false,
+            classList: makeClassList(['hidden'])
+        };
+    }
+
+    const elements = {
+        'app-header': { classList: makeClassList() },
+        'bottom-nav': { classList: makeClassList() },
+        'theme-toggle': { classList: makeClassList() },
+        'btn-selection-select-all': button('btn-selection-select-all'),
+        'btn-selection-export': button('btn-selection-export'),
+        'btn-selection-delete': button('btn-selection-delete')
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'stats',
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    });
+
+    assert(elements['app-header'].classList.contains('selection-active'));
+    assert(elements['bottom-nav'].classList.contains('selection-active'));
+    assert(elements['theme-toggle'].classList.contains('hidden'));
+    assert(!elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-export'].disabled, false);
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'settings',
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    });
+
+    assert(!elements['app-header'].classList.contains('selection-active'));
+    assert(!elements['bottom-nav'].classList.contains('selection-active'));
+    assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+});
+
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
     const { TimelineController } = loadUiViews();
     const calls = [];
@@ -4362,6 +4441,9 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
         sliderMax: 100,
         _lastSliderInput: 'max',
         advancedFiltersOpen: false,
+        timelineSelectionActive: false,
+        timelineSelectedIds: new Set(),
+        timelineSelectionDeletePending: false,
         _filterSearchActive: false,
         _modalInteractionActive: false,
         _suppressNextPopstate: false,
@@ -4410,6 +4492,13 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
             invalidate: () => calls.push('invalidate')
         }
     });
+
+    app.timelineSelectionActive = true;
+    app.currentPage = 'stats';
+    assert.equal(wiring.filterOptions().isTimelineSelectionActive(), true);
+    app.currentPage = 'settings';
+    assert.equal(wiring.filterOptions().isTimelineSelectionActive(), false);
+    app.currentPage = 'timeline';
 
     wiring.navigationOptions().setCurrentPage('stats');
     wiring.runHistoryAction(UIStack.getCloseHistoryAction({ wasOpen: true }));

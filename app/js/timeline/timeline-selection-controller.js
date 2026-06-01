@@ -9,16 +9,30 @@ const TimelineSelectionController = (() => {
         return options.document || document;
     }
 
+    function toIdSet(value) {
+        if (value instanceof Set) return value;
+        if (
+            value &&
+            typeof value.size === 'number' &&
+            typeof value.has === 'function' &&
+            typeof value.forEach === 'function'
+        ) {
+            return new Set(Array.from(value).filter(Boolean));
+        }
+        if (Array.isArray(value)) return new Set(value.filter(Boolean));
+        return new Set();
+    }
+
     function getSelectedIds(options = {}) {
         const ids = typeof options.getSelectedIds === 'function'
             ? options.getSelectedIds()
             : options.selectedIds;
 
-        return ids instanceof Set ? ids : new Set();
+        return toIdSet(ids);
     }
 
     function setSelectedIds(options = {}, ids) {
-        const next = ids instanceof Set ? ids : new Set(ids || []);
+        const next = toIdSet(ids);
 
         if (typeof options.setSelectedIds === 'function') {
             options.setSelectedIds(next);
@@ -116,7 +130,7 @@ const TimelineSelectionController = (() => {
         const currentPage = typeof options.getCurrentPage === 'function'
             ? options.getCurrentPage()
             : 'timeline';
-        const active = isActive(options) && currentPage === 'timeline';
+        const active = isActive(options) && currentPage !== 'settings';
         const model = summary || getSummary(options);
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);

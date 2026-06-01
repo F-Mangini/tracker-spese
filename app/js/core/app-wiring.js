@@ -257,7 +257,7 @@ const AppWiring = (() => {
                 getFilterSearchActive: () => app._filterSearchActive,
                 setFilterSearchActive: value => { app._filterSearchActive = value; },
                 getCurrentPage: () => app.currentPage,
-                isTimelineSelectionActive: () => app.currentPage === 'timeline' && app.timelineSelectionActive,
+                isTimelineSelectionActive: () => app.currentPage !== 'settings' && app.timelineSelectionActive,
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
                 setSelectedOnlyFilter: value => { app.filters.selectedOnly = !!value; },
                 getLastSliderInput: () => app._lastSliderInput,

@@ -35,6 +35,60 @@ const Storage = {
         return `${this.KEY}:snapshot`;
     },
 
+    _readSnapshot() {
+        let raw = '';
+
+        try {
+            raw = localStorage.getItem(this._snapshotKey());
+        } catch (e) {
+            return this._fail('Snapshot locale non leggibile.', 'snapshot-read-failed', { cause: e });
+        }
+
+        if (!raw) {
+            return this._fail('Nessuno snapshot locale disponibile.', 'snapshot-missing');
+        }
+
+        let snapshot;
+        try {
+            snapshot = JSON.parse(raw);
+        } catch (e) {
+            return this._fail('Snapshot locale non leggibile.', 'snapshot-corrupt', { raw, cause: e });
+        }
+
+        if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+            return this._fail('Snapshot locale non valido.', 'snapshot-invalid', { raw });
+        }
+
+        const data = snapshot.data;
+        if (data && typeof data === 'object' && !Array.isArray(data) && typeof data.raw === 'string') {
+            return this._ok({
+                snapshot,
+                raw,
+                rawData: data.raw,
+                hasRawData: true,
+                count: null
+            });
+        }
+
+        const normalized = this._normalizeData(data, { source: 'snapshot' });
+        if (!normalized.success) {
+            return this._fail(
+                normalized.error,
+                normalized.code || 'invalid-snapshot-data',
+                { raw, warnings: normalized.warnings || [] }
+            );
+        }
+
+        return this._ok({
+            snapshot,
+            raw,
+            data: normalized.data,
+            hasRawData: false,
+            count: normalized.data.spese.length,
+            warnings: normalized.warnings || []
+        });
+    },
+
     /* --- Risultati espliciti --- */
     _ok(payload = {}) {
         return { success: true, ...payload };
@@ -63,6 +117,34 @@ const Storage = {
             storageKey: this.KEY,
             snapshotKey: this._snapshotKey(),
             schemaVersion: this.SCHEMA_VERSION
+        };
+    },
+
+    getSnapshotInfo() {
+        const result = this._readSnapshot();
+
+        if (result.code === 'snapshot-missing') {
+            return { exists: false };
+        }
+
+        if (!result.success) {
+            return {
+                exists: true,
+                readable: false,
+                error: result.error,
+                code: result.code || 'snapshot-error'
+            };
+        }
+
+        return {
+            exists: true,
+            readable: true,
+            creatoIl: result.snapshot.creatoIl || null,
+            reason: result.snapshot.reason || '',
+            count: result.count,
+            hasRawData: !!result.hasRawData,
+            schemaVersion: result.snapshot.schemaVersion || null,
+            warnings: result.warnings || []
         };
     },
 
@@ -185,6 +267,20 @@ const Storage = {
                 { cause: e }
             );
         }
+    },
+
+    _saveCurrentSnapshot(reason) {
+        const current = this._readStoredData();
+        if (current.success) {
+            return this._saveSnapshot(current.data, reason);
+        }
+
+        const raw = this.getRawData();
+        if (raw) {
+            return this._saveSnapshot({ raw }, `${reason}-raw`);
+        }
+
+        return this._ok();
     },
 
     /* --- CRUD Spese --- */
@@ -461,21 +557,52 @@ const Storage = {
     },
 
     /* --- Utility distruttive --- */
-    clearAll() {
-        const current = this._readStoredData();
-        if (current.success) {
-            const snapshot = this._saveSnapshot(current.data, 'clear-all');
-            if (!snapshot.success) return snapshot;
-        } else {
-            const raw = this.getRawData();
-            if (raw) {
-                const snapshot = this._saveSnapshot({ raw }, 'clear-all-raw');
-                if (!snapshot.success) return snapshot;
+    restoreSnapshot() {
+        const snapshot = this._readSnapshot();
+        if (!snapshot.success) return snapshot;
+
+        const currentSnapshot = this._saveCurrentSnapshot('restore-before');
+        if (!currentSnapshot.success) return currentSnapshot;
+
+        try {
+            if (snapshot.hasRawData) {
+                localStorage.setItem(this.KEY, snapshot.rawData);
+                this._setStatus(this._readStoredData());
+                return this._ok({ restoredRaw: true, count: null });
             }
+
+            localStorage.setItem(this.KEY, JSON.stringify(snapshot.data));
+            this._setStatus(this._ok({ data: snapshot.data, warnings: snapshot.warnings || [] }));
+            return this._ok({
+                restoredRaw: false,
+                count: snapshot.data.spese.length,
+                warnings: snapshot.warnings || []
+            });
+        } catch (e) {
+            const result = this._fail(
+                'Ripristino non riuscito. Lo spazio del browser potrebbe essere esaurito.',
+                'snapshot-restore-failed',
+                { cause: e }
+            );
+            this._setStatus(result);
+            return result;
+        }
+    },
+
+    clearAll(options = {}) {
+        const createSnapshot = options.createSnapshot !== false;
+        const clearSnapshot = options.clearSnapshot === true;
+
+        if (createSnapshot) {
+            const snapshot = this._saveCurrentSnapshot('clear-all');
+            if (!snapshot.success) return snapshot;
         }
 
         try {
             localStorage.removeItem(this.KEY);
+            if (clearSnapshot) {
+                localStorage.removeItem(this._snapshotKey());
+            }
             this._setStatus(this._ok({ data: this._defaultData(), warnings: [] }));
             return this._ok();
         } catch (e) {

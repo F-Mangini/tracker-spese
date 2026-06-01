@@ -11,7 +11,8 @@ const AppState = (() => {
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false
         };
     }
 

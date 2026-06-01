@@ -19,18 +19,18 @@ const TimelineView = (() => {
         if (selection.active) {
             firstLabel = 'Selezione';
             firstValue = '\u2713';
-            secondLabel = 'Totale';
-            secondValue = AppUI.money(selection.selectedTotal);
-            thirdLabel = 'N. spese';
-            thirdValue = Number(selection.selectedCount || 0);
+            secondLabel = 'N. spese';
+            secondValue = Number(selection.selectedCount || 0);
+            thirdLabel = 'Totale';
+            thirdValue = AppUI.money(selection.selectedTotal);
         } else if (isFiltered) {
             const filteredTotal = filtered.reduce((sum, item) => sum + Number(item.importo || 0), 0);
             firstLabel = 'Filtro Attivo';
             firstValue = '\uD83D\uDD0D';
-            secondLabel = 'Totale';
-            secondValue = AppUI.money(filteredTotal);
-            thirdLabel = 'N. spese';
-            thirdValue = filtered.length;
+            secondLabel = 'N. spese';
+            secondValue = filtered.length;
+            thirdLabel = 'Totale';
+            thirdValue = AppUI.money(filteredTotal);
         } else {
             firstLabel = 'Oggi';
             firstValue = AppUI.money(quickTotals.todayTotal);

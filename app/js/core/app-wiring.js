@@ -163,6 +163,34 @@ const AppWiring = (() => {
             });
         }
 
+        function getTimelineSelectedIdsForFilters() {
+            return app.timelineSelectionActive ? app.timelineSelectedIds : new Set();
+        }
+
+        function buildCurrentFilterModel() {
+            return deps.ExpenseQuery.buildFilterModel({
+                spese: deps.ExpenseStore.getSpese(),
+                filters: app.filters,
+                selectedIds: getTimelineSelectedIdsForFilters()
+            });
+        }
+
+        function syncFiltersAndViews(filterModel = null) {
+            const model = filterModel || buildCurrentFilterModel();
+
+            deps.FilterController.updateFilterBadge({
+                ...filterOptions(),
+                filterModel: model
+            });
+
+            if (typeof deps.FilterController.syncFilterUI === 'function') {
+                deps.FilterController.syncFilterUI(filterOptions());
+            }
+
+            if (app.currentPage === 'timeline') app.renderTimeline(model);
+            if (app.currentPage === 'stats') app.renderStats(model);
+        }
+
         function themeOptions() {
             return {
                 storage: deps.Storage,
@@ -214,10 +242,13 @@ const AppWiring = (() => {
                 renderFooterInfo: payload => deps.FilterView.renderFooterInfo(payload),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
-                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters()
+                }),
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
                     spese: deps.ExpenseStore.getSpese(),
-                    filters: app.filters
+                    filters: app.filters,
+                    selectedIds: getTimelineSelectedIdsForFilters()
                 }),
                 getFilterOpen: () => app.filterOpen,
                 setFilterOpen: value => { app.filterOpen = value; },
@@ -226,6 +257,9 @@ const AppWiring = (() => {
                 getFilterSearchActive: () => app._filterSearchActive,
                 setFilterSearchActive: value => { app._filterSearchActive = value; },
                 getCurrentPage: () => app.currentPage,
+                isTimelineSelectionActive: () => app.currentPage === 'timeline' && app.timelineSelectionActive,
+                getTimelineSelectedIds: () => app.timelineSelectedIds,
+                setSelectedOnlyFilter: value => { app.filters.selectedOnly = !!value; },
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
                 getSliderMaxValue: () => app.sliderMax,
@@ -305,7 +339,9 @@ const AppWiring = (() => {
                 filterModel,
                 newCardId: app.newCardId,
                 hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
-                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters()
+                }),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 groupByDay: spese => deps.StatsData.groupByDay(spese),
                 getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
@@ -342,7 +378,8 @@ const AppWiring = (() => {
                 getSpese: () => deps.ExpenseStore.getSpese(),
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
                     spese: deps.ExpenseStore.getSpese(),
-                    filters: app.filters
+                    filters: app.filters,
+                    selectedIds: getTimelineSelectedIdsForFilters()
                 }),
                 getSelectedIds: () => app.timelineSelectedIds,
                 setSelectedIds: ids => { app.timelineSelectedIds = ids; },
@@ -351,9 +388,11 @@ const AppWiring = (() => {
                 isDeletePending: () => app.timelineSelectionDeletePending,
                 setDeletePending: value => { app.timelineSelectionDeletePending = value; },
                 getCurrentPage: () => app.currentPage,
+                setSelectedOnlyFilter: value => { app.filters.selectedOnly = !!value; },
                 pushUiState,
                 consumeUiState: () => consumeUiState(),
                 renderTimeline: () => app.renderTimeline(),
+                onSelectionChange: () => syncFiltersAndViews(),
                 refreshAfterDataChange: () => app.refreshExpenseViews({
                     updateFilterSlider: true,
                     includeSettings: app.currentPage === 'settings'
@@ -452,7 +491,8 @@ const AppWiring = (() => {
                 spese: allSpese,
                 filters: app.filters,
                 period: app.statsPeriod,
-                offset: app.statsOffset
+                offset: app.statsOffset,
+                selectedIds: getTimelineSelectedIdsForFilters()
             });
 
             return {
@@ -463,13 +503,16 @@ const AppWiring = (() => {
                 period: app.statsPeriod,
                 offset: app.statsOffset,
                 filters: app.filters,
+                selectedIds: getTimelineSelectedIdsForFilters(),
                 charts: {
                     doughnut: app.chartDoughnut,
                     bar: app.chartBar
                 },
                 ChartClass: deps.ChartClass,
                 getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
-                applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters),
+                applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters()
+                }),
                 setPeriod: period => { app.statsPeriod = period; },
                 setOffset: offset => { app.statsOffset = offset; },
                 rerender: () => app.renderStats()
@@ -537,7 +580,8 @@ const AppWiring = (() => {
 
                     const filterModel = deps.ExpenseQuery.buildFilterModel({
                         spese: deps.ExpenseStore.getSpese(),
-                        filters: app.filters
+                        filters: app.filters,
+                        selectedIds: getTimelineSelectedIdsForFilters()
                     });
 
                     deps.FilterController.updateFilterBadge({

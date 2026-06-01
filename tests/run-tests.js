@@ -1299,6 +1299,25 @@ test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () =
     assert.equal(ExpenseFilters.countActive(filters), 5);
 });
 
+test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'a', importo: 5, categoria: 'bar' }),
+        expense({ id: 'b', importo: 7, categoria: 'bar' }),
+        expense({ id: 'c', importo: 9, categoria: 'casa' })
+    ];
+    const filters = {
+        categories: new Set(['bar']),
+        selectedOnly: true
+    };
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, filters, { selectedIds: new Set(['b', 'c']) }).map(item => item.id),
+        ['b']
+    );
+    assert.equal(ExpenseFilters.countActive(filters), 2);
+});
+
 test('Statistiche aggregano dati giornalieri includendo giorni vuoti', () => {
     const StatsData = loadStats();
     const spese = [
@@ -1622,6 +1641,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         'filter-date-to': makeElement('filter-date-to'),
         'btn-advanced-toggle': makeElement('btn-advanced-toggle'),
         'filter-panel': makeElement('filter-panel', { classes: ['hidden'], offsetHeight: 96 }),
+        'selection-filter-section': makeElement('selection-filter-section', { classes: ['hidden'] }),
+        'filter-selected-only': makeElement('filter-selected-only'),
         'filter-cats': makeElement('filter-cats'),
         'filter-methods': makeElement('filter-methods'),
         'slider-min': makeElement('slider-min', { value: '0' }),
@@ -1658,12 +1679,14 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
-        dateTo: ''
+        dateTo: '',
+        selectedOnly: false
     };
     const state = {
         filterOpen: false,
         advancedFiltersOpen: false,
         filterSearchActive: false,
+        selectionActive: false,
         releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
@@ -1695,6 +1718,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
             if (filters.dateFrom) count += 1;
             if (filters.dateTo) count += 1;
+            if (filters.selectedOnly) count += 1;
             return count;
         },
         applyFilters: items => items.filter(item => !filters.categories.size || filters.categories.has(item.categoria)),
@@ -1706,6 +1730,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         getFilterSearchActive: () => state.filterSearchActive,
         setFilterSearchActive: value => { state.filterSearchActive = value; },
         getCurrentPage: () => 'timeline',
+        isTimelineSelectionActive: () => state.selectionActive,
         getLastSliderInput: () => state.lastSliderInput,
         setLastSliderInput: value => { state.lastSliderInput = value; },
         getSliderMaxValue: () => state.sliderMax,
@@ -1732,7 +1757,15 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(state.sliderMax, 500);
     assert.equal(elements['slider-max'].value, '500');
     assert(catChips[0].classList.contains('active'));
+    assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
+
+    state.selectionActive = true;
+    FilterController.syncFilterUI(options);
+    assert(!elements['selection-filter-section'].classList.contains('hidden'));
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, true);
+    assert(elements['filter-selected-only'].classList.contains('active'));
 
     elements['search-input'].value = ' caffe ';
     elements['search-input'].listeners.input();
@@ -1841,6 +1874,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
     assert.equal(filters.amountMax, Infinity);
+    assert.equal(filters.selectedOnly, false);
+    assert(!elements['filter-selected-only'].classList.contains('active'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
 });
 
@@ -2163,11 +2198,18 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
 
     const selectedVisible = TimelineSelectionController.selectVisible(options);
     assert.equal(selectedVisible, 2);
-    assert.deepEqual(Array.from(state.selectedIds).sort(), ['b', 'c']);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
+
+    const deselectedVisible = TimelineSelectionController.selectVisible(options);
+    assert.equal(deselectedVisible, 2);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a']);
+
+    TimelineSelectionController.selectVisible(options);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
 
     const summary = TimelineSelectionController.getSummary(options);
-    assert.equal(summary.selectedCount, 2);
-    assert.equal(summary.selectedTotal, 7);
+    assert.equal(summary.selectedCount, 3);
+    assert.equal(summary.selectedTotal, 9);
     assert.equal(summary.visibleCount, 2);
 
     assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
@@ -2181,9 +2223,9 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert.deepEqual(calls.filter(call => Array.isArray(call) && call[0] === 'push'), [
         ['push', 'timeline-selection']
     ]);
-    assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'b,c'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
-    assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'b,c'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
     assert(calls.includes('refresh'));
 });
 

@@ -130,7 +130,7 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con seleziona filtrate/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte limitato alle spese visibili/filtrate.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con seleziona filtrate/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: copia negli appunti e formati TSV/tabella Markdown.
 - Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
 - Modifica spesa anche dalla pagina statistiche.

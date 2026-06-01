@@ -79,6 +79,15 @@ const TimelineSelectionController = (() => {
         };
     }
 
+    function notifySelectionChanged(options = {}) {
+        if (typeof options.onSelectionChange === 'function') {
+            options.onSelectionChange();
+            return;
+        }
+
+        (options.renderTimeline || noop)();
+    }
+
     function getSelectedSpese(options = {}, spese = null) {
         const ids = getSelectedIds(options);
         const list = Array.isArray(spese) ? spese : getAllSpese(options);
@@ -112,6 +121,7 @@ const TimelineSelectionController = (() => {
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);
         const header = doc.getElementById('app-header');
+        const bottomNav = doc.getElementById('bottom-nav');
         const themeToggle = doc.getElementById('theme-toggle');
         const selectionButtons = [
             doc.getElementById('btn-selection-select-all'),
@@ -123,6 +133,7 @@ const TimelineSelectionController = (() => {
         const selectAllButton = doc.getElementById('btn-selection-select-all');
 
         if (header) header.classList.toggle('selection-active', active);
+        if (bottomNav) bottomNav.classList.toggle('selection-active', active);
         if (themeToggle) themeToggle.classList.toggle('hidden', active);
 
         selectionButtons.forEach(button => {
@@ -152,7 +163,7 @@ const TimelineSelectionController = (() => {
             options.pushUiState({ panel: 'timeline-selection' });
         }
 
-        (options.renderTimeline || noop)();
+        notifySelectionChanged(options);
         return true;
     }
 
@@ -163,8 +174,11 @@ const TimelineSelectionController = (() => {
         setActive(options, false);
         setSelectedIds(options, new Set());
         setDeletePending(options, false);
+        if (typeof options.setSelectedOnlyFilter === 'function') {
+            options.setSelectedOnlyFilter(false);
+        }
         syncHeader(options, { active: false, selectedCount: 0, visibleCount: 0 });
-        (options.renderTimeline || noop)();
+        notifySelectionChanged(options);
 
         if (!fromPopstate && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
@@ -186,17 +200,19 @@ const TimelineSelectionController = (() => {
 
         setSelectedIds(options, ids);
         setDeletePending(options, false);
-        (options.renderTimeline || noop)();
+        notifySelectionChanged(options);
         return true;
     }
 
     function selectVisible(options = {}) {
         const model = getFilterModel(options);
-        const visibleIds = new Set(
+        const visibleIds = (
             (model.filteredSpese || [])
                 .map(item => item && item.id)
                 .filter(Boolean)
         );
+        const ids = new Set(getSelectedIds(options));
+        const shouldDeselectVisible = visibleIds.length > 0 && visibleIds.every(id => ids.has(id));
 
         if (!isActive(options)) {
             setActive(options, true);
@@ -205,11 +221,16 @@ const TimelineSelectionController = (() => {
             }
         }
 
-        setSelectedIds(options, visibleIds);
-        setDeletePending(options, false);
-        (options.renderTimeline || noop)();
+        visibleIds.forEach(id => {
+            if (shouldDeselectVisible) ids.delete(id);
+            else ids.add(id);
+        });
 
-        return visibleIds.size;
+        setSelectedIds(options, ids);
+        setDeletePending(options, false);
+        notifySelectionChanged(options);
+
+        return visibleIds.length;
     }
 
     function getExportChoices(options = {}) {
@@ -332,6 +353,9 @@ const TimelineSelectionController = (() => {
         setActive(options, false);
         setSelectedIds(options, new Set());
         setDeletePending(options, false);
+        if (typeof options.setSelectedOnlyFilter === 'function') {
+            options.setSelectedOnlyFilter(false);
+        }
         if (wasActive && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
         }

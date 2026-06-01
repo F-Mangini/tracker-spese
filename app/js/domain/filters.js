@@ -28,8 +28,23 @@ const ExpenseFilters = (() => {
             amountMin: Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 0,
             amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
             dateFrom: String(filters.dateFrom || '').trim(),
-            dateTo: String(filters.dateTo || '').trim()
+            dateTo: String(filters.dateTo || '').trim(),
+            selectedOnly: !!filters.selectedOnly
         };
+    }
+
+    function toSelectedIds(value) {
+        if (value instanceof Set) return value;
+        if (
+            value &&
+            typeof value.size === 'number' &&
+            typeof value.has === 'function' &&
+            typeof value.forEach === 'function'
+        ) {
+            return new Set(Array.from(value).filter(Boolean));
+        }
+        if (Array.isArray(value)) return new Set(value.filter(Boolean));
+        return new Set();
     }
 
     function countActive(filters = {}) {
@@ -41,6 +56,7 @@ const ExpenseFilters = (() => {
         if (state.methods.size > 0) count += 1;
         if (state.amountMin > 0 || state.amountMax < Infinity) count += 1;
         if (state.dateFrom || state.dateTo) count += 1;
+        if (state.selectedOnly) count += 1;
 
         return count;
     }
@@ -94,12 +110,14 @@ const ExpenseFilters = (() => {
     function matches(spesa, filters = {}, options = {}) {
         const state = normalize(filters);
         const includeDate = options.includeDate !== false;
+        const selectedIds = toSelectedIds(options.selectedIds);
 
         if (!matchesQuery(spesa, state.query)) return false;
         if (state.categories.size > 0 && !state.categories.has(spesa.categoria)) return false;
         if (state.methods.size > 0 && !state.methods.has(spesa.metodo)) return false;
         if (!matchesAmount(spesa, state)) return false;
         if (includeDate && !matchesDateRange(spesa, state)) return false;
+        if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;
 
         return true;
     }
@@ -107,6 +125,7 @@ const ExpenseFilters = (() => {
     function apply(spese, filters = {}, options = {}) {
         const state = normalize(filters);
         const includeDate = options.includeDate !== false;
+        const selectedIds = toSelectedIds(options.selectedIds);
         const list = Array.isArray(spese) ? spese : [];
 
         return list.filter(spesa => {
@@ -115,12 +134,16 @@ const ExpenseFilters = (() => {
             if (state.methods.size > 0 && !state.methods.has(spesa.metodo)) return false;
             if (!matchesAmount(spesa, state)) return false;
             if (includeDate && !matchesDateRange(spesa, state)) return false;
+            if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;
             return true;
         });
     }
 
-    function applyNonDate(spese, filters = {}) {
-        return apply(spese, filters, { includeDate: false });
+    function applyNonDate(spese, filters = {}, options = {}) {
+        return apply(spese, filters, {
+            ...options,
+            includeDate: false
+        });
     }
 
     return {

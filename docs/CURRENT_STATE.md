@@ -78,7 +78,7 @@ Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri
 
 La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana e mese; con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
 
-Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il toggle tema dell'header viene nascosto e compaiono le azioni per selezionare tutte le spese visibili/filtrate, esportare la selezione in JSON/CSV o eliminare la selezione con conferma. `Seleziona tutte` sostituisce la selezione corrente con tutte e sole le spese filtrate al momento.
+Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il toggle tema dell'header viene nascosto e compaiono le azioni per selezionare/deselezionare tutte le spese visibili/filtrate, esportare la selezione in JSON/CSV o eliminare la selezione con conferma. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, che limita la timeline alle spese selezionate in quel momento.
 
 ### Filtri
 
@@ -89,6 +89,7 @@ I filtri sono condivisi tra timeline e statistiche:
 - importo minimo/massimo;
 - categorie;
 - metodi di pagamento.
+- selezionate, disponibile solo durante la modalita selezione timeline.
 
 Il pannello ha uno stato compatto e uno completamente aperto. I contenuti dei filtri restano gli stessi in entrambi gli stati: nel pannello compatto lo spazio scrollabile visibile e ridotto alla zona della ricerca e il resto dei controlli si raggiunge scrollando internamente, senza mostrare la barra laterale di scroll. La barra riassuntiva inferiore del pannello resta fuori dallo scroll ed e sempre visibile quando i filtri sono aperti. Il badge del pulsante filtri mostra il numero di filtri attivi.
 

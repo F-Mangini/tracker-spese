@@ -27,8 +27,9 @@ Stato: completato. La dev refactor e stata promossa a stabile; la baseline della
 
 - Repository target: `tracker-spese`.
 - Stabile: `main`, `Where's My Money?`, short name `WMM`, storage `spesa-tracker-data`.
-- Dev: `codex/refactor`, `Where's My Bug?`, short name `WMB`, storage separato.
-- GitHub Pages pubblica `/` e `/stable/` da `main`, `/dev/` da `codex/refactor`.
+- Dev pubblica: branch aggregatore `dev`, `Where's My Bug?`, short name `WMB`, storage separato.
+- Branch di fase attuale: `privacy`.
+- GitHub Pages pubblica `/` e `/stable/` da `main`, `/dev/` da `dev`.
 - Il workflow Pages parte da `main`.
 
 ## Bug e Miglioramenti Vicini

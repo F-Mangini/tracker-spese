@@ -18,9 +18,11 @@ Questo progetto e personale ed e mantenuto da una sola persona. Le soluzioni dev
 - Lingua documentazione e UI: italiano.
 - Obiettivo distribuzione: app installabile/offline stabile, con aggiornamenti scelti dall'utente da una lista di versioni pubblicate dal maintainer.
 - Branch stabile attuale: `main`.
-- Branch di lavoro/refactor: `codex/refactor`.
-- GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `codex/refactor`.
-- Il workflow Pages deve partire da `main`: l'environment `github-pages` non accetta deploy diretti da `codex/refactor`.
+- Branch aggregatore per test pubblico/dev: `dev`.
+- Branch di fase attuale: `privacy`.
+- Branch di lavoro/refactor storico: `codex/refactor`.
+- GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `dev`.
+- Il workflow Pages deve partire da `main`: l'environment `github-pages` non accetta deploy diretti dai branch di lavoro.
 - Esigenza immediata completata: esiste un link stabile per l'uso quotidiano e un link separato per testare la versione di sviluppo.
 - Baseline PWA/offline completata: Chart.js locale, release `releases/v2026.05.30/` scoped, launcher offline `/stable/`, finestra versioni e verifica Android del maintainer.
 - Vincolo importante: se stabile e dev sono servite dallo stesso dominio GitHub Pages, anche con path diversi, condividono `localStorage`; la versione dev deve quindi usare una storage key separata o un'origine diversa per non rischiare i dati reali.
@@ -79,7 +81,7 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - Evitare framework e build step finche non sono chiaramente necessari.
 - Evitare refactor larghi e simultanei.
 - Prima dei refactor larghi, affrontare o almeno considerare i rischi in `docs/CODE_REVIEW.md`.
-- Lavora di default sulla versione dev su `codex/refactor`.
+- Lavora di default sul branch di fase richiesto dal maintainer. Per test pubblico Android, porta poi le modifiche validate sul branch aggregatore `dev`.
 - Toccare `main` solo per promozioni esplicite a stabile o per fix infrastrutturali minimi necessari al deploy.
 - Non cambiare schema dati senza fallback per vecchi dati.
 - Non rimuovere workaround mobile senza capire quale bug risolvevano.
@@ -98,7 +100,7 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - Configurazione runtime minima: `app/js/core/config.js`, caricato prima di `data/storage.js`.
 - `app/js/domain/filters.js`: logica pura dei filtri condivisi tra timeline e statistiche; mantenere allineata ai test.
 - `app/js/domain/stats.js`: logica pura per date, riepiloghi e aggregazioni statistiche; mantenere allineata ai test.
-- Workflow Pages: `.github/workflows/pages.yml` assembla stabile da `main` e dev da `codex/refactor`.
+- Workflow Pages: `.github/workflows/pages.yml` assembla stabile da `main` e dev da `dev`.
 - Release PWA: `releases.json` e `releases/v*/`; i service worker devono restare scoped alla singola release e non devono controllare `/`, `/stable/` o `/dev/`.
 - Manifest stabile: `app/manifest.json`; manifest dev: `app/manifest.dev.json`, copiato dal workflow in `public/dev/manifest.json`.
 - Icone stabili: `app/icons/stable/`; icone dev: `app/icons/dev/`.

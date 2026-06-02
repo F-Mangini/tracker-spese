@@ -40,6 +40,7 @@ const AppState = (() => {
 
             filterOpen: false,
             filters: createFilters(),
+            _activeFiltersHistory: false,
             sliderMax: 100,
             _lastSliderInput: 'max',
             advancedFiltersOpen: false,

@@ -93,6 +93,16 @@ const App = {
                 ? this.filters.selectedOnlyIds
                 : this.timelineSelectedIds
         });
+        const hasActiveFilters = !!filterModel.hasActiveFilters;
+
+        if (hasActiveFilters && !this._activeFiltersHistory) {
+            this._activeFiltersHistory = true;
+            this.getWiring().pushUiState({ panel: 'active-filters' });
+        }
+
+        if (!hasActiveFilters) {
+            this._activeFiltersHistory = false;
+        }
 
         FilterController.updateFilterBadge({
             ...this.getWiring().filterOptions(),

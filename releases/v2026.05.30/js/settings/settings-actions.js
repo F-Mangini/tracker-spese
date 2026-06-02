@@ -114,7 +114,7 @@ const SettingsActions = (() => {
     function normalizeLaunchPath(path) {
         const value = String(path || '');
 
-        return /^releases\/[^/]+\/$/.test(value) ? value : '';
+        return value === 'stable/' || /^releases\/[^/]+\/$/.test(value) ? value : '';
     }
 
     function readLaunchTarget(storageLike) {
@@ -151,9 +151,8 @@ const SettingsActions = (() => {
         const locationLike = options.locationLike || {};
         const channel = String(config.channel || 'stable');
         const targetPath = readLaunchTarget(options.storageLike);
-        const currentReleaseId = getCurrentReleaseId(locationLike);
 
-        if (channel === 'dev' || !targetPath || currentReleaseId) {
+        if (channel === 'dev' || !targetPath) {
             return '';
         }
 
@@ -236,7 +235,7 @@ const SettingsActions = (() => {
             isRecommended: false,
             isCurrent: !currentReleaseId && channel !== 'dev',
             isChannel: true,
-            launchPath: ''
+            launchPath: 'stable/'
         };
 
         return {

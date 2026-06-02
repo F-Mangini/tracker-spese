@@ -3659,6 +3659,33 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         }),
         'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/'
     );
+    SettingsActions.setLaunchTarget('releases/v2026.06.02/', launchStorage);
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' },
+            storageLike: launchStorage
+        }),
+        'https://f-mangini.github.io/tracker-spese/releases/v2026.06.02/'
+    );
+    SettingsActions.setLaunchTarget('stable/', launchStorage);
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' },
+            storageLike: launchStorage
+        }),
+        'https://f-mangini.github.io/tracker-spese/stable/'
+    );
+    assert.equal(
+        SettingsActions.getPreferredLaunchUrl({
+            config: { channel: 'stable' },
+            locationLike: { href: 'https://f-mangini.github.io/tracker-spese/stable/' },
+            storageLike: launchStorage
+        }),
+        ''
+    );
+    SettingsActions.setLaunchTarget('releases/v2026.05.30/', launchStorage);
     assert.equal(
         SettingsActions.getPreferredLaunchUrl({
             config: { channel: 'stable' },
@@ -3704,6 +3731,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
 
     assert.equal(releaseModel.releases[0].id, 'stable/latest');
     assert.equal(releaseModel.releases[0].url, 'https://f-mangini.github.io/tracker-spese/stable/');
+    assert.equal(releaseModel.releases[0].launchPath, 'stable/');
     assert.equal(releaseModel.releases[0].isCurrent, false);
     assert.equal(releaseModel.releases[1].url, 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/');
     assert.equal(releaseModel.releases[1].isRecommended, true);
@@ -4094,11 +4122,12 @@ test('Controller impostazioni collega finestra versioni a history e back button'
     ]);
 });
 
-test('Controller impostazioni crea snapshot prima del cambio versione', () => {
+test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {
     const { SettingsController } = loadUiViews();
     const calls = [];
     const launchStorage = createLocalStorage();
     let clickHandler = null;
+    let prevented = false;
     const modal = {
         dataset: {},
         querySelector() {
@@ -4115,9 +4144,17 @@ test('Controller impostazioni crea snapshot prima del cambio versione', () => {
         }
     };
     const link = {
+        href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/',
         dataset: { launchPath: 'releases/v2026.05.30/' },
         closest(selector) {
             return selector === '.release-install-link' ? link : null;
+        }
+    };
+    const locationLike = {
+        href: 'https://f-mangini.github.io/tracker-spese/stable/',
+        replace(url) {
+            calls.push(['replace', url]);
+            this.href = url;
         }
     };
 
@@ -4129,12 +4166,20 @@ test('Controller impostazioni crea snapshot prima del cambio versione', () => {
         },
         storage,
         localStorage: launchStorage,
+        locationLike,
         showToast: (message, type) => calls.push(['toast', type, message])
     });
 
-    clickHandler({ target: link });
+    clickHandler({
+        target: link,
+        preventDefault: () => { prevented = true; }
+    });
 
-    assert.deepEqual(calls, [['snapshot', 'version-change']]);
+    assert.equal(prevented, true);
+    assert.deepEqual(calls, [
+        ['snapshot', 'version-change'],
+        ['replace', 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/']
+    ]);
     assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'releases/v2026.05.30/');
 });
 
@@ -4154,6 +4199,7 @@ test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', (
         }
     };
     const link = {
+        href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/',
         dataset: { launchPath: 'releases/v2026.05.30/' },
         closest(selector) {
             return selector === '.release-install-link' ? link : null;
@@ -4173,6 +4219,11 @@ test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', (
             }
         },
         localStorage: launchStorage,
+        locationLike: {
+            replace(url) {
+                calls.push(['replace', url]);
+            }
+        },
         showToast: (message, type) => calls.push(['toast', type, message])
     });
 
@@ -4187,6 +4238,50 @@ test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', (
         ['snapshot', 'version-change'],
         ['toast', 'error', 'Snapshot fallito']
     ]);
+});
+
+test('Controller impostazioni installa versioni sostituendo la pagina corrente', () => {
+    const { SettingsController } = loadUiViews();
+    const launchStorage = createLocalStorage();
+    const calls = [];
+    const locationLike = {
+        href: 'https://f-mangini.github.io/tracker-spese/stable/',
+        replace(url) {
+            calls.push(['replace', url]);
+            this.href = url;
+        }
+    };
+    const link = {
+        href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/',
+        dataset: {
+            launchPath: 'releases/v2026.05.30/'
+        }
+    };
+
+    assert.equal(SettingsController.installReleaseFromLink(link, {
+        localStorage: launchStorage,
+        locationLike
+    }), true);
+
+    assert.equal(
+        launchStorage.getItem('spesa-tracker-launch-target'),
+        'releases/v2026.05.30/'
+    );
+    assert.deepEqual(calls, [
+        ['replace', 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/']
+    ]);
+
+    const fallbackLocation = { href: 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/' };
+    SettingsController.installReleaseFromLink({
+        href: 'https://f-mangini.github.io/tracker-spese/stable/',
+        dataset: { launchPath: 'stable/' }
+    }, {
+        localStorage: launchStorage,
+        locationLike: fallbackLocation
+    });
+
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'stable/');
+    assert.equal(fallbackLocation.href, 'https://f-mangini.github.io/tracker-spese/stable/');
 });
 
 test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', () => {

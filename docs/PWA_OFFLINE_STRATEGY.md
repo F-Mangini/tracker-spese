@@ -43,7 +43,9 @@ Ogni release installabile deve avere manifest e service worker coerenti con il p
 
 Regola critica: non usare un service worker root-scope che controlli anche `/dev/`, `/stable/` o release diverse.
 
-Eccezione controllata: `/stable/` registra `stable-launch-service-worker.js` con scope `./`. Questo service worker non rende la stable una release immutabile e non controlla `/`, `/dev/` o `/releases/`: cachea solo gli asset della stable scoped per permettere allo start URL installato da `/stable/` di avviarsi offline, leggere `spesa-tracker-launch-target` e reindirizzare alla release scelta dall'utente.
+Eccezione controllata: `/stable/` registra `stable-launch-service-worker.js` con scope `./`. Questo service worker non rende la stable una release immutabile e non controlla `/`, `/dev/` o `/releases/`: cachea solo gli asset della stable scoped per permettere allo start URL installato da `/stable/` di avviarsi offline, leggere `spesa-tracker-launch-target` e reindirizzare alla versione scelta dall'utente.
+
+La preferenza `spesa-tracker-launch-target` puo contenere `stable/` oppure un path `releases/vYYYY.MM.DD/`. I link della finestra versioni usano `location.replace`, cosi la pagina impostazioni della versione precedente non resta come destinazione del back. Inoltre l'app ricontrolla la preferenza su `pageshow` quando una pagina torna dalla bfcache del browser: se l'utente era passato dalla versione A alla versione B, un back verso A viene sostituito subito con B.
 
 ### Manutenzione di stable/latest
 

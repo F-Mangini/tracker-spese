@@ -4245,6 +4245,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.deepEqual(second._editTags, []);
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
+    assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
     assert.equal(second.timelineSelectionActive, false);
     assert.equal(second.timelineSelectedIds.size, 0);

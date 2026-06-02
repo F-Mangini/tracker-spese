@@ -50,6 +50,7 @@ const AppWiring = (() => {
             FilterView: typeof FilterView === 'undefined' ? null : FilterView,
             FilterController: typeof FilterController === 'undefined' ? null : FilterController,
             TimelineController: typeof TimelineController === 'undefined' ? null : TimelineController,
+            TimelineSelectionController: typeof TimelineSelectionController === 'undefined' ? null : TimelineSelectionController,
             NavigationController: typeof NavigationController === 'undefined' ? null : NavigationController,
             StatsController: typeof StatsController === 'undefined' ? null : StatsController,
             ModalView: typeof ModalView === 'undefined' ? null : ModalView,
@@ -81,6 +82,7 @@ const AppWiring = (() => {
                 callback();
                 return null;
             }),
+            clearTimeout: getBoundGlobalFunction('clearTimeout', noop),
             setInterval: getBoundGlobalFunction('setInterval', noop),
             clearInterval: getBoundGlobalFunction('clearInterval', noop)
         };
@@ -117,6 +119,7 @@ const AppWiring = (() => {
             expenseInputOptions,
             expenseSubmitOptions,
             timelineOptions,
+            timelineSelectionOptions,
             modalMobileOptions: modalWiring.modalMobileOptions,
             modalOptions: modalWiring.modalOptions,
             uiStackOptions,
@@ -160,6 +163,47 @@ const AppWiring = (() => {
             });
         }
 
+        function getTimelineSelectedIdsForFilters() {
+            return app.timelineSelectionActive ? app.timelineSelectedIds : new Set();
+        }
+
+        function getSelectedOnlyIdsForFilters() {
+            if (!app.timelineSelectionActive) return new Set();
+            if (!app.filters.selectedOnly) return app.timelineSelectedIds;
+            return app.filters.selectedOnlyIds instanceof Set
+                ? app.filters.selectedOnlyIds
+                : new Set();
+        }
+
+        function buildCurrentFilterModel() {
+            return deps.ExpenseQuery.buildFilterModel({
+                spese: deps.ExpenseStore.getSpese(),
+                filters: app.filters,
+                selectedIds: getTimelineSelectedIdsForFilters(),
+                selectedOnlyIds: getSelectedOnlyIdsForFilters()
+            });
+        }
+
+        function syncFiltersAndViews(filterModel = null) {
+            const model = filterModel || buildCurrentFilterModel();
+
+            if (typeof app.syncActiveFiltersHistory === 'function') {
+                app.syncActiveFiltersHistory(model.hasActiveFilters);
+            }
+
+            deps.FilterController.updateFilterBadge({
+                ...filterOptions(),
+                filterModel: model
+            });
+
+            if (typeof deps.FilterController.syncFilterUI === 'function') {
+                deps.FilterController.syncFilterUI(filterOptions());
+            }
+
+            if (app.currentPage === 'timeline') app.renderTimeline(model);
+            if (app.currentPage === 'stats') app.renderStats(model);
+        }
+
         function themeOptions() {
             return {
                 storage: deps.Storage,
@@ -185,9 +229,14 @@ const AppWiring = (() => {
                 shouldHideTimelineInputBar: () => app.advancedFiltersOpen,
                 closeFilterPanel: () => deps.FilterController.closeFilterPanel(filterOptions()),
                 updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
+                syncTimelineSelectionHeader: () => deps.TimelineSelectionController.syncHeader(
+                    timelineSelectionOptions()
+                ),
                 renderTimeline: () => app.renderTimeline(),
                 renderStats: () => app.renderStats(),
                 renderSettings: () => app.renderSettings(),
+                getCurrentPage: () => app.currentPage,
+                isTimelineSelectionActive: () => app.timelineSelectionActive,
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
                 defer: callback => deps.setTimeout(callback, 0)
             };
@@ -206,10 +255,15 @@ const AppWiring = (() => {
                 renderFooterInfo: payload => deps.FilterView.renderFooterInfo(payload),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
-                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
+                }),
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
                     spese: deps.ExpenseStore.getSpese(),
-                    filters: app.filters
+                    filters: app.filters,
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 getFilterOpen: () => app.filterOpen,
                 setFilterOpen: value => { app.filterOpen = value; },
@@ -218,6 +272,12 @@ const AppWiring = (() => {
                 getFilterSearchActive: () => app._filterSearchActive,
                 setFilterSearchActive: value => { app._filterSearchActive = value; },
                 getCurrentPage: () => app.currentPage,
+                isTimelineSelectionActive: () => app.currentPage !== 'settings' && app.timelineSelectionActive,
+                getTimelineSelectedIds: () => app.timelineSelectedIds,
+                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                    app.filters.selectedOnly = !!value;
+                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                },
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
                 getSliderMaxValue: () => app.sliderMax,
@@ -297,14 +357,82 @@ const AppWiring = (() => {
                 filterModel,
                 newCardId: app.newCardId,
                 hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
-                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters),
+                applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
+                }),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 groupByDay: spese => deps.StatsData.groupByDay(spese),
                 getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
                 getMethod: id => deps.AppUI.getMethod(id, deps.PAYMENT_METHODS),
                 formatDayLabel: date => deps.AppUI.formatDayLabel(date),
                 clearNewCardId: () => { app.newCardId = null; },
-                openEditModal: id => deps.ModalController.open(modalWiring.modalOptions(), id)
+                openEditModal: id => deps.ModalController.open(modalWiring.modalOptions(), id),
+                selection: {
+                    active: app.timelineSelectionActive,
+                    selectedIds: app.timelineSelectedIds,
+                    deletePending: app.timelineSelectionDeletePending
+                },
+                getSelectionSummary: (filtered, allSpese) => deps.TimelineSelectionController.getSummary(
+                    timelineSelectionOptions(),
+                    filtered,
+                    allSpese
+                ),
+                onSelectionSummary: summary => deps.TimelineSelectionController.syncHeader(
+                    timelineSelectionOptions(),
+                    summary
+                ),
+                isSelectionActive: () => app.timelineSelectionActive,
+                enterSelection: id => deps.TimelineSelectionController.enter(timelineSelectionOptions(), id),
+                toggleSelection: id => deps.TimelineSelectionController.toggle(timelineSelectionOptions(), id),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: id => deps.clearTimeout(id)
+            };
+        }
+
+        function timelineSelectionOptions() {
+            return {
+                document: deps.document,
+                appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
+                storage: deps.Storage,
+                getSpese: () => deps.ExpenseStore.getSpese(),
+                getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
+                    spese: deps.ExpenseStore.getSpese(),
+                    filters: app.filters,
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
+                }),
+                getSelectedIds: () => app.timelineSelectedIds,
+                setSelectedIds: ids => { app.timelineSelectedIds = ids; },
+                isActive: () => app.timelineSelectionActive,
+                setActive: value => { app.timelineSelectionActive = value; },
+                isDeletePending: () => app.timelineSelectionDeletePending,
+                setDeletePending: value => { app.timelineSelectionDeletePending = value; },
+                getCurrentPage: () => app.currentPage,
+                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                    app.filters.selectedOnly = !!value;
+                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                },
+                pushUiState,
+                consumeUiState: () => consumeUiState(),
+                renderTimeline: () => app.renderTimeline(),
+                onSelectionChange: () => syncFiltersAndViews(),
+                refreshAfterDataChange: () => app.refreshExpenseViews({
+                    updateFilterSlider: true,
+                    includeSettings: app.currentPage === 'settings'
+                }),
+                dateStamp: () => deps.AppUI.dateStamp(),
+                download: (content, filename, mime) => deps.DownloadController.download(content, filename, mime, {
+                    document: deps.document,
+                    URL: deps.URL,
+                    Blob: deps.Blob
+                }),
+                showToast: (message, type) => app.showToast(message, type),
+                showChoices: (message, choices) => deps.ConfirmController.showChoices({
+                    ...confirmOptions(),
+                    message,
+                    choices
+                })
             };
         }
 
@@ -316,10 +444,18 @@ const AppWiring = (() => {
                 getSuppressNextPopstate: () => app._suppressNextPopstate,
                 setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
-                closeConfirm: fromPopstate => deps.ConfirmController.close({
-                    ...confirmOptions(),
-                    fromPopstate
-                }),
+                closeConfirm: fromPopstate => {
+                    const result = deps.ConfirmController.close({
+                        ...confirmOptions(),
+                        fromPopstate
+                    });
+
+                    if (app.timelineSelectionDeletePending) {
+                        deps.TimelineSelectionController.clearDeletePending(timelineSelectionOptions());
+                    }
+
+                    return result;
+                },
                 isReleaseModalOpen: () => deps.SettingsController.isReleaseModalOpen(settingsOptions()),
                 closeReleaseModal: fromPopstate => deps.SettingsController.closeReleaseModal(
                     settingsOptions(),
@@ -341,6 +477,25 @@ const AppWiring = (() => {
                     filterOptions(),
                     fromPopstate
                 ),
+                isTimelineSelectionActive: () => app.currentPage === 'timeline' && app.timelineSelectionActive,
+                closeTimelineSelection: fromPopstate => deps.TimelineSelectionController.exit(
+                    timelineSelectionOptions(),
+                    fromPopstate
+                ),
+                hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
+                resetFilters: () => {
+                    if (typeof app.syncActiveFiltersHistory === 'function') {
+                        app.syncActiveFiltersHistory(false, {
+                            consumeWhenCleared: false
+                        });
+                    } else {
+                        app._activeFiltersHistory = false;
+                    }
+
+                    deps.FilterController.resetFilters(filterOptions(), {
+                        showToast: false
+                    });
+                },
                 getCurrentPage: () => app.currentPage,
                 navigateTo: (page, fromPopstate) => deps.NavigationController.navigateTo(
                     navigationOptions(),
@@ -374,7 +529,9 @@ const AppWiring = (() => {
                 spese: allSpese,
                 filters: app.filters,
                 period: app.statsPeriod,
-                offset: app.statsOffset
+                offset: app.statsOffset,
+                selectedIds: getTimelineSelectedIdsForFilters(),
+                selectedOnlyIds: getSelectedOnlyIdsForFilters()
             });
 
             return {
@@ -385,13 +542,17 @@ const AppWiring = (() => {
                 period: app.statsPeriod,
                 offset: app.statsOffset,
                 filters: app.filters,
+                selectedIds: getTimelineSelectedIdsForFilters(),
                 charts: {
                     doughnut: app.chartDoughnut,
                     bar: app.chartBar
                 },
                 ChartClass: deps.ChartClass,
                 getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
-                applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters),
+                applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters, {
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
+                }),
                 setPeriod: period => { app.statsPeriod = period; },
                 setOffset: offset => { app.statsOffset = offset; },
                 rerender: () => app.renderStats()
@@ -423,10 +584,11 @@ const AppWiring = (() => {
                     message,
                     choices
                 }),
-                showConfirm: (message, onYes) => deps.ConfirmController.showConfirm({
+                showConfirm: (message, onYes, dialogOptions = {}) => deps.ConfirmController.showConfirm({
                     ...confirmOptions(),
                     message,
-                    onYes
+                    onYes,
+                    ...dialogOptions
                 }),
                 applyTheme: theme => deps.ThemeController.applyTheme(theme, {
                     document: deps.document,
@@ -458,7 +620,9 @@ const AppWiring = (() => {
 
                     const filterModel = deps.ExpenseQuery.buildFilterModel({
                         spese: deps.ExpenseStore.getSpese(),
-                        filters: app.filters
+                        filters: app.filters,
+                        selectedIds: getTimelineSelectedIdsForFilters(),
+                        selectedOnlyIds: getSelectedOnlyIdsForFilters()
                     });
 
                     deps.FilterController.updateFilterBadge({

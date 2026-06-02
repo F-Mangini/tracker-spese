@@ -102,6 +102,7 @@ function loadUiViews(globals = {}) {
     const filterControllerCode = readAppScript('filters/filter-controller.js');
     const timelineViewCode = readAppScript('timeline/timeline-view.js');
     const timelineControllerCode = readAppScript('timeline/timeline-controller.js');
+    const timelineSelectionControllerCode = readAppScript('timeline/timeline-selection-controller.js');
     const navigationControllerCode = readAppScript('navigation/navigation-controller.js');
     const statsViewCode = readAppScript('stats/stats-view.js');
     const statsChartsCode = readAppScript('stats/stats-charts.js');
@@ -143,6 +144,7 @@ function loadUiViews(globals = {}) {
             filterControllerCode,
             timelineViewCode,
             timelineControllerCode,
+            timelineSelectionControllerCode,
             navigationControllerCode,
             statsViewCode,
             statsChartsCode,
@@ -180,6 +182,7 @@ function loadUiViews(globals = {}) {
             'globalThis.FilterController = FilterController;',
             'globalThis.TimelineView = TimelineView;',
             'globalThis.TimelineController = TimelineController;',
+            'globalThis.TimelineSelectionController = TimelineSelectionController;',
             'globalThis.NavigationController = NavigationController;',
             'globalThis.StatsView = StatsView;',
             'globalThis.StatsCharts = StatsCharts;',
@@ -221,6 +224,7 @@ function loadUiViews(globals = {}) {
         FilterController: context.FilterController,
         TimelineView: context.TimelineView,
         TimelineController: context.TimelineController,
+        TimelineSelectionController: context.TimelineSelectionController,
         NavigationController: context.NavigationController,
         StatsView: context.StatsView,
         StatsCharts: context.StatsCharts,
@@ -329,10 +333,14 @@ test('Import JSON in aggiunta rigenera id duplicati e conserva le impostazioni a
     assert.equal(result.regeneratedIds, 1);
 
     const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const snapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
     assert.equal(saved.spese.length, 2);
     assert.equal(saved.spese[0].descrizione, 'Importata');
     assert.notEqual(saved.spese[0].id, 'same-id');
     assert.equal(saved.impostazioni.tema, 'dark');
+    assert.equal(snapshot.reason, 'json-append');
+    assert.equal(snapshot.data.spese[0].id, 'same-id');
 });
 
 test('Import JSON in sostituzione crea snapshot e importa le impostazioni del backup', () => {
@@ -360,7 +368,112 @@ test('Import JSON in sostituzione crea snapshot e importa le impostazioni del ba
     assert.equal(saved.spese.length, 1);
     assert.equal(saved.spese[0].id, 'new-id');
     assert.equal(saved.impostazioni.tema, 'light');
+    assert.equal(snapshot.reason, 'json-replace');
     assert.equal(snapshot.data.spese[0].id, 'old-id');
+});
+
+test('Storage ripristina lo snapshot e conserva undo dei dati correnti', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'current-id', descrizione: 'Corrente' })],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+    const snapshotData = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'snapshot-id', descrizione: 'Snapshot' })],
+        impostazioni: { tema: 'light', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+    const snapshot = {
+        schemaVersion: 1,
+        creatoIl: '2026-05-20T12:30:00.000Z',
+        reason: 'clear-all',
+        data: snapshotData
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+    localStorage.setItem(`${Storage.KEY}:snapshot`, JSON.stringify(snapshot));
+
+    const info = Storage.getSnapshotInfo();
+    const result = Storage.restoreSnapshot();
+
+    assert.equal(info.exists, true);
+    assert.equal(info.readable, true);
+    assert.equal(info.count, 1);
+    assert.equal(result.success, true);
+    assert.equal(result.count, 1);
+
+    const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const undoSnapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
+    assert.equal(saved.spese[0].id, 'snapshot-id');
+    assert.equal(saved.impostazioni.tema, 'light');
+    assert.equal(undoSnapshot.reason, 'restore-before');
+    assert.equal(undoSnapshot.data.spese[0].id, 'current-id');
+});
+
+test('Storage cancellazione completa puo eliminare anche lo snapshot locale', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [expense({ id: 'current-id' })],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: 'â‚¬', ultimoBackup: null }
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+    localStorage.setItem(`${Storage.KEY}:snapshot`, JSON.stringify({
+        schemaVersion: 1,
+        creatoIl: '2026-05-20T12:30:00.000Z',
+        reason: 'clear-all',
+        data: current
+    }));
+
+    const result = Storage.clearAll({
+        createSnapshot: false,
+        clearSnapshot: true
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(localStorage.getItem(Storage.KEY), null);
+    assert.equal(localStorage.getItem(`${Storage.KEY}:snapshot`), null);
+});
+
+test('Storage esporta subset e cancella selezione multipla con snapshot', () => {
+    const { Storage, localStorage } = loadStorage();
+    const current = {
+        schemaVersion: 1,
+        spese: [
+            expense({ id: 'a', descrizione: 'A', importo: 2 }),
+            expense({ id: 'b', descrizione: 'B', importo: 3 }),
+            expense({ id: 'c', descrizione: 'C', importo: 4 })
+        ],
+        impostazioni: { tema: 'dark', valuta: 'EUR', simbolo: '€', ultimoBackup: null }
+    };
+
+    localStorage.setItem(Storage.KEY, JSON.stringify(current));
+
+    const json = Storage.exportJSON({ spese: [current.spese[1]] });
+    const csv = Storage.exportCSV({ spese: [current.spese[0], current.spese[2]] });
+    const deleted = Storage.deleteSpese(['a', 'c']);
+
+    assert.equal(json.success, true);
+    assert.equal(JSON.parse(json.content).spese.length, 1);
+    assert.equal(JSON.parse(json.content).spese[0].id, 'b');
+    assert.equal(JSON.parse(json.content).impostazioni.tema, 'dark');
+    assert.equal(csv.success, true);
+    assert(csv.content.includes('\na,'));
+    assert(csv.content.includes('\nc,'));
+    assert(!csv.content.includes('\nb,'));
+    assert.equal(deleted.success, true);
+    assert.equal(deleted.count, 2);
+
+    const saved = JSON.parse(localStorage.getItem(Storage.KEY));
+    const snapshot = JSON.parse(localStorage.getItem(`${Storage.KEY}:snapshot`));
+
+    assert.deepEqual(saved.spese.map(item => item.id), ['b']);
+    assert.equal(snapshot.reason, 'bulk-delete');
+    assert.deepEqual(snapshot.data.spese.map(item => item.id), ['a', 'b', 'c']);
+    assert.equal(Storage.deleteSpese([]).success, false);
 });
 
 test('Import CSV valida decimali italiani, delimiter punto e virgola e campi quotati', () => {
@@ -571,7 +684,9 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         now: new Date('2026-05-20T12:00:00.000Z')
     });
@@ -1186,6 +1301,32 @@ test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () =
     assert.equal(ExpenseFilters.countActive(filters), 5);
 });
 
+test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'a', importo: 5, categoria: 'bar' }),
+        expense({ id: 'b', importo: 7, categoria: 'bar' }),
+        expense({ id: 'c', importo: 9, categoria: 'casa' })
+    ];
+    const filters = {
+        categories: new Set(['bar']),
+        selectedOnly: true
+    };
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, filters, { selectedIds: new Set(['b', 'c']) }).map(item => item.id),
+        ['b']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, filters, {
+            selectedIds: new Set(['a']),
+            selectedOnlyIds: new Set(['b', 'c'])
+        }).map(item => item.id),
+        ['b']
+    );
+    assert.equal(ExpenseFilters.countActive(filters), 2);
+});
+
 test('Statistiche aggregano dati giornalieri includendo giorni vuoti', () => {
     const StatsData = loadStats();
     const spese = [
@@ -1509,6 +1650,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         'filter-date-to': makeElement('filter-date-to'),
         'btn-advanced-toggle': makeElement('btn-advanced-toggle'),
         'filter-panel': makeElement('filter-panel', { classes: ['hidden'], offsetHeight: 96 }),
+        'selection-filter-section': makeElement('selection-filter-section', { classes: ['hidden'] }),
+        'filter-selected-only': makeElement('filter-selected-only'),
         'filter-cats': makeElement('filter-cats'),
         'filter-methods': makeElement('filter-methods'),
         'slider-min': makeElement('slider-min', { value: '0' }),
@@ -1545,12 +1688,16 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
-        dateTo: ''
+        dateTo: '',
+        selectedOnly: false,
+        selectedOnlyIds: new Set()
     };
     const state = {
         filterOpen: false,
         advancedFiltersOpen: false,
         filterSearchActive: false,
+        selectionActive: false,
+        selectedIds: new Set(['bar']),
         releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
@@ -1582,6 +1729,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
             if (filters.dateFrom) count += 1;
             if (filters.dateTo) count += 1;
+            if (filters.selectedOnly) count += 1;
             return count;
         },
         applyFilters: items => items.filter(item => !filters.categories.size || filters.categories.has(item.categoria)),
@@ -1593,6 +1741,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         getFilterSearchActive: () => state.filterSearchActive,
         setFilterSearchActive: value => { state.filterSearchActive = value; },
         getCurrentPage: () => 'timeline',
+        isTimelineSelectionActive: () => state.selectionActive,
+        getTimelineSelectedIds: () => state.selectedIds,
         getLastSliderInput: () => state.lastSliderInput,
         setLastSliderInput: value => { state.lastSliderInput = value; },
         getSliderMaxValue: () => state.sliderMax,
@@ -1619,7 +1769,16 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(state.sliderMax, 500);
     assert.equal(elements['slider-max'].value, '500');
     assert(catChips[0].classList.contains('active'));
+    assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
+
+    state.selectionActive = true;
+    FilterController.syncFilterUI(options);
+    assert(!elements['selection-filter-section'].classList.contains('hidden'));
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, true);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
+    assert(elements['filter-selected-only'].classList.contains('active'));
 
     elements['search-input'].value = ' caffe ';
     elements['search-input'].listeners.input();
@@ -1728,6 +1887,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
     assert.equal(filters.amountMax, Infinity);
+    assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.selectedOnlyIds.size, 0);
+    assert(!elements['filter-selected-only'].classList.contains('active'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
 });
 
@@ -1984,6 +2146,271 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert.equal(elements['timeline-content'].innerHTML, '');
     assert.equal(elements['timeline-summary'].innerHTML, '');
     assert(!elements['timeline-empty'].classList.contains('hidden'));
+});
+
+test('Controller selezione timeline gestisce selezione, export e delete bulk', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: false,
+        selectedIds: new Set(),
+        deletePending: false
+    };
+    const spese = [
+        expense({ id: 'a', importo: 2 }),
+        expense({ id: 'b', importo: 3 }),
+        expense({ id: 'c', importo: 4 })
+    ];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        storage: {
+            exportCSV(payload) {
+                calls.push(['export-csv', payload.spese.map(item => item.id)]);
+                return { success: true, content: 'csv' };
+            },
+            exportJSON(payload) {
+                calls.push(['export-json', payload.spese.map(item => item.id)]);
+                return { success: true, content: '{}' };
+            },
+            deleteSpese(ids) {
+                calls.push(['delete-many', ids]);
+                return { success: true, count: ids.length };
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese.filter(item => item.id !== 'a')
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => { state.deletePending = value; },
+        getCurrentPage: () => 'timeline',
+        pushUiState: payload => calls.push(['push', payload.panel]),
+        consumeUiState: () => calls.push('consume'),
+        renderTimeline: () => calls.push('render'),
+        refreshAfterDataChange: () => calls.push('refresh'),
+        dateStamp: () => '2026-06-01',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message]),
+        showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)])
+    };
+
+    assert.equal(TimelineSelectionController.enter(options, 'a'), true);
+    assert.equal(state.active, true);
+    assert.deepEqual(Array.from(state.selectedIds), ['a']);
+
+    TimelineSelectionController.toggle(options, 'b');
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b']);
+
+    const selectedVisible = TimelineSelectionController.selectVisible(options);
+    assert.equal(selectedVisible, 2);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
+
+    const deselectedVisible = TimelineSelectionController.selectVisible(options);
+    assert.equal(deselectedVisible, 2);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a']);
+
+    TimelineSelectionController.selectVisible(options);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
+
+    const summary = TimelineSelectionController.getSummary(options);
+    assert.equal(summary.selectedCount, 3);
+    assert.equal(summary.selectedTotal, 9);
+    assert.equal(summary.visibleCount, 2);
+
+    assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
+    assert.equal(TimelineSelectionController.showExportChoices(options), true);
+    assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
+    assert.equal(state.deletePending, true);
+    assert.equal(TimelineSelectionController.deleteSelected(options), true);
+    assert.equal(state.active, false);
+    assert.equal(state.selectedIds.size, 0);
+
+    assert.deepEqual(calls.filter(call => Array.isArray(call) && call[0] === 'push'), [
+        ['push', 'timeline-selection']
+    ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
+    assert(calls.includes('refresh'));
+});
+
+test('Controller selezione mantiene header e nav attivi anche nelle statistiche', () => {
+    const { TimelineSelectionController } = loadUiViews();
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function button(id) {
+        return {
+            id,
+            disabled: false,
+            textContent: '',
+            title: '',
+            attributes: {},
+            classList: makeClassList(['hidden']),
+            setAttribute(name, value) {
+                this.attributes[name] = value;
+            }
+        };
+    }
+
+    const title = {
+        innerHTML: 'Where\'s My <span style="color: #ff7c00;">Bug</span>?',
+        dataset: {}
+    };
+    const elements = {
+        'app-header': {
+            classList: makeClassList(),
+            querySelector(selector) {
+                return selector === 'h1' ? title : null;
+            }
+        },
+        'bottom-nav': { classList: makeClassList() },
+        'theme-toggle': { classList: makeClassList() },
+        'btn-selection-select-all': button('btn-selection-select-all'),
+        'btn-selection-export': button('btn-selection-export'),
+        'btn-selection-delete': button('btn-selection-delete')
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'stats',
+        appConfig: { channel: 'dev' },
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    });
+
+    assert(elements['app-header'].classList.contains('selection-active'));
+    assert(elements['bottom-nav'].classList.contains('selection-active'));
+    assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert.equal(title.innerHTML, 'WM<span class="selection-title-dev-letter">B</span>?');
+    assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-select-all'].textContent, '✅');
+    assert.equal(elements['btn-selection-select-all'].attributes['aria-label'], 'Deseleziona spese filtrate');
+    assert.equal(elements['btn-selection-export'].disabled, true);
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'settings',
+        appConfig: { channel: 'dev' },
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [
+                expense({ id: 'a', importo: 5 }),
+                expense({ id: 'b', importo: 2 })
+            ]
+        })
+    });
+
+    assert(!elements['app-header'].classList.contains('selection-active'));
+    assert(!elements['bottom-nav'].classList.contains('selection-active'));
+    assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
+    assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
+});
+
+test('Controller timeline in modalita selezione non apre la modale al click card', () => {
+    const { TimelineController } = loadUiViews();
+    const calls = [];
+    const card = {
+        dataset: { id: 'a' },
+        handlers: {},
+        addEventListener(event, handler) {
+            this.handlers[event] = handler;
+        }
+    };
+    const elements = {
+        'timeline-content': {
+            innerHTML: '',
+            querySelectorAll(selector) {
+                return selector === '.expense-card' ? [card] : [];
+            }
+        },
+        'timeline-empty': {
+            classList: {
+                add() {},
+                remove() {}
+            }
+        },
+        'timeline-summary': { innerHTML: '' }
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    TimelineController.render({
+        document: doc,
+        spese: [expense({ id: 'a', importo: 5 })],
+        hasActiveFilters: () => false,
+        getQuickTotals: () => ({ todayTotal: 5, weekTotal: 5, monthTotal: 5, monthName: 'Giugno' }),
+        groupByDay: items => [{ date: '2026-06-01', spese: items }],
+        getCategory: () => ({ emoji: 'x', nome: 'Bar' }),
+        getMethod: () => ({ emoji: 'm', nome: 'Carta' }),
+        formatDayLabel: date => date,
+        selection: {
+            active: true,
+            selectedIds: new Set(['a'])
+        },
+        getSelectionSummary: () => ({
+            active: true,
+            selectedIds: new Set(['a']),
+            selectedCount: 1,
+            selectedTotal: 5,
+            visibleCount: 1
+        }),
+        isSelectionActive: () => true,
+        toggleSelection: id => calls.push(['toggle', id]),
+        enterSelection: id => calls.push(['enter', id]),
+        openEditModal: id => calls.push(['open', id])
+    });
+
+    assert(elements['timeline-content'].innerHTML.includes('selection-mode'));
+    assert(elements['timeline-content'].innerHTML.includes('selected'));
+    assert(elements['timeline-summary'].innerHTML.includes('Selezione'));
+
+    card.handlers.click();
+
+    assert.deepEqual(calls, [['toggle', 'a']]);
 });
 
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
@@ -2352,7 +2779,9 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         charts: {
             doughnut: oldChart,
@@ -3344,8 +3773,16 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
             calls.push(['update-settings', updates.tema]);
             return { success: true, impostazioni: { tema: updates.tema } };
         },
-        clearAll() {
-            calls.push(['clear-all']);
+        clearAll(options) {
+            calls.push(['clear-all', options || null]);
+            return { success: true };
+        },
+        restoreSnapshot() {
+            calls.push(['restore-snapshot']);
+            return { success: true, count: 1, restoredRaw: false };
+        },
+        createSnapshot(reason) {
+            calls.push(['snapshot', reason]);
             return { success: true };
         },
         importJSON(content, options) {
@@ -3412,6 +3849,9 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         storage
     });
     const clearResult = SettingsActions.clearAll({ storage });
+    const clearSnapshotResult = SettingsActions.clearAll({ storage, clearSnapshot: true });
+    const restoreResult = SettingsActions.restoreSnapshot({ storage });
+    const versionSnapshot = SettingsActions.createVersionChangeSnapshot({ storage });
 
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
@@ -3419,6 +3859,9 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
     assert.equal(themeResult.theme, 'dark');
     assert.equal(clearResult.toast, 'Dati eliminati');
+    assert.equal(clearSnapshotResult.toast, 'Dati e snapshot eliminati');
+    assert.equal(restoreResult.toast, '1 spese ripristinate dallo snapshot \u2713');
+    assert.equal(versionSnapshot.success, true);
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
@@ -3427,7 +3870,10 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         ['export-raw'],
         ['import-csv', 'a,b', 'append'],
         ['update-settings', 'dark'],
-        ['clear-all']
+        ['clear-all', { clearSnapshot: false }],
+        ['clear-all', { clearSnapshot: true }],
+        ['restore-snapshot'],
+        ['snapshot', 'version-change']
     ]);
 });
 
@@ -3602,6 +4048,101 @@ test('Controller impostazioni collega finestra versioni a history e back button'
     ]);
 });
 
+test('Controller impostazioni crea snapshot prima del cambio versione', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    const launchStorage = createLocalStorage();
+    let clickHandler = null;
+    const modal = {
+        dataset: {},
+        querySelector() {
+            return null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const storage = {
+        createSnapshot(reason) {
+            calls.push(['snapshot', reason]);
+            return { success: true };
+        }
+    };
+    const link = {
+        dataset: { launchPath: 'releases/v2026.05.30/' },
+        closest(selector) {
+            return selector === '.release-install-link' ? link : null;
+        }
+    };
+
+    SettingsController.bindReleaseModal({
+        document: {
+            getElementById(id) {
+                return id === 'release-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage: launchStorage,
+        showToast: (message, type) => calls.push(['toast', type, message])
+    });
+
+    clickHandler({ target: link });
+
+    assert.deepEqual(calls, [['snapshot', 'version-change']]);
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'releases/v2026.05.30/');
+});
+
+test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    const launchStorage = createLocalStorage();
+    let clickHandler = null;
+    let prevented = false;
+    const modal = {
+        dataset: {},
+        querySelector() {
+            return null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const link = {
+        dataset: { launchPath: 'releases/v2026.05.30/' },
+        closest(selector) {
+            return selector === '.release-install-link' ? link : null;
+        }
+    };
+
+    SettingsController.bindReleaseModal({
+        document: {
+            getElementById(id) {
+                return id === 'release-modal-overlay' ? modal : null;
+            }
+        },
+        storage: {
+            createSnapshot(reason) {
+                calls.push(['snapshot', reason]);
+                return { success: false, error: 'Snapshot fallito' };
+            }
+        },
+        localStorage: launchStorage,
+        showToast: (message, type) => calls.push(['toast', type, message])
+    });
+
+    clickHandler({
+        target: link,
+        preventDefault: () => { prevented = true; }
+    });
+
+    assert.equal(prevented, true);
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), null);
+    assert.deepEqual(calls, [
+        ['snapshot', 'version-change'],
+        ['toast', 'error', 'Snapshot fallito']
+    ]);
+});
+
 test('Dialog conferma prepara scelte e rileva apertura senza dipendere da App', () => {
     const { ConfirmDialog } = loadUiViews();
     const yes = () => {};
@@ -3712,19 +4253,28 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.currentPage = 'stats';
     first.filters.query = 'caffe';
     first.filters.categories.add('bar');
+    first.filters.selectedOnlyIds.add('expense-a');
     first.pageScrollTop.timeline = 120;
+    first.timelineSelectionActive = true;
+    first.timelineSelectedIds.add('expense-a');
+    first.timelineSelectionDeletePending = true;
     first._sdInstances.test = {};
     first._editTags.push('lavoro');
 
     assert.equal(second.currentPage, 'timeline');
     assert.equal(second.filters.query, '');
     assert.equal(second.filters.categories.size, 0);
+    assert.equal(second.filters.selectedOnlyIds.size, 0);
     assert.equal(second.pageScrollTop.timeline, 0);
     assert.deepEqual(second._sdInstances, {});
     assert.deepEqual(second._editTags, []);
     assert.equal(second.statsPeriod, 'month');
     assert.equal(second.filters.amountMax, Infinity);
+    assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second.timelineSelectionActive, false);
+    assert.equal(second.timelineSelectedIds.size, 0);
+    assert.equal(second.timelineSelectionDeletePending, false);
 });
 
 test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiring', () => {
@@ -3930,11 +4480,16 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         sliderMax: 100,
         _lastSliderInput: 'max',
         advancedFiltersOpen: false,
+        timelineSelectionActive: false,
+        timelineSelectedIds: new Set(),
+        timelineSelectionDeletePending: false,
         _filterSearchActive: false,
         _modalInteractionActive: false,
         _suppressNextPopstate: false,
@@ -3983,6 +4538,13 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
             invalidate: () => calls.push('invalidate')
         }
     });
+
+    app.timelineSelectionActive = true;
+    app.currentPage = 'stats';
+    assert.equal(wiring.filterOptions().isTimelineSelectionActive(), true);
+    app.currentPage = 'settings';
+    assert.equal(wiring.filterOptions().isTimelineSelectionActive(), false);
+    app.currentPage = 'timeline';
 
     wiring.navigationOptions().setCurrentPage('stats');
     wiring.runHistoryAction(UIStack.getCloseHistoryAction({ wasOpen: true }));
@@ -4179,8 +4741,20 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_FILTER
     );
     assert.equal(
-        UIStack.getPopstateAction({ currentPage: 'stats' }),
+        UIStack.getPopstateAction({ filterOpen: true, timelineSelectionActive: true }),
+        UIStack.ACTIONS.CLOSE_FILTER
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ timelineSelectionActive: true, currentPage: 'timeline' }),
+        UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ currentPage: 'stats', hasActiveFilters: true }),
         UIStack.ACTIONS.NAVIGATE_TIMELINE
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ currentPage: 'timeline', hasActiveFilters: true }),
+        UIStack.ACTIONS.RESET_FILTERS
     );
     assert.equal(
         UIStack.getPopstateAction({ currentPage: 'timeline' }),
@@ -4398,6 +4972,8 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         expenseInputActive: false,
         advancedFiltersOpen: false,
         filterOpen: false,
+        timelineSelectionActive: false,
+        hasActiveFilters: false,
         currentPage: 'timeline',
         interactionActive: false,
         dropdownOpen: false,
@@ -4432,6 +5008,16 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         closeAdvancedFilters: fromPopstate => calls.push(['close-advanced', fromPopstate]),
         isFilterOpen: () => state.filterOpen,
         closeFilterPanel: fromPopstate => calls.push(['close-filter', fromPopstate]),
+        isTimelineSelectionActive: () => state.timelineSelectionActive,
+        closeTimelineSelection: fromPopstate => {
+            state.timelineSelectionActive = false;
+            calls.push(['close-selection', fromPopstate]);
+        },
+        hasActiveFilters: () => state.hasActiveFilters,
+        resetFilters: () => {
+            state.hasActiveFilters = false;
+            calls.push('reset-filters');
+        },
         getCurrentPage: () => state.currentPage,
         navigateTo: (page, fromPopstate) => calls.push(['navigate', page, fromPopstate]),
         stopExpenseInputBarWatch: () => calls.push('stop-watch'),
@@ -4470,6 +5056,20 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     ]);
 
     state.expenseInputActive = false;
+    state.timelineSelectionActive = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
+    );
+    assert.deepEqual(calls[calls.length - 1], ['close-selection', true]);
+
+    state.hasActiveFilters = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.RESET_FILTERS
+    );
+    assert.deepEqual(calls[calls.length - 1], 'reset-filters');
+
     state.suppress = true;
     UIStackController.handlePopstate(options);
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);

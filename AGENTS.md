@@ -19,7 +19,7 @@ Questo progetto e personale ed e mantenuto da una sola persona. Le soluzioni dev
 - Obiettivo distribuzione: app installabile/offline stabile, con aggiornamenti scelti dall'utente da una lista di versioni pubblicate dal maintainer.
 - Branch stabile attuale: `main`.
 - Branch aggregatore per test pubblico/dev: `dev`.
-- Branch di fase attuale: `privacy`.
+- Branch di fase attuale: `ux`.
 - Branch di lavoro/refactor storico: `codex/refactor`.
 - GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `dev`.
 - Il workflow Pages deve partire da `main`: l'environment `github-pages` non accetta deploy diretti dai branch di lavoro.
@@ -46,8 +46,9 @@ Leggere, nell'ordine:
 4. `docs/DEVELOPMENT_GUIDE.md`;
 5. `docs/ROADMAP.md`;
 6. `docs/PWA_OFFLINE_STRATEGY.md` se si lavora su PWA, offline, service worker o aggiornamenti;
-7. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
-8. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
+7. `docs/PRIVACY_REVIEW.md` se si lavora su privacy, dati locali, export/import, asset esterni, service worker, API esterne o telemetria;
+8. `docs/REFACTORING_SUMMARY.md` se si lavora su refactor o architettura;
+9. `note/note_di_progetto.txt` se si lavora su backlog o dettagli storici.
 
 Non considerare `note/note_di_progetto.txt` come specifica finale: e una raccolta raw di appunti. La roadmap curata decide priorita e raggruppamenti, ma gli appunti possono contenere dettagli utili non ancora formalizzati.
 
@@ -62,6 +63,7 @@ I file documentali ufficiali da mantenere allineati sono:
 - `docs/DEPLOYMENT_STRATEGY.md`: separazione stabile/dev e strategia GitHub Pages.
 - `docs/DEVELOPMENT_GUIDE.md`: regole pratiche per sviluppo, refactor e nuove feature.
 - `docs/PWA_OFFLINE_STRATEGY.md`: strategia per offline, service worker, release versionate e aggiornamenti scelti dall'utente.
+- `docs/PRIVACY_REVIEW.md`: review tecnica di dati locali, rete, export, service worker e rischi privacy residui.
 - `docs/REFACTORING_SUMMARY.md`: riepilogo ordinato del refactor gia svolto.
 - `docs/ROADMAP.md`: backlog curato e ordinato a partire dagli appunti.
 - `note/note_di_progetto.txt`: appunti raw e storici del maintainer.

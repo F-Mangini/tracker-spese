@@ -29,6 +29,67 @@ const SettingsView = (() => {
         `;
     }
 
+    function formatSnapshotDate(value) {
+        if (!value) return 'data non disponibile';
+
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return 'data non disponibile';
+
+        return date.toLocaleString('it-IT', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getSnapshotReasonLabel(reason) {
+        const labels = {
+            'json-replace': 'prima di un import JSON in sostituzione',
+            'csv-replace': 'prima di un import CSV in sostituzione',
+            'clear-all': 'prima della cancellazione dati',
+            'clear-all-raw': 'prima della cancellazione dati grezzi',
+            'bulk-delete': 'prima di una cancellazione multipla',
+            'restore-before': 'prima di un ripristino snapshot',
+            'restore-before-raw': 'prima di un ripristino snapshot'
+        };
+
+        return labels[reason] || 'snapshot locale';
+    }
+
+    function renderSnapshotSection(snapshotInfo = {}) {
+        if (!snapshotInfo.exists) {
+            return `
+                <div class="settings-section">
+                    <h3>\uD83D\uDD04 Ripristino dati</h3>
+                    <p class="settings-hint">Nessuno snapshot locale disponibile.</p>
+                </div>
+            `;
+        }
+
+        if (!snapshotInfo.readable) {
+            return `
+                <div class="settings-section danger-zone">
+                    <h3>\uD83D\uDD04 Ripristino dati</h3>
+                    <p class="settings-hint">Snapshot locale presente ma non leggibile. ${AppUI.escapeHtml(snapshotInfo.error || '')}</p>
+                </div>
+            `;
+        }
+
+        const countLabel = snapshotInfo.hasRawData
+            ? 'dati grezzi'
+            : `${Number(snapshotInfo.count || 0)} spese`;
+
+        return `
+            <div class="settings-section">
+                <h3>\uD83D\uDD04 Ripristino dati</h3>
+                <p class="settings-hint">Snapshot del ${AppUI.escapeHtml(formatSnapshotDate(snapshotInfo.creatoIl))}: ${AppUI.escapeHtml(countLabel)}, creato ${AppUI.escapeHtml(getSnapshotReasonLabel(snapshotInfo.reason))}.</p>
+                <button id="btn-restore-snapshot" class="btn btn-secondary btn-block">Ripristina snapshot</button>
+            </div>
+        `;
+    }
+
     function renderReleaseBadges(release = {}) {
         const badges = [];
 
@@ -132,6 +193,8 @@ const SettingsView = (() => {
 
             ${renderStorageGuardSection(options.storageStatus)}
 
+            ${renderSnapshotSection(options.snapshotInfo)}
+
             <div class="settings-section">
                 <h3>\uD83D\uDCE6 Versioni</h3>
                 <p class="settings-hint">Puoi cambiare la versione installata quando vuoi.</p>
@@ -149,7 +212,7 @@ const SettingsView = (() => {
 
             <div class="settings-section danger-zone">
                 <h3>\u26A0\uFE0F Zona pericolosa</h3>
-                <p class="settings-hint">Azione irreversibile. Esporta prima!</p>
+                <p class="settings-hint">La cancellazione crea prima uno snapshot locale. Nella conferma puoi scegliere se eliminare anche lo snapshot.</p>
                 <button id="btn-clear-all" class="btn btn-danger btn-block">\uD83D\uDDD1\uFE0F Cancella tutti i dati</button>
             </div>
 

@@ -21,9 +21,9 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - categorie e metodi di pagamento predefiniti;
 - tag, note e modifica delle spese;
 - filtri per ricerca, periodo, importo, categoria e metodo;
-- timeline con riepilogo giornaliero/settimanale/mensile;
+- timeline con riepilogo giornaliero/settimanale/mensile e selezione multipla;
 - statistiche con grafici Chart.js;
-- import/export JSON e CSV;
+- import/export JSON e CSV, anche per le spese selezionate dalla timeline;
 - tema chiaro/scuro/automatico;
 - manifest web app per installazione base;
 - baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.
@@ -45,6 +45,7 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 |   +-- DEPLOYMENT_STRATEGY.md
 |   +-- DEVELOPMENT_GUIDE.md
 |   +-- PWA_OFFLINE_STRATEGY.md
+|   +-- PRIVACY_REVIEW.md
 |   +-- REFACTORING_SUMMARY.md
 |   +-- ROADMAP.md
 +-- note/
@@ -80,6 +81,7 @@ File documentali ufficiali:
 - [Strategia stabile/dev](docs/DEPLOYMENT_STRATEGY.md): come separare versione stabile e versione di test.
 - [Guida sviluppo](docs/DEVELOPMENT_GUIDE.md): regole pratiche per refactor e nuove feature.
 - [Strategia PWA/offline](docs/PWA_OFFLINE_STRATEGY.md): piano per offline, service worker, release versionate e aggiornamenti scelti dall'utente.
+- [Review privacy](docs/PRIVACY_REVIEW.md): mappa tecnica dei dati locali, rete, export, service worker e rischi residui.
 - [Riepilogo refactor](docs/REFACTORING_SUMMARY.md): cosa e stato fatto finora e cosa e rimasto fuori dalla fase conclusa.
 - [Roadmap](docs/ROADMAP.md): backlog ordinato a partire dagli appunti.
 - [Appunti raw](note/note_di_progetto.txt): fonte grezza e storica delle idee.

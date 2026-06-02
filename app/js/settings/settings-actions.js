@@ -267,6 +267,14 @@ const SettingsActions = (() => {
         };
     }
 
+    function getSnapshotRestoreSuccessMessage(result = {}) {
+        if (result.restoredRaw) {
+            return 'Snapshot grezzo ripristinato. Controlla i dati grezzi se l app segnala errori.';
+        }
+
+        return `${Number(result.count || 0)} spese ripristinate dallo snapshot \u2713`;
+    }
+
     function fail(error, code) {
         return {
             success: false,
@@ -352,15 +360,42 @@ const SettingsActions = (() => {
 
     function clearAll(options = {}) {
         const { storage } = options;
-        const result = storage.clearAll();
+        const result = storage.clearAll({
+            clearSnapshot: !!options.clearSnapshot
+        });
 
         if (!result.success) return result;
 
         return {
             success: true,
             result,
-            toast: 'Dati eliminati'
+            toast: options.clearSnapshot
+                ? 'Dati e snapshot eliminati'
+                : 'Dati eliminati'
         };
+    }
+
+    function restoreSnapshot(options = {}) {
+        const { storage } = options;
+        const result = storage.restoreSnapshot();
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            result,
+            toast: getSnapshotRestoreSuccessMessage(result)
+        };
+    }
+
+    function createVersionChangeSnapshot(options = {}) {
+        const { storage } = options;
+
+        if (!storage || typeof storage.createSnapshot !== 'function') {
+            return { success: true };
+        }
+
+        return storage.createSnapshot('version-change');
     }
 
     return {
@@ -383,6 +418,8 @@ const SettingsActions = (() => {
         buildRawDownload,
         commitImport,
         updateTheme,
-        clearAll
+        clearAll,
+        restoreSnapshot,
+        createVersionChangeSnapshot
     };
 })();

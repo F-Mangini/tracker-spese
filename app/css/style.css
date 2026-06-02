@@ -139,6 +139,28 @@ body {
     background: var(--accent-light);
 }
 
+.header-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.header-btn:disabled:active {
+    background: none;
+}
+
+.header-btn-danger {
+    color: var(--danger);
+}
+
+#app-header.selection-active {
+    border-bottom-color: var(--accent);
+    border-bottom-width: 2px;
+}
+
+.selection-title-dev-letter {
+    color: #ff7c00;
+}
+
 /* Filter badge */
 .filter-badge {
     position: absolute;
@@ -715,7 +737,7 @@ body {
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
     border: 1px solid var(--border);
 }
 
@@ -784,6 +806,50 @@ body {
 
 .expense-card.new-card {
     animation: slideIn 0.3s ease;
+}
+
+.expense-card.selection-mode {
+    padding-left: 12px;
+}
+
+.expense-card.selection-mode.selected {
+    padding: 13px 15px 13px 11px;
+    border-width: 2px;
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.expense-card.selection-mode.delete-pending {
+    padding: 13px 15px 13px 11px;
+    border-width: 2px;
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
+.expense-select-mark {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #fff;
+    background: var(--bg-primary);
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.expense-card.selected .expense-select-mark {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.expense-card.delete-pending .expense-select-mark {
+    border-color: var(--danger);
+    background: var(--danger);
 }
 
 @keyframes slideIn {
@@ -984,6 +1050,22 @@ body.expense-input-active #input-bar {
     display: flex;
     align-items: stretch;
     z-index: 100;
+}
+
+#bottom-nav.selection-active {
+    border-top-color: transparent;
+}
+
+#bottom-nav.selection-active::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 1;
 }
 
 #app-main:not(.no-input-bar)~#bottom-nav::before {
@@ -1468,6 +1550,26 @@ body.expense-input-active #input-bar {
     font-weight: 500;
     margin-bottom: 20px;
     line-height: 1.5;
+}
+
+.confirm-extra {
+    margin: -4px 0 18px;
+    text-align: left;
+}
+
+.confirm-extra label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.confirm-extra input {
+    margin-top: 2px;
+    accent-color: var(--danger);
+    flex-shrink: 0;
 }
 
 .confirm-buttons {

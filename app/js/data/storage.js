@@ -35,6 +35,60 @@ const Storage = {
         return `${this.KEY}:snapshot`;
     },
 
+    _readSnapshot() {
+        let raw = '';
+
+        try {
+            raw = localStorage.getItem(this._snapshotKey());
+        } catch (e) {
+            return this._fail('Snapshot locale non leggibile.', 'snapshot-read-failed', { cause: e });
+        }
+
+        if (!raw) {
+            return this._fail('Nessuno snapshot locale disponibile.', 'snapshot-missing');
+        }
+
+        let snapshot;
+        try {
+            snapshot = JSON.parse(raw);
+        } catch (e) {
+            return this._fail('Snapshot locale non leggibile.', 'snapshot-corrupt', { raw, cause: e });
+        }
+
+        if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+            return this._fail('Snapshot locale non valido.', 'snapshot-invalid', { raw });
+        }
+
+        const data = snapshot.data;
+        if (data && typeof data === 'object' && !Array.isArray(data) && typeof data.raw === 'string') {
+            return this._ok({
+                snapshot,
+                raw,
+                rawData: data.raw,
+                hasRawData: true,
+                count: null
+            });
+        }
+
+        const normalized = this._normalizeData(data, { source: 'snapshot' });
+        if (!normalized.success) {
+            return this._fail(
+                normalized.error,
+                normalized.code || 'invalid-snapshot-data',
+                { raw, warnings: normalized.warnings || [] }
+            );
+        }
+
+        return this._ok({
+            snapshot,
+            raw,
+            data: normalized.data,
+            hasRawData: false,
+            count: normalized.data.spese.length,
+            warnings: normalized.warnings || []
+        });
+    },
+
     /* --- Risultati espliciti --- */
     _ok(payload = {}) {
         return { success: true, ...payload };
@@ -63,6 +117,34 @@ const Storage = {
             storageKey: this.KEY,
             snapshotKey: this._snapshotKey(),
             schemaVersion: this.SCHEMA_VERSION
+        };
+    },
+
+    getSnapshotInfo() {
+        const result = this._readSnapshot();
+
+        if (result.code === 'snapshot-missing') {
+            return { exists: false };
+        }
+
+        if (!result.success) {
+            return {
+                exists: true,
+                readable: false,
+                error: result.error,
+                code: result.code || 'snapshot-error'
+            };
+        }
+
+        return {
+            exists: true,
+            readable: true,
+            creatoIl: result.snapshot.creatoIl || null,
+            reason: result.snapshot.reason || '',
+            count: result.count,
+            hasRawData: !!result.hasRawData,
+            schemaVersion: result.snapshot.schemaVersion || null,
+            warnings: result.warnings || []
         };
     },
 
@@ -187,6 +269,24 @@ const Storage = {
         }
     },
 
+    _saveCurrentSnapshot(reason) {
+        const current = this._readStoredData();
+        if (current.success) {
+            return this._saveSnapshot(current.data, reason);
+        }
+
+        const raw = this.getRawData();
+        if (raw) {
+            return this._saveSnapshot({ raw }, `${reason}-raw`);
+        }
+
+        return this._ok();
+    },
+
+    createSnapshot(reason = 'manual') {
+        return this._saveCurrentSnapshot(reason);
+    },
+
     /* --- CRUD Spese --- */
     getSpese() {
         return this._clone(this._load().spese);
@@ -265,6 +365,42 @@ const Storage = {
         return this._ok({ count: initialCount - data.spese.length, warnings: saved.warnings || [] });
     },
 
+    deleteSpese(ids, options = {}) {
+        const idSet = new Set(
+            (Array.isArray(ids) ? ids : [])
+                .map(id => String(id || '').trim())
+                .filter(Boolean)
+        );
+
+        if (idSet.size === 0) {
+            return this._fail('Nessuna spesa selezionata.', 'empty-selection');
+        }
+
+        const current = this._loadForWrite();
+        if (!current.success) return current;
+
+        const data = current.data;
+        const initialCount = data.spese.length;
+        const nextSpese = data.spese.filter(spesa => !idSet.has(spesa.id));
+        const deletedCount = initialCount - nextSpese.length;
+
+        if (deletedCount === 0) {
+            return this._fail('Nessuna spesa selezionata trovata.', 'selection-not-found');
+        }
+
+        if (options.createSnapshot !== false) {
+            const snapshot = this._saveSnapshot(data, 'bulk-delete');
+            if (!snapshot.success) return snapshot;
+        }
+
+        data.spese = nextSpese;
+
+        const saved = this._save(data);
+        if (!saved.success) return saved;
+
+        return this._ok({ count: deletedCount, warnings: saved.warnings || [] });
+    },
+
     /* --- Impostazioni --- */
     getSettings() {
         return this._clone(this._load().impostazioni);
@@ -285,10 +421,22 @@ const Storage = {
     },
 
     /* --- Export --- */
-    exportCSV() {
+    _resolveExportData(options = {}) {
         const current = this._readStoredData();
         if (!current.success) return current;
 
+        if (!Array.isArray(options.spese)) {
+            return current;
+        }
+
+        return this._normalizeData({
+            schemaVersion: this.SCHEMA_VERSION,
+            spese: options.spese,
+            impostazioni: current.data.impostazioni
+        }, { source: 'export' });
+    },
+
+    _serializeCSV(spese) {
         const header = [
             'id',
             'data',
@@ -303,7 +451,7 @@ const Storage = {
             'modificatoIl'
         ];
 
-        const rows = current.data.spese.map(s => {
+        const rows = spese.map(s => {
             const d = new Date(s.data);
             const data = d.toLocaleDateString('it-IT');
             const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -323,11 +471,18 @@ const Storage = {
             ].map(value => this._escapeCSV(value)).join(',');
         });
 
-        return this._ok({ content: header.join(',') + '\n' + rows.join('\n'), count: rows.length });
+        return { content: header.join(',') + '\n' + rows.join('\n'), count: rows.length };
     },
 
-    exportJSON() {
-        const current = this._readStoredData();
+    exportCSV(options = {}) {
+        const current = this._resolveExportData(options);
+        if (!current.success) return current;
+
+        return this._ok(this._serializeCSV(current.data.spese));
+    },
+
+    exportJSON(options = {}) {
+        const current = this._resolveExportData(options);
         if (!current.success) return current;
         return this._ok({
             content: JSON.stringify(current.data, null, 2),
@@ -402,12 +557,11 @@ const Storage = {
         const existingIds = mode === 'append' ? new Set(data.spese.map(s => s.id)) : new Set();
         const prepared = this._prepareImportedSpese(preview.data.spese, existingIds);
         warnings.push(...prepared.warnings);
+        const snapshot = this._saveSnapshot(data, `${options.source}-${mode}`);
+        if (!snapshot.success) return snapshot;
 
         let nextData;
         if (mode === 'replace') {
-            const snapshot = this._saveSnapshot(data, `${options.source}-replace`);
-            if (!snapshot.success) return snapshot;
-
             nextData = {
                 schemaVersion: this.SCHEMA_VERSION,
                 spese: prepared.spese,
@@ -461,21 +615,52 @@ const Storage = {
     },
 
     /* --- Utility distruttive --- */
-    clearAll() {
-        const current = this._readStoredData();
-        if (current.success) {
-            const snapshot = this._saveSnapshot(current.data, 'clear-all');
-            if (!snapshot.success) return snapshot;
-        } else {
-            const raw = this.getRawData();
-            if (raw) {
-                const snapshot = this._saveSnapshot({ raw }, 'clear-all-raw');
-                if (!snapshot.success) return snapshot;
+    restoreSnapshot() {
+        const snapshot = this._readSnapshot();
+        if (!snapshot.success) return snapshot;
+
+        const currentSnapshot = this._saveCurrentSnapshot('restore-before');
+        if (!currentSnapshot.success) return currentSnapshot;
+
+        try {
+            if (snapshot.hasRawData) {
+                localStorage.setItem(this.KEY, snapshot.rawData);
+                this._setStatus(this._readStoredData());
+                return this._ok({ restoredRaw: true, count: null });
             }
+
+            localStorage.setItem(this.KEY, JSON.stringify(snapshot.data));
+            this._setStatus(this._ok({ data: snapshot.data, warnings: snapshot.warnings || [] }));
+            return this._ok({
+                restoredRaw: false,
+                count: snapshot.data.spese.length,
+                warnings: snapshot.warnings || []
+            });
+        } catch (e) {
+            const result = this._fail(
+                'Ripristino non riuscito. Lo spazio del browser potrebbe essere esaurito.',
+                'snapshot-restore-failed',
+                { cause: e }
+            );
+            this._setStatus(result);
+            return result;
+        }
+    },
+
+    clearAll(options = {}) {
+        const createSnapshot = options.createSnapshot !== false;
+        const clearSnapshot = options.clearSnapshot === true;
+
+        if (createSnapshot) {
+            const snapshot = this._saveCurrentSnapshot('clear-all');
+            if (!snapshot.success) return snapshot;
         }
 
         try {
             localStorage.removeItem(this.KEY);
+            if (clearSnapshot) {
+                localStorage.removeItem(this._snapshotKey());
+            }
             this._setStatus(this._ok({ data: this._defaultData(), warnings: [] }));
             return this._ok();
         } catch (e) {

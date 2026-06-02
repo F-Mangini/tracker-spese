@@ -9,6 +9,110 @@ const TimelineController = (() => {
         return options.document || document;
     }
 
+    function getTimer(options) {
+        return options.setTimeout || (typeof setTimeout === 'function' ? setTimeout : null);
+    }
+
+    function clearTimer(options, timerId) {
+        const clear = options.clearTimeout || (typeof clearTimeout === 'function' ? clearTimeout : null);
+        if (clear && timerId) clear(timerId);
+    }
+
+    function getSelectionSummary(options = {}, allSpese = [], filtered = []) {
+        const selection = options.selection || {};
+
+        if (!selection.active) return selection;
+
+        if (typeof options.getSelectionSummary === 'function') {
+            return options.getSelectionSummary(filtered, allSpese);
+        }
+
+        const selectedIds = selection.selectedIds instanceof Set
+            ? selection.selectedIds
+            : new Set();
+        const selected = allSpese.filter(item => selectedIds.has(item.id));
+        const selectedTotal = selected.reduce((sum, item) => sum + Number(item.importo || 0), 0);
+
+        return {
+            active: true,
+            selectedIds,
+            selectedCount: selected.length,
+            selectedTotal,
+            visibleCount: filtered.length,
+            deletePending: !!selection.deletePending
+        };
+    }
+
+    function bindExpenseCard(card, options = {}) {
+        let longPressTimer = null;
+        let longPressFired = false;
+        let startPoint = null;
+        const longPressMs = Number(options.longPressMs || 450);
+
+        function cancelLongPress() {
+            clearTimer(options, longPressTimer);
+            longPressTimer = null;
+        }
+
+        card.addEventListener('pointerdown', event => {
+            if (event && event.button && event.button !== 0) return;
+
+            longPressFired = false;
+            startPoint = event
+                ? { x: Number(event.clientX || 0), y: Number(event.clientY || 0) }
+                : null;
+
+            const setTimer = getTimer(options);
+            if (!setTimer) return;
+
+            longPressTimer = setTimer(() => {
+                longPressTimer = null;
+                longPressFired = true;
+                (options.enterSelection || noop)(card.dataset.id);
+            }, longPressMs);
+        });
+
+        card.addEventListener('pointermove', event => {
+            if (!startPoint || !event || !longPressTimer) return;
+
+            const dx = Math.abs(Number(event.clientX || 0) - startPoint.x);
+            const dy = Math.abs(Number(event.clientY || 0) - startPoint.y);
+
+            if (dx > 8 || dy > 8) cancelLongPress();
+        });
+
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
+            card.addEventListener(eventName, cancelLongPress);
+        });
+
+        card.addEventListener('contextmenu', event => {
+            if (event && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+
+            if (!(options.isSelectionActive || noop)()) {
+                (options.enterSelection || noop)(card.dataset.id);
+            }
+        });
+
+        card.addEventListener('click', event => {
+            if (longPressFired) {
+                longPressFired = false;
+                if (event && typeof event.preventDefault === 'function') {
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            if ((options.isSelectionActive || noop)()) {
+                (options.toggleSelection || noop)(card.dataset.id);
+                return;
+            }
+
+            (options.openEditModal || noop)(card.dataset.id);
+        });
+    }
+
     function render(options = {}) {
         const doc = getDocument(options);
         const filterModel = options.filterModel || null;
@@ -33,6 +137,7 @@ const TimelineController = (() => {
         const content = options.content || doc.getElementById('timeline-content');
         const empty = options.empty || doc.getElementById('timeline-empty');
         const summary = options.summary || doc.getElementById('timeline-summary');
+        const selectionSummary = getSelectionSummary(options, allSpese, filtered);
 
         if (!content || !empty || !summary) {
             return { allSpese, filtered, isFiltered, groups: [] };
@@ -50,8 +155,13 @@ const TimelineController = (() => {
         summary.innerHTML = TimelineView.renderSummary({
             isFiltered,
             filtered,
-            quickTotals
+            quickTotals,
+            selection: selectionSummary
         });
+
+        if (typeof options.onSelectionSummary === 'function') {
+            options.onSelectionSummary(selectionSummary);
+        }
 
         if (filtered.length === 0 && isFiltered) {
             content.innerHTML = TimelineView.renderFilteredEmpty();
@@ -67,7 +177,10 @@ const TimelineController = (() => {
             newCardId,
             getCategory: options.getCategory,
             getMethod: options.getMethod,
-            formatDayLabel: options.formatDayLabel
+            formatDayLabel: options.formatDayLabel,
+            selectionActive: !!selectionSummary.active,
+            selectedIds: selectionSummary.selectedIds,
+            deletePending: !!selectionSummary.deletePending
         });
 
         if (newCardId && filtered.some(spesa => spesa.id === newCardId)) {
@@ -75,9 +188,7 @@ const TimelineController = (() => {
         }
 
         content.querySelectorAll('.expense-card').forEach(card => {
-            card.addEventListener('click', () => {
-                (options.openEditModal || noop)(card.dataset.id);
-            });
+            bindExpenseCard(card, options);
         });
 
         return { allSpese, filtered, isFiltered, groups };
@@ -88,7 +199,10 @@ const TimelineController = (() => {
         const html = TimelineView.renderExpenseCard(spesa, {
             category: typeof options.getCategory === 'function' ? options.getCategory(spesa.categoria) : {},
             method: typeof options.getMethod === 'function' ? options.getMethod(spesa.metodo) : {},
-            isNew
+            isNew,
+            selectionActive: !!options.selectionActive,
+            isSelected: !!options.isSelected,
+            deletePending: !!options.deletePending
         });
 
         if (isNew) (options.clearNewCardId || noop)();
@@ -101,6 +215,7 @@ const TimelineController = (() => {
 
     return {
         render,
-        renderCard
+        renderCard,
+        bindExpenseCard
     };
 })();

@@ -11,7 +11,9 @@ const AppState = (() => {
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         };
     }
 
@@ -27,6 +29,9 @@ const AppState = (() => {
             editingId: null,
             newCardId: null,
             recognition: null,
+            timelineSelectionActive: false,
+            timelineSelectedIds: new Set(),
+            timelineSelectionDeletePending: false,
 
             statsPeriod: 'month',
             statsOffset: 0,
@@ -35,6 +40,7 @@ const AppState = (() => {
 
             filterOpen: false,
             filters: createFilters(),
+            _activeFiltersHistory: false,
             sliderMax: 100,
             _lastSliderInput: 'max',
             advancedFiltersOpen: false,

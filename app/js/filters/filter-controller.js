@@ -75,6 +75,48 @@ const FilterController = (() => {
         return options.currentPage || 'timeline';
     }
 
+    function isTimelineSelectionActive(options) {
+        if (typeof options.isTimelineSelectionActive === 'function') {
+            return !!options.isTimelineSelectionActive();
+        }
+
+        return !!options.timelineSelectionActive;
+    }
+
+    function setSelectedOnlyFilter(options, value) {
+        const enabled = !!value;
+
+        if (typeof options.setSelectedOnlyFilter === 'function') {
+            options.setSelectedOnlyFilter(enabled, getTimelineSelectedIds(options));
+            return;
+        }
+
+        if (options.filters) {
+            options.filters.selectedOnly = enabled;
+            options.filters.selectedOnlyIds = enabled
+                ? new Set(getTimelineSelectedIds(options))
+                : new Set();
+        }
+    }
+
+    function getTimelineSelectedIds(options) {
+        if (typeof options.getTimelineSelectedIds === 'function') {
+            const ids = options.getTimelineSelectedIds();
+            if (ids instanceof Set) return ids;
+            if (Array.isArray(ids)) return new Set(ids.filter(Boolean));
+            if (
+                ids &&
+                typeof ids.size === 'number' &&
+                typeof ids.has === 'function' &&
+                typeof ids.forEach === 'function'
+            ) {
+                return new Set(Array.from(ids).filter(Boolean));
+            }
+        }
+
+        return new Set();
+    }
+
     function isDesktopLike(options = {}) {
         const win = getWindow(options);
         if (!win) return false;
@@ -275,6 +317,7 @@ const FilterController = (() => {
         const dateFrom = doc.getElementById('filter-date-from');
         const dateTo = doc.getElementById('filter-date-to');
         const advToggle = doc.getElementById('btn-advanced-toggle');
+        const selectedOnlyChip = doc.getElementById('filter-selected-only');
 
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -350,6 +393,15 @@ const FilterController = (() => {
 
         if (resetBtn) resetBtn.addEventListener('click', () => resetFilters(options));
         if (advToggle) advToggle.addEventListener('click', () => toggleAdvancedFilters(options));
+        if (selectedOnlyChip) {
+            selectedOnlyChip.addEventListener('click', () => {
+                if (!isTimelineSelectionActive(options)) return;
+
+                setSelectedOnlyFilter(options, !options.filters.selectedOnly);
+                syncSelectionFilterUI(options);
+                (options.onFilterChange || noop)();
+            });
+        }
 
         syncFilterUI(options);
         updateFilterBadge(options);
@@ -487,7 +539,23 @@ const FilterController = (() => {
             chip.classList.toggle('active', filters.methods.has(chip.dataset.id));
         });
 
+        syncSelectionFilterUI(options);
         recalcSliderMax(options);
+    }
+
+    function syncSelectionFilterUI(options = {}) {
+        const doc = getDocument(options);
+        const filters = options.filters || {};
+        const active = isTimelineSelectionActive(options);
+        const section = doc.getElementById('selection-filter-section');
+        const chip = doc.getElementById('filter-selected-only');
+
+        if (!active && filters.selectedOnly) {
+            setSelectedOnlyFilter(options, false);
+        }
+
+        if (section) section.classList.toggle('hidden', !active);
+        if (chip) chip.classList.toggle('active', active && !!filters.selectedOnly);
     }
 
     function initSlider(options = {}) {
@@ -677,6 +745,7 @@ const FilterController = (() => {
 
     function updateFilterBadge(options = {}) {
         const doc = getDocument(options);
+        syncSelectionFilterUI(options);
         const filterModel = getFilterModel(options);
         const n = filterModel
             ? Number(filterModel.activeFilterCount || 0)
@@ -719,7 +788,7 @@ const FilterController = (() => {
         return n;
     }
 
-    function resetFilters(options = {}) {
+    function resetFilters(options = {}, config = {}) {
         const filters = options.filters;
 
         filters.query = '';
@@ -729,10 +798,14 @@ const FilterController = (() => {
         filters.amountMax = Infinity;
         filters.dateFrom = '';
         filters.dateTo = '';
+        filters.selectedOnly = false;
+        filters.selectedOnlyIds = new Set();
 
         syncFilterUI(options);
         (options.onFilterChange || noop)();
-        (options.showToast || noop)('Filtri resettati', 'info');
+        if (config.showToast !== false) {
+            (options.showToast || noop)('Filtri resettati', 'info');
+        }
     }
 
     return {

@@ -12,7 +12,9 @@ const UIStack = (() => {
         CLOSE_EXPENSE_INPUT: 'close-expense-input',
         CLOSE_ADVANCED_FILTERS: 'close-advanced-filters',
         CLOSE_FILTER: 'close-filter',
+        CLOSE_TIMELINE_SELECTION: 'close-timeline-selection',
         NAVIGATE_TIMELINE: 'navigate-timeline',
+        RESET_FILTERS: 'reset-filters',
         NONE: 'none'
     });
 
@@ -48,7 +50,9 @@ const UIStack = (() => {
         if (state.expenseInputActive) return ACTIONS.CLOSE_EXPENSE_INPUT;
         if (state.advancedFiltersOpen) return ACTIONS.CLOSE_ADVANCED_FILTERS;
         if (state.filterOpen) return ACTIONS.CLOSE_FILTER;
+        if (state.timelineSelectionActive) return ACTIONS.CLOSE_TIMELINE_SELECTION;
         if (state.currentPage && state.currentPage !== 'timeline') return ACTIONS.NAVIGATE_TIMELINE;
+        if (state.hasActiveFilters) return ACTIONS.RESET_FILTERS;
 
         return ACTIONS.NONE;
     }

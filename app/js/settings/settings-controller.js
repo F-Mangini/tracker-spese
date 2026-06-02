@@ -25,6 +25,9 @@ const SettingsController = (() => {
             spese,
             sizeKB: storage.getStorageSizeKB(),
             storageStatus: storage.getStatus(),
+            snapshotInfo: typeof storage.getSnapshotInfo === 'function'
+                ? storage.getSnapshotInfo()
+                : { exists: false },
             dateRange: SettingsView.getDateRange(spese),
             releaseModel: options.releaseModel,
             appInfo: SettingsActions.getAppInfo(
@@ -223,9 +226,10 @@ const SettingsController = (() => {
         options.refreshSettings();
     }
 
-    function clearAll(options = {}) {
+    function clearAll(options = {}, clearSnapshot = false) {
         const result = SettingsActions.clearAll({
-            storage: options.storage
+            storage: options.storage,
+            clearSnapshot
         });
 
         if (!result.success) {
@@ -235,6 +239,20 @@ const SettingsController = (() => {
 
         options.refreshAfterDataChange();
         options.showToast(result.toast, 'info');
+    }
+
+    function restoreSnapshot(options = {}) {
+        const result = SettingsActions.restoreSnapshot({
+            storage: options.storage
+        });
+
+        if (!result.success) {
+            options.showToast(result.error || 'Ripristino snapshot non riuscito', 'error');
+            return;
+        }
+
+        options.refreshAfterDataChange();
+        options.showToast(result.toast, result.result.restoredRaw ? 'info' : 'success');
     }
 
     function handleImportFile(fileInput, file, options = {}) {
@@ -276,6 +294,20 @@ const SettingsController = (() => {
             rawBtn.addEventListener('click', () => downloadRawData(options));
         }
 
+        const restoreBtn = container.querySelector('#btn-restore-snapshot');
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', () => {
+                options.showConfirm(
+                    'Ripristinare lo snapshot locale? I dati attuali verranno sostituiti.',
+                    () => restoreSnapshot(options),
+                    {
+                        yesText: 'Ripristina',
+                        yesClass: 'btn-warning'
+                    }
+                );
+            });
+        }
+
         const fileInput = container.querySelector('#import-file');
         container.querySelector('#btn-import').addEventListener('click', () => fileInput.click());
 
@@ -285,7 +317,17 @@ const SettingsController = (() => {
         });
 
         container.querySelector('#btn-clear-all').addEventListener('click', () => {
-            options.showConfirm('Eliminare TUTTI i dati?', () => clearAll(options));
+            options.showConfirm(
+                'Eliminare TUTTI i dati?',
+                state => clearAll(options, !!(state && state.clearSnapshot)),
+                {
+                    checkbox: {
+                        key: 'clearSnapshot',
+                        label: 'Elimina anche lo snapshot locale',
+                        checked: false
+                    }
+                }
+            );
         });
 
         const releaseChooser = container.querySelector('#btn-release-chooser');
@@ -314,6 +356,19 @@ const SettingsController = (() => {
             const link = event.target.closest('.release-install-link');
             if (!link) return;
 
+            const snapshot = SettingsActions.createVersionChangeSnapshot({
+                storage: options.storage
+            });
+
+            if (!snapshot.success) {
+                event.preventDefault();
+                options.showToast(
+                    snapshot.error || 'Snapshot prima del cambio versione non riuscito',
+                    'error'
+                );
+                return;
+            }
+
             SettingsActions.setLaunchTarget(
                 link.dataset.launchPath || '',
                 options.localStorage
@@ -339,6 +394,7 @@ const SettingsController = (() => {
         openReleaseModal,
         closeReleaseModal,
         isReleaseModalOpen,
+        bindReleaseModal,
         render
     };
 })();

@@ -26,6 +26,12 @@
                 🔍
                 <span id="filter-badge" class="filter-badge hidden">0</span>
             </button>
+            <button id="btn-selection-select-all" class="header-btn selection-header-btn hidden"
+                aria-label="Seleziona spese filtrate" title="Seleziona tutte le spese filtrate">&#x2611;&#xfe0f;</button>
+            <button id="btn-selection-export" class="header-btn selection-header-btn hidden"
+                aria-label="Esporta spese selezionate" title="Esporta spese selezionate">📤</button>
+            <button id="btn-selection-delete" class="header-btn header-btn-danger selection-header-btn hidden"
+                aria-label="Elimina spese selezionate" title="Elimina spese selezionate">🗑️</button>
             <button id="theme-toggle" class="header-btn" aria-label="Cambia tema">🌓</button>
         </div>
     </header>
@@ -54,6 +60,15 @@
                         <label for="filter-date-to">A</label>
                         <input type="date" id="filter-date-to">
                     </div>
+                </div>
+            </div>
+
+            <div id="selection-filter-section" class="filter-section hidden">
+                <div class="filter-label">Selezione</div>
+                <div class="filter-chips">
+                    <button id="filter-selected-only" class="filter-chip" data-id="selected-only">
+                        Selezionate
+                    </button>
                 </div>
             </div>
 
@@ -247,6 +262,7 @@
     <script src="js/filters/filter-controller.js"></script>
     <script src="js/timeline/timeline-view.js"></script>
     <script src="js/timeline/timeline-controller.js"></script>
+    <script src="js/timeline/timeline-selection-controller.js"></script>
     <script src="js/navigation/navigation-controller.js"></script>
     <script src="js/stats/stats-view.js"></script>
     <script src="js/stats/stats-charts.js"></script>

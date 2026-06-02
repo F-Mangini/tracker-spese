@@ -167,11 +167,20 @@ const AppWiring = (() => {
             return app.timelineSelectionActive ? app.timelineSelectedIds : new Set();
         }
 
+        function getSelectedOnlyIdsForFilters() {
+            if (!app.timelineSelectionActive) return new Set();
+            if (!app.filters.selectedOnly) return app.timelineSelectedIds;
+            return app.filters.selectedOnlyIds instanceof Set
+                ? app.filters.selectedOnlyIds
+                : new Set();
+        }
+
         function buildCurrentFilterModel() {
             return deps.ExpenseQuery.buildFilterModel({
                 spese: deps.ExpenseStore.getSpese(),
                 filters: app.filters,
-                selectedIds: getTimelineSelectedIdsForFilters()
+                selectedIds: getTimelineSelectedIdsForFilters(),
+                selectedOnlyIds: getSelectedOnlyIdsForFilters()
             });
         }
 
@@ -243,12 +252,14 @@ const AppWiring = (() => {
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
                 applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
-                    selectedIds: getTimelineSelectedIdsForFilters()
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
                     spese: deps.ExpenseStore.getSpese(),
                     filters: app.filters,
-                    selectedIds: getTimelineSelectedIdsForFilters()
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 getFilterOpen: () => app.filterOpen,
                 setFilterOpen: value => { app.filterOpen = value; },
@@ -259,7 +270,10 @@ const AppWiring = (() => {
                 getCurrentPage: () => app.currentPage,
                 isTimelineSelectionActive: () => app.currentPage !== 'settings' && app.timelineSelectionActive,
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
-                setSelectedOnlyFilter: value => { app.filters.selectedOnly = !!value; },
+                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                    app.filters.selectedOnly = !!value;
+                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                },
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
                 getSliderMaxValue: () => app.sliderMax,
@@ -340,7 +354,8 @@ const AppWiring = (() => {
                 newCardId: app.newCardId,
                 hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
                 applyFilters: spese => deps.ExpenseFilters.apply(spese, app.filters, {
-                    selectedIds: getTimelineSelectedIdsForFilters()
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 groupByDay: spese => deps.StatsData.groupByDay(spese),
@@ -379,7 +394,8 @@ const AppWiring = (() => {
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({
                     spese: deps.ExpenseStore.getSpese(),
                     filters: app.filters,
-                    selectedIds: getTimelineSelectedIdsForFilters()
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 getSelectedIds: () => app.timelineSelectedIds,
                 setSelectedIds: ids => { app.timelineSelectedIds = ids; },
@@ -388,7 +404,10 @@ const AppWiring = (() => {
                 isDeletePending: () => app.timelineSelectionDeletePending,
                 setDeletePending: value => { app.timelineSelectionDeletePending = value; },
                 getCurrentPage: () => app.currentPage,
-                setSelectedOnlyFilter: value => { app.filters.selectedOnly = !!value; },
+                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                    app.filters.selectedOnly = !!value;
+                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                },
                 pushUiState,
                 consumeUiState: () => consumeUiState(),
                 renderTimeline: () => app.renderTimeline(),
@@ -492,7 +511,8 @@ const AppWiring = (() => {
                 filters: app.filters,
                 period: app.statsPeriod,
                 offset: app.statsOffset,
-                selectedIds: getTimelineSelectedIdsForFilters()
+                selectedIds: getTimelineSelectedIdsForFilters(),
+                selectedOnlyIds: getSelectedOnlyIdsForFilters()
             });
 
             return {
@@ -511,7 +531,8 @@ const AppWiring = (() => {
                 ChartClass: deps.ChartClass,
                 getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
                 applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters, {
-                    selectedIds: getTimelineSelectedIdsForFilters()
+                    selectedIds: getTimelineSelectedIdsForFilters(),
+                    selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
                 setPeriod: period => { app.statsPeriod = period; },
                 setOffset: offset => { app.statsOffset = offset; },
@@ -581,7 +602,8 @@ const AppWiring = (() => {
                     const filterModel = deps.ExpenseQuery.buildFilterModel({
                         spese: deps.ExpenseStore.getSpese(),
                         filters: app.filters,
-                        selectedIds: getTimelineSelectedIdsForFilters()
+                        selectedIds: getTimelineSelectedIdsForFilters(),
+                        selectedOnlyIds: getSelectedOnlyIdsForFilters()
                     });
 
                     deps.FilterController.updateFilterBadge({

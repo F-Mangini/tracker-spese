@@ -684,7 +684,9 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         now: new Date('2026-05-20T12:00:00.000Z')
     });
@@ -1315,6 +1317,13 @@ test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
         ExpenseFilters.apply(spese, filters, { selectedIds: new Set(['b', 'c']) }).map(item => item.id),
         ['b']
     );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, filters, {
+            selectedIds: new Set(['a']),
+            selectedOnlyIds: new Set(['b', 'c'])
+        }).map(item => item.id),
+        ['b']
+    );
     assert.equal(ExpenseFilters.countActive(filters), 2);
 });
 
@@ -1680,13 +1689,15 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        selectedOnlyIds: new Set()
     };
     const state = {
         filterOpen: false,
         advancedFiltersOpen: false,
         filterSearchActive: false,
         selectionActive: false,
+        selectedIds: new Set(['bar']),
         releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
@@ -1731,6 +1742,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         setFilterSearchActive: value => { state.filterSearchActive = value; },
         getCurrentPage: () => 'timeline',
         isTimelineSelectionActive: () => state.selectionActive,
+        getTimelineSelectedIds: () => state.selectedIds,
         getLastSliderInput: () => state.lastSliderInput,
         setLastSliderInput: value => { state.lastSliderInput = value; },
         getSliderMaxValue: () => state.sliderMax,
@@ -1765,6 +1777,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!elements['selection-filter-section'].classList.contains('hidden'));
     elements['filter-selected-only'].listeners.click();
     assert.equal(filters.selectedOnly, true);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
     assert(elements['filter-selected-only'].classList.contains('active'));
 
     elements['search-input'].value = ' caffe ';
@@ -1875,6 +1888,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.categories.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.selectedOnlyIds.size, 0);
     assert(!elements['filter-selected-only'].classList.contains('active'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
 });
@@ -2287,9 +2301,9 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
 
     assert(elements['app-header'].classList.contains('selection-active'));
     assert(elements['bottom-nav'].classList.contains('selection-active'));
-    assert(elements['theme-toggle'].classList.contains('hidden'));
-    assert(!elements['btn-selection-select-all'].classList.contains('hidden'));
-    assert.equal(elements['btn-selection-export'].disabled, false);
+    assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-export'].disabled, true);
 
     TimelineSelectionController.syncHeader({
         document: doc,
@@ -2740,7 +2754,9 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         charts: {
             doughnut: oldChart,
@@ -4212,6 +4228,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.currentPage = 'stats';
     first.filters.query = 'caffe';
     first.filters.categories.add('bar');
+    first.filters.selectedOnlyIds.add('expense-a');
     first.pageScrollTop.timeline = 120;
     first.timelineSelectionActive = true;
     first.timelineSelectedIds.add('expense-a');
@@ -4222,6 +4239,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.currentPage, 'timeline');
     assert.equal(second.filters.query, '');
     assert.equal(second.filters.categories.size, 0);
+    assert.equal(second.filters.selectedOnlyIds.size, 0);
     assert.equal(second.pageScrollTop.timeline, 0);
     assert.deepEqual(second._sdInstances, {});
     assert.deepEqual(second._editTags, []);
@@ -4436,7 +4454,9 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
-            dateTo: ''
+            dateTo: '',
+            selectedOnly: false,
+            selectedOnlyIds: new Set()
         },
         sliderMax: 100,
         _lastSliderInput: 'max',

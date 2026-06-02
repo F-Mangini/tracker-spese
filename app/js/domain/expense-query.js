@@ -20,7 +20,8 @@ const ExpenseQuery = (() => {
         const activeFilterCount = ExpenseFilters.countActive(filters);
         const hasActiveFilters = activeFilterCount > 0;
         const filterOptions = {
-            selectedIds: options.selectedIds
+            selectedIds: options.selectedIds,
+            selectedOnlyIds: options.selectedOnlyIds
         };
         const filteredSpese = hasActiveFilters
             ? ExpenseFilters.apply(allSpese, filters, filterOptions)
@@ -49,7 +50,8 @@ const ExpenseQuery = (() => {
         });
         const periodSpese = filterByPeriod(allSpese, start, end);
         const filteredSpese = ExpenseFilters.applyNonDate(periodSpese, filters, {
-            selectedIds: options.selectedIds
+            selectedIds: options.selectedIds,
+            selectedOnlyIds: options.selectedOnlyIds
         });
         const summary = StatsData.summarizeExpenses(filteredSpese, start, end, {
             now: options.now,

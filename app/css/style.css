@@ -1049,9 +1049,19 @@ body.expense-input-active #input-bar {
 }
 
 #bottom-nav.selection-active {
-    border-top-color: transparent;
-    border-top-width: 2px;
-    box-shadow: inset 0 2px 0 var(--accent);
+    border-top-color: var(--border);
+}
+
+#bottom-nav.selection-active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 1;
 }
 
 #app-main:not(.no-input-bar)~#bottom-nav::before {

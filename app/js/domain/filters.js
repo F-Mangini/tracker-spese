@@ -110,7 +110,7 @@ const ExpenseFilters = (() => {
     function matches(spesa, filters = {}, options = {}) {
         const state = normalize(filters);
         const includeDate = options.includeDate !== false;
-        const selectedIds = toSelectedIds(options.selectedIds);
+        const selectedIds = toSelectedIds(options.selectedOnlyIds || options.selectedIds);
 
         if (!matchesQuery(spesa, state.query)) return false;
         if (state.categories.size > 0 && !state.categories.has(spesa.categoria)) return false;
@@ -125,7 +125,7 @@ const ExpenseFilters = (() => {
     function apply(spese, filters = {}, options = {}) {
         const state = normalize(filters);
         const includeDate = options.includeDate !== false;
-        const selectedIds = toSelectedIds(options.selectedIds);
+        const selectedIds = toSelectedIds(options.selectedOnlyIds || options.selectedIds);
         const list = Array.isArray(spese) ? spese : [];
 
         return list.filter(spesa => {

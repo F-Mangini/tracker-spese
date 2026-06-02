@@ -1169,15 +1169,17 @@ body.expense-input-active #input-bar {
 }
 
 .bottom-action-btn {
-    color: var(--accent);
-}
-
-.bottom-action-btn:not(.bottom-action-danger) .nav-label {
-    color: var(--text-tertiary);
+    color: var(--text-primary);
+    transition-duration: 0.08s;
 }
 
 .bottom-action-btn.bottom-action-danger {
     color: var(--danger);
+}
+
+.bottom-action-btn:not(.bottom-action-danger):active,
+.bottom-action-btn.pressed:not(.bottom-action-danger) {
+    color: var(--accent);
 }
 
 .bottom-action-btn:disabled {

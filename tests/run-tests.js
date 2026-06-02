@@ -2204,7 +2204,7 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert(!elements['timeline-empty'].classList.contains('hidden'));
 });
 
-test('Controller selezione timeline gestisce selezione, export e delete bulk', () => {
+test('Controller selezione timeline gestisce selezione, copia, export e delete bulk', async () => {
     const { TimelineSelectionController } = loadUiViews();
     const calls = [];
     const state = {
@@ -2255,6 +2255,14 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
         refreshAfterDataChange: () => calls.push('refresh'),
         dateStamp: () => '2026-06-01',
         download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        navigatorLike: {
+            clipboard: {
+                writeText(text) {
+                    calls.push(['clipboard', text]);
+                    return Promise.resolve();
+                }
+            }
+        },
         showToast: (message, type) => calls.push(['toast', type, message]),
         showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)])
     };
@@ -2282,6 +2290,7 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert.equal(summary.selectedTotal, 9);
     assert.equal(summary.visibleCount, 2);
 
+    assert.equal(await TimelineSelectionController.copySelected(options), true);
     assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
     assert.equal(TimelineSelectionController.showExportChoices(options), true);
     assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
@@ -2293,6 +2302,7 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert.deepEqual(calls.filter(call => Array.isArray(call) && call[0] === 'push'), [
         ['push', 'timeline-selection']
     ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'clipboard' && call[1] === 'csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
@@ -2325,11 +2335,23 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     function button(id) {
         return {
             id,
+            dataset: {},
             disabled: false,
             textContent: '',
             title: '',
             attributes: {},
             classList: makeClassList(['hidden']),
+            setAttribute(name, value) {
+                this.attributes[name] = value;
+            },
+            addEventListener() {
+            }
+        };
+    }
+
+    function navSet() {
+        return {
+            attributes: {},
             setAttribute(name, value) {
                 this.attributes[name] = value;
             }
@@ -2340,6 +2362,8 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
         innerHTML: 'Where\'s My <span style="color: #ff7c00;">Bug</span>?',
         dataset: {}
     };
+    const mainSet = navSet();
+    const selectionSet = navSet();
     const elements = {
         'app-header': {
             classList: makeClassList(),
@@ -2347,8 +2371,17 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
                 return selector === 'h1' ? title : null;
             }
         },
-        'bottom-nav': { classList: makeClassList() },
+        'bottom-nav': {
+            dataset: {},
+            classList: makeClassList(),
+            querySelector(selector) {
+                if (selector === '[data-nav-set="main"]') return mainSet;
+                if (selector === '[data-nav-set="selection"]') return selectionSet;
+                return null;
+            }
+        },
         'theme-toggle': { classList: makeClassList() },
+        'btn-selection-copy': button('btn-selection-copy'),
         'btn-selection-select-all': button('btn-selection-select-all'),
         'btn-selection-export': button('btn-selection-export'),
         'btn-selection-delete': button('btn-selection-delete')
@@ -2378,7 +2411,17 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '✅');
     assert.equal(elements['btn-selection-select-all'].attributes['aria-label'], 'Deseleziona spese filtrate');
-    assert.equal(elements['btn-selection-export'].disabled, true);
+    assert.equal(elements['btn-selection-copy'].disabled, false);
+    assert.equal(elements['btn-selection-export'].disabled, false);
+    assert.equal(elements['btn-selection-delete'].disabled, false);
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'actions');
+    assert.equal(mainSet.attributes['aria-hidden'], 'true');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'false');
+
+    TimelineSelectionController.setBottomNavSet(elements['bottom-nav'], 'main');
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 
     TimelineSelectionController.syncHeader({
         document: doc,
@@ -2401,6 +2444,7 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
 
     assert(elements['app-header'].classList.contains('delete-pending'));
     assert(elements['bottom-nav'].classList.contains('delete-pending'));
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
 
     TimelineSelectionController.syncHeader({
         document: doc,
@@ -2425,6 +2469,10 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
+    assert(!elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, undefined);
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 });
 
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {

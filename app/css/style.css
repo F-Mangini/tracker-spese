@@ -1059,9 +1059,10 @@ body.expense-input-active #input-bar {
     padding-bottom: var(--safe-bottom);
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
-    display: flex;
-    align-items: stretch;
+    display: block;
+    overflow: hidden;
     z-index: 100;
+    touch-action: pan-y;
 }
 
 #bottom-nav.selection-active {
@@ -1101,7 +1102,53 @@ body.expense-input-active #input-bar {
     z-index: -1;
 }
 
-.nav-btn {
+.nav-set {
+    position: absolute;
+    inset: 0;
+    padding-bottom: var(--safe-bottom);
+    display: flex;
+    align-items: stretch;
+    transition: transform 0.24s ease, opacity 0.18s ease;
+    will-change: transform;
+}
+
+.nav-set-main {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.nav-set-selection {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#bottom-nav.selection-active .nav-set-main {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#bottom-nav.selection-active .nav-set-selection {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#bottom-nav.selection-active.selection-show-main .nav-set-main {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#bottom-nav.selection-active.selection-show-main .nav-set-selection {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.nav-btn,
+.bottom-action-btn {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1119,6 +1166,19 @@ body.expense-input-active #input-bar {
 
 .nav-btn.active {
     color: var(--accent);
+}
+
+.bottom-action-btn {
+    color: var(--accent);
+}
+
+.bottom-action-btn.bottom-action-danger {
+    color: var(--danger);
+}
+
+.bottom-action-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
 }
 
 .nav-icon {

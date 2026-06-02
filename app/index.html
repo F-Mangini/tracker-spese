@@ -28,10 +28,6 @@
             </button>
             <button id="btn-selection-select-all" class="header-btn selection-header-btn hidden"
                 aria-label="Seleziona spese filtrate" title="Seleziona tutte le spese filtrate">&#x2611;&#xfe0f;</button>
-            <button id="btn-selection-export" class="header-btn selection-header-btn hidden"
-                aria-label="Esporta spese selezionate" title="Esporta spese selezionate">📤</button>
-            <button id="btn-selection-delete" class="header-btn header-btn-danger selection-header-btn hidden"
-                aria-label="Elimina spese selezionate" title="Elimina spese selezionate">🗑️</button>
             <button id="theme-toggle" class="header-btn" aria-label="Cambia tema">🌓</button>
         </div>
     </header>
@@ -148,16 +144,32 @@
         </div>
     </div>
 
-    <nav id="bottom-nav">
-        <button class="nav-btn active" data-page="timeline">
-            <span class="nav-icon">📋</span><span class="nav-label">Timeline</span>
-        </button>
-        <button class="nav-btn" data-page="stats">
-            <span class="nav-icon">📊</span><span class="nav-label">Statistiche</span>
-        </button>
-        <button class="nav-btn" data-page="settings">
-            <span class="nav-icon">⚙️</span><span class="nav-label">Impostazioni</span>
-        </button>
+    <nav id="bottom-nav" aria-label="Navigazione principale">
+        <div class="nav-set nav-set-main" data-nav-set="main">
+            <button class="nav-btn active" data-page="timeline">
+                <span class="nav-icon">📋</span><span class="nav-label">Timeline</span>
+            </button>
+            <button class="nav-btn" data-page="stats">
+                <span class="nav-icon">📊</span><span class="nav-label">Statistiche</span>
+            </button>
+            <button class="nav-btn" data-page="settings">
+                <span class="nav-icon">⚙️</span><span class="nav-label">Impostazioni</span>
+            </button>
+        </div>
+        <div class="nav-set nav-set-selection" data-nav-set="selection" aria-hidden="true">
+            <button id="btn-selection-copy" class="bottom-action-btn" aria-label="Copia spese selezionate"
+                title="Copia spese selezionate">
+                <span class="nav-icon">&#x1f4cb;</span><span class="nav-label">Copia</span>
+            </button>
+            <button id="btn-selection-export" class="bottom-action-btn" aria-label="Esporta spese selezionate"
+                title="Esporta spese selezionate">
+                <span class="nav-icon">&#x1f4e4;</span><span class="nav-label">Esporta</span>
+            </button>
+            <button id="btn-selection-delete" class="bottom-action-btn bottom-action-danger"
+                aria-label="Elimina spese selezionate" title="Elimina spese selezionate">
+                <span class="nav-icon">&#x1f5d1;&#xfe0f;</span><span class="nav-label">Elimina</span>
+            </button>
+        </div>
     </nav>
 
     <!-- Edit Modal -->

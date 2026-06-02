@@ -3,10 +3,21 @@
    ============================================ */
 
 const TimelineSelectionController = (() => {
+    const NAV_SET_ACTIONS = 'actions';
+    const NAV_SET_MAIN = 'main';
+    const NAV_SWIPE_THRESHOLD = 42;
+
     function noop() { }
 
     function getDocument(options) {
         return options.document || document;
+    }
+
+    function getNavigatorLike(options) {
+        if (options.navigatorLike) return options.navigatorLike;
+        if (options.window && options.window.navigator) return options.window.navigator;
+        if (typeof navigator !== 'undefined') return navigator;
+        return null;
     }
 
     function toIdSet(value) {
@@ -134,6 +145,51 @@ const TimelineSelectionController = (() => {
         title.innerHTML = active ? getSelectionTitleHtml(options) : dataset.defaultHtml;
     }
 
+    function setNavSetAccessibility(bottomNav, active, set) {
+        if (!bottomNav || typeof bottomNav.querySelector !== 'function') return;
+
+        const mainSet = bottomNav.querySelector('[data-nav-set="main"]');
+        const selectionSet = bottomNav.querySelector('[data-nav-set="selection"]');
+        const showMain = !active || set === NAV_SET_MAIN;
+
+        if (mainSet && typeof mainSet.setAttribute === 'function') {
+            mainSet.setAttribute('aria-hidden', showMain ? 'false' : 'true');
+        }
+        if (selectionSet && typeof selectionSet.setAttribute === 'function') {
+            selectionSet.setAttribute('aria-hidden', active && !showMain ? 'false' : 'true');
+        }
+    }
+
+    function setBottomNavSet(bottomNav, set = NAV_SET_ACTIONS) {
+        if (!bottomNav) return false;
+
+        const nextSet = set === NAV_SET_MAIN ? NAV_SET_MAIN : NAV_SET_ACTIONS;
+        if (bottomNav.dataset) bottomNav.dataset.selectionSet = nextSet;
+        if (bottomNav.classList && typeof bottomNav.classList.toggle === 'function') {
+            bottomNav.classList.toggle('selection-show-main', nextSet === NAV_SET_MAIN);
+        }
+        setNavSetAccessibility(bottomNav, true, nextSet);
+        return true;
+    }
+
+    function syncBottomNavSet(bottomNav, active) {
+        if (!bottomNav) return;
+
+        if (!active) {
+            if (bottomNav.dataset) delete bottomNav.dataset.selectionSet;
+            if (bottomNav.classList && typeof bottomNav.classList.remove === 'function') {
+                bottomNav.classList.remove('selection-show-main');
+            }
+            setNavSetAccessibility(bottomNav, false, NAV_SET_MAIN);
+            return;
+        }
+
+        const currentSet = bottomNav.dataset && bottomNav.dataset.selectionSet === NAV_SET_MAIN
+            ? NAV_SET_MAIN
+            : NAV_SET_ACTIONS;
+        setBottomNavSet(bottomNav, currentSet);
+    }
+
     function getSummary(options = {}, filtered = null, allSpese = null) {
         const all = Array.isArray(allSpese) ? allSpese : getAllSpese(options);
         const visible = Array.isArray(filtered) ? filtered : getFilterModel(options).filteredSpese || all;
@@ -159,7 +215,7 @@ const TimelineSelectionController = (() => {
             ? options.getCurrentPage()
             : 'timeline';
         const active = isActive(options) && currentPage !== 'settings';
-        const actionsActive = active && currentPage === 'timeline';
+        const headerActionsActive = active && currentPage === 'timeline';
         const model = summary || getSummary(options);
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);
@@ -167,11 +223,7 @@ const TimelineSelectionController = (() => {
         const header = doc.getElementById('app-header');
         const bottomNav = doc.getElementById('bottom-nav');
         const themeToggle = doc.getElementById('theme-toggle');
-        const selectionButtons = [
-            doc.getElementById('btn-selection-select-all'),
-            doc.getElementById('btn-selection-export'),
-            doc.getElementById('btn-selection-delete')
-        ].filter(Boolean);
+        const copyButton = doc.getElementById('btn-selection-copy');
         const exportButton = doc.getElementById('btn-selection-export');
         const deleteButton = doc.getElementById('btn-selection-delete');
         const selectAllButton = doc.getElementById('btn-selection-select-all');
@@ -181,14 +233,12 @@ const TimelineSelectionController = (() => {
         syncTitle(header, active, options);
         if (bottomNav) bottomNav.classList.toggle('selection-active', active);
         if (bottomNav) bottomNav.classList.toggle('delete-pending', deletePending);
-        if (themeToggle) themeToggle.classList.toggle('hidden', actionsActive);
-
-        selectionButtons.forEach(button => {
-            button.classList.toggle('hidden', !actionsActive);
-        });
+        syncBottomNavSet(bottomNav, active);
+        if (themeToggle) themeToggle.classList.toggle('hidden', headerActionsActive);
+        if (selectAllButton) selectAllButton.classList.toggle('hidden', !headerActionsActive);
 
         if (selectAllButton) {
-            selectAllButton.disabled = !actionsActive || visibleCount === 0;
+            selectAllButton.disabled = !headerActionsActive || visibleCount === 0;
             selectAllButton.textContent = model.visibleAllSelected ? '\u2705' : '\u2611\uFE0F';
             const selectAllLabel = model.visibleAllSelected
                 ? 'Deseleziona spese filtrate'
@@ -201,8 +251,8 @@ const TimelineSelectionController = (() => {
                 : 'Seleziona tutte le spese filtrate';
         }
 
-        [exportButton, deleteButton].forEach(button => {
-            if (button) button.disabled = !actionsActive || selectedCount === 0;
+        [copyButton, exportButton, deleteButton].forEach(button => {
+            if (button) button.disabled = !active || selectedCount === 0;
         });
     }
 
@@ -324,6 +374,77 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
+    function fallbackCopyText(options = {}, text = '') {
+        const doc = getDocument(options);
+        if (!doc || typeof doc.createElement !== 'function' || !doc.body) {
+            return Promise.resolve(false);
+        }
+
+        const textarea = doc.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        doc.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        let copied = false;
+        try {
+            copied = typeof doc.execCommand === 'function' && doc.execCommand('copy');
+        } catch (_) {
+            copied = false;
+        }
+
+        doc.body.removeChild(textarea);
+        return Promise.resolve(!!copied);
+    }
+
+    function writeClipboardText(options = {}, text = '') {
+        const navigatorLike = getNavigatorLike(options);
+        const clipboard = navigatorLike && navigatorLike.clipboard;
+
+        if (clipboard && typeof clipboard.writeText === 'function') {
+            return Promise.resolve(clipboard.writeText(text))
+                .then(() => true)
+                .catch(() => fallbackCopyText(options, text));
+        }
+
+        return fallbackCopyText(options, text);
+    }
+
+    function copySelected(options = {}) {
+        const storage = options.storage;
+        const selected = getSelectedSpese(options);
+        if (selected.length === 0) {
+            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
+            return Promise.resolve(false);
+        }
+
+        if (!storage || typeof storage.exportCSV !== 'function') {
+            (options.showToast || noop)('Copia non disponibile.', 'error');
+            return Promise.resolve(false);
+        }
+
+        const result = storage.exportCSV({ spese: selected });
+        if (!result.success) {
+            (options.showToast || noop)(result.error || 'Copia non riuscita', 'error');
+            return Promise.resolve(false);
+        }
+
+        return writeClipboardText(options, result.content)
+            .then(copied => {
+                if (!copied) {
+                    (options.showToast || noop)('Copia negli appunti non disponibile.', 'error');
+                    return false;
+                }
+
+                (options.showToast || noop)(`${selected.length} spese copiate negli appunti`, 'info');
+                return true;
+            });
+    }
+
     function exportSelected(options = {}, format = 'json') {
         const storage = options.storage;
         const selected = getSelectedSpese(options);
@@ -433,12 +554,18 @@ const TimelineSelectionController = (() => {
     function bindHeader(options = {}) {
         const doc = getDocument(options);
         const selectAllButton = doc.getElementById('btn-selection-select-all');
+        const copyButton = doc.getElementById('btn-selection-copy');
         const exportButton = doc.getElementById('btn-selection-export');
         const deleteButton = doc.getElementById('btn-selection-delete');
 
         if (selectAllButton && selectAllButton.dataset.selectionBound !== 'true') {
             selectAllButton.dataset.selectionBound = 'true';
             selectAllButton.addEventListener('click', () => selectVisible(options));
+        }
+
+        if (copyButton && copyButton.dataset.selectionBound !== 'true') {
+            copyButton.dataset.selectionBound = 'true';
+            copyButton.addEventListener('click', () => copySelected(options));
         }
 
         if (exportButton && exportButton.dataset.selectionBound !== 'true') {
@@ -451,7 +578,60 @@ const TimelineSelectionController = (() => {
             deleteButton.addEventListener('click', () => showDeleteConfirm(options));
         }
 
+        bindBottomNavPager(options);
         syncHeader(options);
+    }
+
+    function bindBottomNavPager(options = {}) {
+        const doc = getDocument(options);
+        const bottomNav = doc.getElementById('bottom-nav');
+        if (!bottomNav) return false;
+        if (!bottomNav.dataset) bottomNav.dataset = {};
+        if (bottomNav.dataset.selectionPagerBound === 'true') return false;
+
+        bottomNav.dataset.selectionPagerBound = 'true';
+
+        let startX = 0;
+        let startY = 0;
+
+        const canPage = () => (
+            bottomNav.classList &&
+            typeof bottomNav.classList.contains === 'function' &&
+            bottomNav.classList.contains('selection-active')
+        );
+
+        const applyDelta = (deltaX, deltaY = 0) => {
+            const absX = Math.abs(deltaX);
+            const absY = Math.abs(deltaY);
+            if (!canPage() || absX < NAV_SWIPE_THRESHOLD || absX < absY * 1.2) return false;
+
+            setBottomNavSet(bottomNav, deltaX < 0 ? NAV_SET_MAIN : NAV_SET_ACTIONS);
+            return true;
+        };
+
+        bottomNav.addEventListener('touchstart', event => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            startX = touch.clientX;
+            startY = touch.clientY;
+        }, { passive: true });
+
+        bottomNav.addEventListener('touchend', event => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            applyDelta(touch.clientX - startX, touch.clientY - startY);
+        }, { passive: true });
+
+        bottomNav.addEventListener('wheel', event => {
+            const deltaX = Number(event.deltaX || 0);
+            const deltaY = event.shiftKey ? Number(event.deltaY || 0) : 0;
+            const applied = applyDelta(deltaX || deltaY, 0);
+            if (applied && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        return true;
     }
 
     return {
@@ -465,10 +645,12 @@ const TimelineSelectionController = (() => {
         selectVisible,
         getExportChoices,
         showExportChoices,
+        copySelected,
         exportSelected,
         showDeleteConfirm,
         deleteSelected,
         clearDeletePending,
+        setBottomNavSet,
         bindHeader
     };
 })();

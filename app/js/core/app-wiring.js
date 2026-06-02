@@ -427,6 +427,7 @@ const AppWiring = (() => {
                     URL: deps.URL,
                     Blob: deps.Blob
                 }),
+                navigatorLike: deps.window.navigator,
                 showToast: (message, type) => app.showToast(message, type),
                 showChoices: (message, choices) => deps.ConfirmController.showChoices({
                     ...confirmOptions(),

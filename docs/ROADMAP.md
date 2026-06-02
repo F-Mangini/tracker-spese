@@ -23,7 +23,7 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
-- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
 
 ## Repository e Canali
 
@@ -60,7 +60,7 @@ Ancora da affrontare:
 - Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
-- Aggiungere copia rapida e altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
+- Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
 - Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
 - Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
@@ -130,8 +130,8 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con seleziona filtrate/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
-- Azioni bulk ancora da completare: copia negli appunti e formati TSV/tabella Markdown.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
+- Azioni bulk ancora da completare: formati TSV/tabella Markdown.
 - Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
 - Modifica spesa anche dalla pagina statistiche.
 

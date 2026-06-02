@@ -294,6 +294,27 @@ const SettingsController = (() => {
         }
     }
 
+    function installReleaseFromLink(link, options = {}) {
+        if (!link) return false;
+
+        SettingsActions.setLaunchTarget(
+            link.dataset.launchPath || '',
+            options.localStorage
+        );
+
+        const locationLike = options.locationLike;
+        if (locationLike && typeof locationLike.replace === 'function') {
+            locationLike.replace(link.href);
+            return true;
+        }
+
+        if (locationLike) {
+            locationLike.href = link.href;
+        }
+
+        return true;
+    }
+
     function bindReleaseModal(options = {}) {
         const modal = getReleaseModal(options);
         if (!modal || modal.dataset.bound === 'true') return;
@@ -314,10 +335,8 @@ const SettingsController = (() => {
             const link = event.target.closest('.release-install-link');
             if (!link) return;
 
-            SettingsActions.setLaunchTarget(
-                link.dataset.launchPath || '',
-                options.localStorage
-            );
+            event.preventDefault();
+            installReleaseFromLink(link, options);
         });
     }
 
@@ -339,6 +358,7 @@ const SettingsController = (() => {
         openReleaseModal,
         closeReleaseModal,
         isReleaseModalOpen,
+        installReleaseFromLink,
         render
     };
 })();

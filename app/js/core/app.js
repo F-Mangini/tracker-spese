@@ -7,24 +7,40 @@ const App = {
     /* =====================
        INIT
        ===================== */
+    getPreferredLaunchUrl() {
+        return SettingsActions.getPreferredLaunchUrl({
+            config: window.SPESA_TRACKER_CONFIG || {},
+            locationLike: window.location,
+            storageLike: window.localStorage
+        });
+    },
+
+    replaceWithPreferredLaunch(options = {}) {
+        const preferredLaunchUrl = this.getPreferredLaunchUrl();
+        if (!preferredLaunchUrl) return false;
+
+        const replaceLocation = () => {
+            window.location.replace(preferredLaunchUrl);
+        };
+        const waitFor = options.waitFor;
+
+        if (waitFor && typeof waitFor.then === 'function') {
+            waitFor.then(replaceLocation, replaceLocation);
+        } else {
+            replaceLocation();
+        }
+
+        return true;
+    },
+
     init() {
         const launchServiceWorkerReady = SettingsActions.registerLaunchServiceWorker({
             locationLike: window.location,
             navigatorLike: window.navigator,
             setTimeout: window.setTimeout.bind(window)
         });
-        const preferredLaunchUrl = SettingsActions.getPreferredLaunchUrl({
-            config: window.SPESA_TRACKER_CONFIG || {},
-            locationLike: window.location,
-            storageLike: window.localStorage
-        });
 
-        if (preferredLaunchUrl) {
-            launchServiceWorkerReady.then(() => {
-                window.location.replace(preferredLaunchUrl);
-            }, () => {
-                window.location.replace(preferredLaunchUrl);
-            });
+        if (this.replaceWithPreferredLaunch({ waitFor: launchServiceWorkerReady })) {
             return;
         }
 
@@ -143,3 +159,8 @@ const App = {
 
 /* --- Boot --- */
 document.addEventListener('DOMContentLoaded', () => App.init());
+window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+        App.replaceWithPreferredLaunch();
+    }
+});

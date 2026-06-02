@@ -7,15 +7,34 @@ const App = {
     /* =====================
        INIT
        ===================== */
-    init() {
-        const preferredLaunchUrl = SettingsActions.getPreferredLaunchUrl({
+    getPreferredLaunchUrl() {
+        return SettingsActions.getPreferredLaunchUrl({
             config: window.SPESA_TRACKER_CONFIG || {},
             locationLike: window.location,
             storageLike: window.localStorage
         });
+    },
 
-        if (preferredLaunchUrl) {
+    replaceWithPreferredLaunch(options = {}) {
+        const preferredLaunchUrl = this.getPreferredLaunchUrl();
+        if (!preferredLaunchUrl) return false;
+
+        const replaceLocation = () => {
             window.location.replace(preferredLaunchUrl);
+        };
+        const waitFor = options.waitFor;
+
+        if (waitFor && typeof waitFor.then === 'function') {
+            waitFor.then(replaceLocation, replaceLocation);
+        } else {
+            replaceLocation();
+        }
+
+        return true;
+    },
+
+    init() {
+        if (this.replaceWithPreferredLaunch()) {
             return;
         }
 
@@ -134,3 +153,8 @@ const App = {
 
 /* --- Boot --- */
 document.addEventListener('DOMContentLoaded', () => App.init());
+window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+        App.replaceWithPreferredLaunch();
+    }
+});

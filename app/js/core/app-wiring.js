@@ -393,6 +393,7 @@ const AppWiring = (() => {
         function timelineSelectionOptions() {
             return {
                 document: deps.document,
+                appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
                 storage: deps.Storage,
                 getSpese: () => deps.ExpenseStore.getSpese(),
                 getFilterModel: () => deps.ExpenseQuery.buildFilterModel({

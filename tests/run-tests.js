@@ -2270,12 +2270,27 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
         return {
             id,
             disabled: false,
-            classList: makeClassList(['hidden'])
+            textContent: '',
+            title: '',
+            attributes: {},
+            classList: makeClassList(['hidden']),
+            setAttribute(name, value) {
+                this.attributes[name] = value;
+            }
         };
     }
 
+    const title = {
+        innerHTML: 'Where\'s My <span style="color: #ff7c00;">Bug</span>?',
+        dataset: {}
+    };
     const elements = {
-        'app-header': { classList: makeClassList() },
+        'app-header': {
+            classList: makeClassList(),
+            querySelector(selector) {
+                return selector === 'h1' ? title : null;
+            }
+        },
         'bottom-nav': { classList: makeClassList() },
         'theme-toggle': { classList: makeClassList() },
         'btn-selection-select-all': button('btn-selection-select-all'),
@@ -2292,6 +2307,7 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
         document: doc,
         isActive: () => true,
         getCurrentPage: () => 'stats',
+        appConfig: { channel: 'dev' },
         getSelectedIds: () => new Set(['a']),
         getSpese: () => [expense({ id: 'a', importo: 5 })],
         getFilterModel: () => ({
@@ -2302,24 +2318,33 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert(elements['app-header'].classList.contains('selection-active'));
     assert(elements['bottom-nav'].classList.contains('selection-active'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert.equal(title.innerHTML, 'WM<span class="selection-title-dev-letter">B</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-select-all'].textContent, '✅');
+    assert.equal(elements['btn-selection-select-all'].attributes['aria-label'], 'Deseleziona spese filtrate');
     assert.equal(elements['btn-selection-export'].disabled, true);
 
     TimelineSelectionController.syncHeader({
         document: doc,
         isActive: () => true,
         getCurrentPage: () => 'settings',
+        appConfig: { channel: 'dev' },
         getSelectedIds: () => new Set(['a']),
         getSpese: () => [expense({ id: 'a', importo: 5 })],
         getFilterModel: () => ({
-            filteredSpese: [expense({ id: 'a', importo: 5 })]
+            filteredSpese: [
+                expense({ id: 'a', importo: 5 }),
+                expense({ id: 'b', importo: 2 })
+            ]
         })
     });
 
     assert(!elements['app-header'].classList.contains('selection-active'));
     assert(!elements['bottom-nav'].classList.contains('selection-active'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
+    assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
+    assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
 });
 
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {

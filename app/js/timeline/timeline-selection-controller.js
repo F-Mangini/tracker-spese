@@ -109,18 +109,46 @@ const TimelineSelectionController = (() => {
         return list.filter(item => item && ids.has(item.id));
     }
 
+    function getSelectionTitleHtml(options = {}) {
+        const config = options.appConfig || {};
+        const channel = String(config.channel || 'stable').toLowerCase();
+
+        if (channel === 'dev') {
+            return 'WM<span class="selection-title-dev-letter">B</span>?';
+        }
+
+        return 'WMM?';
+    }
+
+    function syncTitle(header, active, options = {}) {
+        if (!header || typeof header.querySelector !== 'function') return;
+
+        const title = header.querySelector('h1');
+        if (!title) return;
+
+        const dataset = title.dataset || {};
+        if (typeof dataset.defaultHtml !== 'string') {
+            dataset.defaultHtml = title.innerHTML;
+        }
+
+        title.innerHTML = active ? getSelectionTitleHtml(options) : dataset.defaultHtml;
+    }
+
     function getSummary(options = {}, filtered = null, allSpese = null) {
         const all = Array.isArray(allSpese) ? allSpese : getAllSpese(options);
         const visible = Array.isArray(filtered) ? filtered : getFilterModel(options).filteredSpese || all;
-        const selected = getSelectedSpese(options, all);
+        const selectedIds = getSelectedIds(options);
+        const selected = all.filter(item => item && selectedIds.has(item.id));
         const selectedTotal = selected.reduce((sum, item) => sum + Number(item.importo || 0), 0);
+        const visibleIds = visible.map(item => item && item.id).filter(Boolean);
 
         return {
             active: isActive(options),
-            selectedIds: getSelectedIds(options),
+            selectedIds,
             selectedCount: selected.length,
             selectedTotal,
             visibleCount: visible.length,
+            visibleAllSelected: visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id)),
             deletePending: isDeletePending(options)
         };
     }
@@ -148,6 +176,7 @@ const TimelineSelectionController = (() => {
         const selectAllButton = doc.getElementById('btn-selection-select-all');
 
         if (header) header.classList.toggle('selection-active', active);
+        syncTitle(header, active, options);
         if (bottomNav) bottomNav.classList.toggle('selection-active', active);
         if (themeToggle) themeToggle.classList.toggle('hidden', actionsActive);
 
@@ -157,6 +186,16 @@ const TimelineSelectionController = (() => {
 
         if (selectAllButton) {
             selectAllButton.disabled = !actionsActive || visibleCount === 0;
+            selectAllButton.textContent = model.visibleAllSelected ? '\u2705' : '\u2611\uFE0F';
+            const selectAllLabel = model.visibleAllSelected
+                ? 'Deseleziona spese filtrate'
+                : 'Seleziona spese filtrate';
+            if (typeof selectAllButton.setAttribute === 'function') {
+                selectAllButton.setAttribute('aria-label', selectAllLabel);
+            }
+            selectAllButton.title = model.visibleAllSelected
+                ? 'Deseleziona tutte le spese filtrate'
+                : 'Seleziona tutte le spese filtrate';
         }
 
         [exportButton, deleteButton].forEach(button => {

@@ -157,6 +157,10 @@ body {
     border-bottom-width: 2px;
 }
 
+.selection-title-dev-letter {
+    color: #ff7c00;
+}
+
 /* Filter badge */
 .filter-badge {
     position: absolute;

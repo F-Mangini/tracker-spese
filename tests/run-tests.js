@@ -2033,6 +2033,24 @@ test('Vista timeline renderizza riepilogo e card escapando il testo utente', () 
     assert(html.includes('new-card'));
     assert(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!html.includes('<script>alert(1)</script>'));
+
+    const pendingHtml = TimelineView.renderExpenseCard(expense({ id: 'a' }), {
+        selectionActive: true,
+        isSelected: true,
+        deletePending: true
+    });
+    const pendingSummary = TimelineView.renderSummary({
+        selection: {
+            active: true,
+            deletePending: true,
+            selectedCount: 1,
+            selectedTotal: 2
+        }
+    });
+
+    assert(pendingHtml.includes('delete-pending'));
+    assert(pendingHtml.includes('\u00d7'));
+    assert(pendingSummary.includes('\u00d7'));
 });
 
 test('Controller timeline riusa modello filtrato precomputato', () => {
@@ -2365,6 +2383,28 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     TimelineSelectionController.syncHeader({
         document: doc,
         isActive: () => true,
+        getCurrentPage: () => 'timeline',
+        appConfig: { channel: 'dev' },
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    }, {
+        active: true,
+        selectedCount: 1,
+        selectedTotal: 5,
+        visibleCount: 1,
+        visibleAllSelected: true,
+        deletePending: true
+    });
+
+    assert(elements['app-header'].classList.contains('delete-pending'));
+    assert(elements['bottom-nav'].classList.contains('delete-pending'));
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
         getCurrentPage: () => 'settings',
         appConfig: { channel: 'dev' },
         getSelectedIds: () => new Set(['a']),
@@ -2378,7 +2418,9 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     });
 
     assert(!elements['app-header'].classList.contains('selection-active'));
+    assert(!elements['app-header'].classList.contains('delete-pending'));
     assert(!elements['bottom-nav'].classList.contains('selection-active'));
+    assert(!elements['bottom-nav'].classList.contains('delete-pending'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
     assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
@@ -2388,6 +2430,26 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
     const { TimelineController } = loadUiViews();
     const calls = [];
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
     const card = {
         dataset: { id: 'a' },
         handlers: {},
@@ -2398,6 +2460,7 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     const elements = {
         'timeline-content': {
             innerHTML: '',
+            classList: makeClassList(),
             querySelectorAll(selector) {
                 return selector === '.expense-card' ? [card] : [];
             }
@@ -2408,7 +2471,7 @@ test('Controller timeline in modalita selezione non apre la modale al click card
                 remove() {}
             }
         },
-        'timeline-summary': { innerHTML: '' }
+        'timeline-summary': { innerHTML: '', classList: makeClassList() }
     };
     const doc = {
         getElementById(id) {
@@ -2427,14 +2490,16 @@ test('Controller timeline in modalita selezione non apre la modale al click card
         formatDayLabel: date => date,
         selection: {
             active: true,
-            selectedIds: new Set(['a'])
+            selectedIds: new Set(['a']),
+            deletePending: true
         },
         getSelectionSummary: () => ({
             active: true,
             selectedIds: new Set(['a']),
             selectedCount: 1,
             selectedTotal: 5,
-            visibleCount: 1
+            visibleCount: 1,
+            deletePending: true
         }),
         isSelectionActive: () => true,
         toggleSelection: id => calls.push(['toggle', id]),
@@ -2445,6 +2510,9 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     assert(elements['timeline-content'].innerHTML.includes('selection-mode'));
     assert(elements['timeline-content'].innerHTML.includes('selected'));
     assert(elements['timeline-summary'].innerHTML.includes('Selezione'));
+    assert(elements['timeline-summary'].innerHTML.includes('\u00d7'));
+    assert(elements['timeline-summary'].classList.contains('delete-pending'));
+    assert(elements['timeline-content'].classList.contains('delete-pending'));
 
     card.handlers.click();
 

@@ -93,16 +93,7 @@ const App = {
                 ? this.filters.selectedOnlyIds
                 : this.timelineSelectedIds
         });
-        const hasActiveFilters = !!filterModel.hasActiveFilters;
-
-        if (hasActiveFilters && !this._activeFiltersHistory) {
-            this._activeFiltersHistory = true;
-            this.getWiring().pushUiState({ panel: 'active-filters' });
-        }
-
-        if (!hasActiveFilters) {
-            this._activeFiltersHistory = false;
-        }
+        this.syncActiveFiltersHistory(filterModel.hasActiveFilters);
 
         FilterController.updateFilterBadge({
             ...this.getWiring().filterOptions(),
@@ -111,6 +102,24 @@ const App = {
 
         if (this.currentPage === 'timeline') this.renderTimeline(filterModel);
         if (this.currentPage === 'stats') this.renderStats(filterModel);
+    },
+
+    syncActiveFiltersHistory(hasActiveFilters, options = {}) {
+        const active = !!hasActiveFilters;
+        const consumeWhenCleared = options.consumeWhenCleared !== false;
+
+        if (active && !this._activeFiltersHistory) {
+            this._activeFiltersHistory = true;
+            this.getWiring().pushUiState({ panel: 'active-filters' });
+            return;
+        }
+
+        if (!active && this._activeFiltersHistory) {
+            this._activeFiltersHistory = false;
+            if (consumeWhenCleared) {
+                this.getWiring().consumeUiState();
+            }
+        }
     },
 
     /* =====================

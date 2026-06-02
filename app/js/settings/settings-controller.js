@@ -336,6 +336,43 @@ const SettingsController = (() => {
         }
     }
 
+    function installReleaseFromLink(link, options = {}) {
+        if (!link) return false;
+
+        if (typeof SettingsActions.createVersionChangeSnapshot === 'function') {
+            const snapshot = SettingsActions.createVersionChangeSnapshot({
+                storage: options.storage
+            });
+
+            if (!snapshot.success) {
+                if (typeof options.showToast === 'function') {
+                    options.showToast(
+                        snapshot.error || 'Snapshot prima del cambio versione non riuscito',
+                        'error'
+                    );
+                }
+                return false;
+            }
+        }
+
+        SettingsActions.setLaunchTarget(
+            link.dataset.launchPath || '',
+            options.localStorage
+        );
+
+        const locationLike = options.locationLike;
+        if (locationLike && typeof locationLike.replace === 'function') {
+            locationLike.replace(link.href);
+            return true;
+        }
+
+        if (locationLike) {
+            locationLike.href = link.href;
+        }
+
+        return true;
+    }
+
     function bindReleaseModal(options = {}) {
         const modal = getReleaseModal(options);
         if (!modal || modal.dataset.bound === 'true') return;
@@ -356,23 +393,8 @@ const SettingsController = (() => {
             const link = event.target.closest('.release-install-link');
             if (!link) return;
 
-            const snapshot = SettingsActions.createVersionChangeSnapshot({
-                storage: options.storage
-            });
-
-            if (!snapshot.success) {
-                event.preventDefault();
-                options.showToast(
-                    snapshot.error || 'Snapshot prima del cambio versione non riuscito',
-                    'error'
-                );
-                return;
-            }
-
-            SettingsActions.setLaunchTarget(
-                link.dataset.launchPath || '',
-                options.localStorage
-            );
+            event.preventDefault();
+            installReleaseFromLink(link, options);
         });
     }
 
@@ -395,6 +417,7 @@ const SettingsController = (() => {
         closeReleaseModal,
         isReleaseModalOpen,
         bindReleaseModal,
+        installReleaseFromLink,
         render
     };
 })();

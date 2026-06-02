@@ -88,7 +88,10 @@ const App = {
         const filterModel = ExpenseQuery.buildFilterModel({
             spese: ExpenseStore.getSpese(),
             filters: this.filters,
-            selectedIds: this.timelineSelectionActive ? this.timelineSelectedIds : new Set()
+            selectedIds: this.timelineSelectionActive ? this.timelineSelectedIds : new Set(),
+            selectedOnlyIds: this.timelineSelectionActive && this.filters.selectedOnly
+                ? this.filters.selectedOnlyIds
+                : this.timelineSelectedIds
         });
 
         FilterController.updateFilterBadge({

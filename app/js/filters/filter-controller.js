@@ -84,12 +84,37 @@ const FilterController = (() => {
     }
 
     function setSelectedOnlyFilter(options, value) {
+        const enabled = !!value;
+
         if (typeof options.setSelectedOnlyFilter === 'function') {
-            options.setSelectedOnlyFilter(value);
+            options.setSelectedOnlyFilter(enabled, getTimelineSelectedIds(options));
             return;
         }
 
-        if (options.filters) options.filters.selectedOnly = !!value;
+        if (options.filters) {
+            options.filters.selectedOnly = enabled;
+            options.filters.selectedOnlyIds = enabled
+                ? new Set(getTimelineSelectedIds(options))
+                : new Set();
+        }
+    }
+
+    function getTimelineSelectedIds(options) {
+        if (typeof options.getTimelineSelectedIds === 'function') {
+            const ids = options.getTimelineSelectedIds();
+            if (ids instanceof Set) return ids;
+            if (Array.isArray(ids)) return new Set(ids.filter(Boolean));
+            if (
+                ids &&
+                typeof ids.size === 'number' &&
+                typeof ids.has === 'function' &&
+                typeof ids.forEach === 'function'
+            ) {
+                return new Set(Array.from(ids).filter(Boolean));
+            }
+        }
+
+        return new Set();
     }
 
     function isDesktopLike(options = {}) {
@@ -774,6 +799,7 @@ const FilterController = (() => {
         filters.dateFrom = '';
         filters.dateTo = '';
         filters.selectedOnly = false;
+        filters.selectedOnlyIds = new Set();
 
         syncFilterUI(options);
         (options.onFilterChange || noop)();

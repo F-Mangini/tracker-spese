@@ -131,6 +131,7 @@ const TimelineSelectionController = (() => {
             ? options.getCurrentPage()
             : 'timeline';
         const active = isActive(options) && currentPage !== 'settings';
+        const actionsActive = active && currentPage === 'timeline';
         const model = summary || getSummary(options);
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);
@@ -148,18 +149,18 @@ const TimelineSelectionController = (() => {
 
         if (header) header.classList.toggle('selection-active', active);
         if (bottomNav) bottomNav.classList.toggle('selection-active', active);
-        if (themeToggle) themeToggle.classList.toggle('hidden', active);
+        if (themeToggle) themeToggle.classList.toggle('hidden', actionsActive);
 
         selectionButtons.forEach(button => {
-            button.classList.toggle('hidden', !active);
+            button.classList.toggle('hidden', !actionsActive);
         });
 
         if (selectAllButton) {
-            selectAllButton.disabled = !active || visibleCount === 0;
+            selectAllButton.disabled = !actionsActive || visibleCount === 0;
         }
 
         [exportButton, deleteButton].forEach(button => {
-            if (button) button.disabled = !active || selectedCount === 0;
+            if (button) button.disabled = !actionsActive || selectedCount === 0;
         });
     }
 

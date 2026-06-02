@@ -157,6 +157,10 @@ body {
     border-bottom-width: 2px;
 }
 
+#app-header.selection-active.delete-pending {
+    border-bottom-color: var(--danger);
+}
+
 .selection-title-dev-letter {
     color: #ff7c00;
 }
@@ -668,6 +672,10 @@ body {
     display: none;
 }
 
+#timeline-summary.delete-pending {
+    background: linear-gradient(135deg, var(--danger), var(--danger-hover));
+}
+
 .summary-row {
     display: flex;
     justify-content: space-between;
@@ -725,6 +733,10 @@ body {
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--accent);
+}
+
+#timeline-content.delete-pending .day-total {
+    color: var(--danger);
 }
 
 .expense-card {
@@ -823,7 +835,7 @@ body {
     padding: 13px 15px 13px 11px;
     border-width: 2px;
     border-color: var(--danger);
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+    box-shadow: var(--shadow-sm);
 }
 
 .expense-select-mark {
@@ -1066,6 +1078,10 @@ body.expense-input-active #input-bar {
     background: var(--accent);
     pointer-events: none;
     z-index: 1;
+}
+
+#bottom-nav.selection-active.delete-pending::after {
+    background: var(--danger);
 }
 
 #app-main:not(.no-input-bar)~#bottom-nav::before {

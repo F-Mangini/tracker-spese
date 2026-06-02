@@ -18,6 +18,12 @@ const TimelineController = (() => {
         if (clear && timerId) clear(timerId);
     }
 
+    function toggleClass(element, className, active) {
+        if (element && element.classList && typeof element.classList.toggle === 'function') {
+            element.classList.toggle(className, !!active);
+        }
+    }
+
     function getSelectionSummary(options = {}, allSpese = [], filtered = []) {
         const selection = options.selection || {};
 
@@ -146,11 +152,15 @@ const TimelineController = (() => {
         if (allSpese.length === 0) {
             content.innerHTML = '';
             summary.innerHTML = '';
+            toggleClass(content, 'delete-pending', false);
+            toggleClass(summary, 'delete-pending', false);
             empty.classList.remove('hidden');
             return { allSpese, filtered, isFiltered, groups: [] };
         }
 
         empty.classList.add('hidden');
+        toggleClass(content, 'delete-pending', !!(selectionSummary.active && selectionSummary.deletePending));
+        toggleClass(summary, 'delete-pending', !!(selectionSummary.active && selectionSummary.deletePending));
 
         summary.innerHTML = TimelineView.renderSummary({
             isFiltered,

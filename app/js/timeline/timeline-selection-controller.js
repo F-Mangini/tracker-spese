@@ -163,6 +163,7 @@ const TimelineSelectionController = (() => {
         const model = summary || getSummary(options);
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);
+        const deletePending = active && !!model.deletePending;
         const header = doc.getElementById('app-header');
         const bottomNav = doc.getElementById('bottom-nav');
         const themeToggle = doc.getElementById('theme-toggle');
@@ -176,8 +177,10 @@ const TimelineSelectionController = (() => {
         const selectAllButton = doc.getElementById('btn-selection-select-all');
 
         if (header) header.classList.toggle('selection-active', active);
+        if (header) header.classList.toggle('delete-pending', deletePending);
         syncTitle(header, active, options);
         if (bottomNav) bottomNav.classList.toggle('selection-active', active);
+        if (bottomNav) bottomNav.classList.toggle('delete-pending', deletePending);
         if (themeToggle) themeToggle.classList.toggle('hidden', actionsActive);
 
         selectionButtons.forEach(button => {

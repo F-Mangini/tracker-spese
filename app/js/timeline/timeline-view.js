@@ -18,7 +18,7 @@ const TimelineView = (() => {
 
         if (selection.active) {
             firstLabel = 'Selezione';
-            firstValue = '\u2713';
+            firstValue = selection.deletePending ? '\u00d7' : '\u2713';
             secondLabel = 'N. spese';
             secondValue = Number(selection.selectedCount || 0);
             thirdLabel = 'Totale';
@@ -84,7 +84,7 @@ const TimelineView = (() => {
 
         return `
             <div class="${cardClasses}" data-id="${AppUI.escapeHtml(spesa.id)}" aria-selected="${isSelected ? 'true' : 'false'}">
-                ${selectionActive ? `<div class="expense-select-mark" aria-hidden="true">${isSelected ? '\u2713' : ''}</div>` : ''}
+                ${selectionActive ? `<div class="expense-select-mark" aria-hidden="true">${isSelected ? (deletePending ? '\u00d7' : '\u2713') : ''}</div>` : ''}
                 <div class="expense-emoji">${AppUI.escapeHtml(category.emoji || '')}</div>
                 <div class="expense-info">
                     <div class="expense-desc"><span class="expense-met-icon">${AppUI.escapeHtml(method.emoji || '')}</span>${AppUI.escapeHtml(spesa.descrizione)}</div>

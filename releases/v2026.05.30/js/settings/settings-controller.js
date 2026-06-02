@@ -294,6 +294,83 @@ const SettingsController = (() => {
         }
     }
 
+    function getCurrentPage(options = {}) {
+        return typeof options.getCurrentPage === 'function'
+            ? options.getCurrentPage()
+            : '';
+    }
+
+    function getVersionSwitchHistorySteps(options = {}) {
+        if (Number.isFinite(options.historySteps)) {
+            return Math.max(0, Number(options.historySteps));
+        }
+
+        const currentPage = getCurrentPage(options);
+        const pageStep = currentPage && currentPage !== 'timeline' ? 1 : 0;
+
+        return 1 + pageStep;
+    }
+
+    function replaceLocation(url, options = {}) {
+        const locationLike = options.locationLike;
+        if (locationLike && typeof locationLike.replace === 'function') {
+            locationLike.replace(url);
+            return true;
+        }
+
+        if (locationLike) {
+            locationLike.href = url;
+            return true;
+        }
+
+        return false;
+    }
+
+    function replaceLocationAfterHistoryCleanup(url, options = {}) {
+        const steps = getVersionSwitchHistorySteps(options);
+        const canConsumeHistory = steps > 0 && typeof options.consumeUiState === 'function';
+
+        if (!canConsumeHistory) {
+            return replaceLocation(url, options);
+        }
+
+        const win = options.window || (typeof window === 'undefined' ? null : window);
+        const setTimer = options.setTimeout ||
+            (win && typeof win.setTimeout === 'function' ? win.setTimeout.bind(win) : null);
+        let done = false;
+        let removeListener = null;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            if (removeListener) removeListener();
+            replaceLocation(url, options);
+        };
+
+        if (win && typeof win.addEventListener === 'function') {
+            const onPopstate = () => finish();
+            win.addEventListener('popstate', onPopstate, { once: true });
+            removeListener = () => {
+                if (typeof win.removeEventListener === 'function') {
+                    win.removeEventListener('popstate', onPopstate);
+                }
+            };
+        }
+
+        const consumed = options.consumeUiState(steps);
+        if (!consumed) {
+            finish();
+            return true;
+        }
+
+        if (setTimer) {
+            setTimer(finish, 700);
+        } else if (!win) {
+            finish();
+        }
+
+        return true;
+    }
+
     function installReleaseFromLink(link, options = {}) {
         if (!link) return false;
 
@@ -302,17 +379,7 @@ const SettingsController = (() => {
             options.localStorage
         );
 
-        const locationLike = options.locationLike;
-        if (locationLike && typeof locationLike.replace === 'function') {
-            locationLike.replace(link.href);
-            return true;
-        }
-
-        if (locationLike) {
-            locationLike.href = link.href;
-        }
-
-        return true;
+        return replaceLocationAfterHistoryCleanup(link.href, options);
     }
 
     function bindReleaseModal(options = {}) {

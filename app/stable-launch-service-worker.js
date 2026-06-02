@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wmm-stable-launch-";
-const STATIC_CACHE = `${CACHE_PREFIX}static-v5`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v6`;
 
 const PRECACHE_URLS = [
   "./",
@@ -92,20 +92,24 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames
-          .filter((cacheName) => (
-            cacheName.startsWith(CACHE_PREFIX) &&
-            cacheName !== STATIC_CACHE
-          ))
-          .map((cacheName) => caches.delete(cacheName))
-      )
-    )
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => (
+              cacheName.startsWith(CACHE_PREFIX) &&
+              cacheName !== STATIC_CACHE
+            ))
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      ),
+      self.clients.claim()
+    ])
   );
 });
 

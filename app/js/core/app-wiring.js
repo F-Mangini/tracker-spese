@@ -187,6 +187,10 @@ const AppWiring = (() => {
         function syncFiltersAndViews(filterModel = null) {
             const model = filterModel || buildCurrentFilterModel();
 
+            if (typeof app.syncActiveFiltersHistory === 'function') {
+                app.syncActiveFiltersHistory(model.hasActiveFilters);
+            }
+
             deps.FilterController.updateFilterBadge({
                 ...filterOptions(),
                 filterModel: model
@@ -478,9 +482,19 @@ const AppWiring = (() => {
                     fromPopstate
                 ),
                 hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
-                resetFilters: () => deps.FilterController.resetFilters(filterOptions(), {
-                    showToast: false
-                }),
+                resetFilters: () => {
+                    if (typeof app.syncActiveFiltersHistory === 'function') {
+                        app.syncActiveFiltersHistory(false, {
+                            consumeWhenCleared: false
+                        });
+                    } else {
+                        app._activeFiltersHistory = false;
+                    }
+
+                    deps.FilterController.resetFilters(filterOptions(), {
+                        showToast: false
+                    });
+                },
                 getCurrentPage: () => app.currentPage,
                 navigateTo: (page, fromPopstate) => deps.NavigationController.navigateTo(
                     navigationOptions(),

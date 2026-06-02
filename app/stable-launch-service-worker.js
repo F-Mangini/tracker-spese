@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wmm-stable-launch-";
-const STATIC_CACHE = `${CACHE_PREFIX}static-v4`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v5`;
 
 const PRECACHE_URLS = [
   "./",
@@ -34,6 +34,7 @@ const PRECACHE_URLS = [
   "./js/filters/filter-controller.js",
   "./js/timeline/timeline-view.js",
   "./js/timeline/timeline-controller.js",
+  "./js/timeline/timeline-selection-controller.js",
   "./js/navigation/navigation-controller.js",
   "./js/stats/stats-view.js",
   "./js/stats/stats-charts.js",

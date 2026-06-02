@@ -8,6 +8,8 @@
     padding: 0;
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 :root {
@@ -69,6 +71,12 @@ html {
 
 textarea {
     resize: none;
+}
+
+input,
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 body {
@@ -1162,6 +1170,10 @@ body.expense-input-active #input-bar {
 
 .bottom-action-btn {
     color: var(--accent);
+}
+
+.bottom-action-btn:not(.bottom-action-danger) .nav-label {
+    color: var(--text-tertiary);
 }
 
 .bottom-action-btn.bottom-action-danger {

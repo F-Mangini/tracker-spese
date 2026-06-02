@@ -2204,6 +2204,50 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert(!elements['timeline-empty'].classList.contains('hidden'));
 });
 
+test('Controller timeline non deseleziona la card dopo long press e rerender', () => {
+    const { TimelineController } = loadUiViews();
+    const calls = [];
+    const timers = [];
+
+    function makeCard() {
+        return {
+            dataset: { id: 'a' },
+            listeners: {},
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            }
+        };
+    }
+
+    const firstCard = makeCard();
+    const rerenderedCard = makeCard();
+    const options = {
+        enterSelection: id => calls.push(['enter', id]),
+        toggleSelection: id => calls.push(['toggle', id]),
+        isSelectionActive: () => true,
+        openEditModal: id => calls.push(['open', id]),
+        setTimeout(callback) {
+            timers.push(callback);
+            return timers.length;
+        },
+        clearTimeout() {}
+    };
+
+    TimelineController.bindExpenseCard(firstCard, options);
+    firstCard.listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+    timers.shift()();
+
+    TimelineController.bindExpenseCard(rerenderedCard, options);
+    rerenderedCard.listeners.click({
+        preventDefault: () => calls.push('prevent-default')
+    });
+
+    assert.deepEqual(calls, [
+        ['enter', 'a'],
+        'prevent-default'
+    ]);
+});
+
 test('Controller selezione timeline gestisce selezione, copia, export e delete bulk', async () => {
     const { TimelineSelectionController } = loadUiViews();
     const calls = [];

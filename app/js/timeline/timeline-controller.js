@@ -3,6 +3,9 @@
    ============================================ */
 
 const TimelineController = (() => {
+    let suppressedLongPressClickId = null;
+    let suppressedLongPressClickTimer = null;
+
     function noop() { }
 
     function getDocument(options) {
@@ -16,6 +19,28 @@ const TimelineController = (() => {
     function clearTimer(options, timerId) {
         const clear = options.clearTimeout || (typeof clearTimeout === 'function' ? clearTimeout : null);
         if (clear && timerId) clear(timerId);
+    }
+
+    function suppressNextLongPressClick(options, id) {
+        if (!id) return;
+
+        clearTimer(options, suppressedLongPressClickTimer);
+        suppressedLongPressClickId = id;
+
+        const setTimer = getTimer(options);
+        suppressedLongPressClickTimer = setTimer
+            ? setTimer(() => {
+                suppressedLongPressClickId = null;
+                suppressedLongPressClickTimer = null;
+            }, 700)
+            : null;
+    }
+
+    function consumeSuppressedLongPressClick(id) {
+        if (!id || suppressedLongPressClickId !== id) return false;
+
+        suppressedLongPressClickId = null;
+        return true;
     }
 
     function toggleClass(element, className, active) {
@@ -74,6 +99,7 @@ const TimelineController = (() => {
             longPressTimer = setTimer(() => {
                 longPressTimer = null;
                 longPressFired = true;
+                suppressNextLongPressClick(options, card.dataset.id);
                 (options.enterSelection || noop)(card.dataset.id);
             }, longPressMs);
         });
@@ -102,7 +128,7 @@ const TimelineController = (() => {
         });
 
         card.addEventListener('click', event => {
-            if (longPressFired) {
+            if (longPressFired || consumeSuppressedLongPressClick(card.dataset.id)) {
                 longPressFired = false;
                 if (event && typeof event.preventDefault === 'function') {
                     event.preventDefault();

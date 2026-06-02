@@ -1,6 +1,6 @@
 const RELEASE_ID = "v2026.05.30";
 const CACHE_PREFIX = `wmm-${RELEASE_ID}-`;
-const STATIC_CACHE = `${CACHE_PREFIX}static-v10`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v11`;
 
 const PRECACHE_URLS = [
   "./",
@@ -92,20 +92,24 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames
-          .filter((cacheName) => (
-            cacheName.startsWith(CACHE_PREFIX) &&
-            cacheName !== STATIC_CACHE
-          ))
-          .map((cacheName) => caches.delete(cacheName))
-      )
-    )
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => (
+              cacheName.startsWith(CACHE_PREFIX) &&
+              cacheName !== STATIC_CACHE
+            ))
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      ),
+      self.clients.claim()
+    ])
   );
 });
 

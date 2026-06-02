@@ -45,7 +45,7 @@ Regola critica: non usare un service worker root-scope che controlli anche `/dev
 
 Eccezione controllata: `/stable/` registra `stable-launch-service-worker.js` con scope `./`. Questo service worker non rende la stable una release immutabile e non controlla `/`, `/dev/` o `/releases/`: cachea solo gli asset della stable scoped per permettere allo start URL installato da `/stable/` di avviarsi offline, leggere `spesa-tracker-launch-target` e reindirizzare alla versione scelta dall'utente.
 
-La preferenza `spesa-tracker-launch-target` puo contenere `stable/` oppure un path `releases/vYYYY.MM.DD/`. I link della finestra versioni usano `location.replace`, cosi la pagina impostazioni della versione precedente non resta come destinazione del back. Inoltre l'app ricontrolla la preferenza su `pageshow` quando una pagina torna dalla bfcache del browser: se l'utente era passato dalla versione A alla versione B, un back verso A viene sostituito subito con B.
+La preferenza `spesa-tracker-launch-target` puo contenere `stable/` oppure un path `releases/vYYYY.MM.DD/`. I link della finestra versioni prima consumano gli stati history interni aperti per scegliere la versione, normalmente finestra versioni e pagina impostazioni, poi usano `location.replace`: in questo modo la pagina impostazioni della versione precedente non resta come destinazione del back e il back finale puo uscire dall'app senza dover chiudere stati invisibili. Inoltre l'app ricontrolla la preferenza su `pageshow` quando una pagina torna dalla bfcache del browser: se l'utente era passato dalla versione A alla versione B, un back verso A viene sostituito subito con B.
 
 ### Manutenzione di stable/latest
 
@@ -55,7 +55,7 @@ Quando si pubblicano modifiche su `main` che devono essere viste anche dalla PWA
 2. verificare che ogni asset locale referenziato da `app/index.html` sia presente in `PRECACHE_URLS`;
 3. se e stato aggiunto un nuovo file JS, CSS, manifest, icona o vendor locale, inserirlo nel precache;
 4. eseguire `tests/run-tests.js`, che include un controllo statico tra `app/index.html` e `PRECACHE_URLS`;
-5. dopo il deploy, chiudere e riaprire la PWA installata da `/stable/`; in alcuni casi serve una seconda riapertura per lasciare attivare il service worker nuovo.
+5. dopo il deploy, chiudere e riaprire la PWA installata da `/stable/`; i service worker scoped chiamano `skipWaiting()` e `clients.claim()`, ma in alcuni casi serve comunque una seconda riapertura per lasciare scaricare il nuovo script prima che controlli la pagina.
 
 Questa regola vale anche quando non si crea una nuova release versionata: `stable/latest` cambia, ma la PWA installata puo continuare a ricevere asset dalla vecchia cache se il nome cache non cambia.
 

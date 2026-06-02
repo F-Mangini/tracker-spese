@@ -4196,6 +4196,8 @@ test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambi
     const launchStorage = createLocalStorage();
     let clickHandler = null;
     let prevented = false;
+    let popstateHandler = null;
+    let fallbackTimer = null;
     const modal = {
         dataset: {},
         querySelector() {
@@ -4225,6 +4227,18 @@ test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambi
             this.href = url;
         }
     };
+    const windowLike = {
+        addEventListener(event, handler) {
+            if (event === 'popstate') popstateHandler = handler;
+        },
+        removeEventListener(event, handler) {
+            if (event === 'popstate' && popstateHandler === handler) popstateHandler = null;
+        },
+        setTimeout(callback, ms) {
+            fallbackTimer = { callback, ms };
+            return 1;
+        }
+    };
 
     SettingsController.bindReleaseModal({
         document: {
@@ -4235,6 +4249,13 @@ test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambi
         storage,
         localStorage: launchStorage,
         locationLike,
+        window: windowLike,
+        setTimeout: windowLike.setTimeout,
+        getCurrentPage: () => 'settings',
+        consumeUiState: steps => {
+            calls.push(['consume', steps]);
+            return true;
+        },
         showToast: (message, type) => calls.push(['toast', type, message])
     });
 
@@ -4246,9 +4267,23 @@ test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambi
     assert.equal(prevented, true);
     assert.deepEqual(calls, [
         ['snapshot', 'version-change'],
+        ['consume', 2]
+    ]);
+    assert.equal(typeof popstateHandler, 'function');
+    assert.equal(fallbackTimer.ms, 700);
+    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'releases/v2026.05.30/');
+
+    popstateHandler();
+
+    assert.deepEqual(calls, [
+        ['snapshot', 'version-change'],
+        ['consume', 2],
         ['replace', 'https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/']
     ]);
-    assert.equal(launchStorage.getItem('spesa-tracker-launch-target'), 'releases/v2026.05.30/');
+    assert.equal(popstateHandler, null);
+
+    fallbackTimer.callback();
+    assert.equal(calls.filter(call => call[0] === 'replace').length, 1);
 });
 
 test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', () => {
@@ -4292,6 +4327,8 @@ test('Controller impostazioni blocca cambio versione se lo snapshot fallisce', (
                 calls.push(['replace', url]);
             }
         },
+        getCurrentPage: () => 'settings',
+        consumeUiState: steps => calls.push(['consume', steps]),
         showToast: (message, type) => calls.push(['toast', type, message])
     });
 

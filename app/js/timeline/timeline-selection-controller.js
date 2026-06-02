@@ -120,18 +120,7 @@ const TimelineSelectionController = (() => {
         return list.filter(item => item && ids.has(item.id));
     }
 
-    function getSelectionTitleHtml(options = {}) {
-        const config = options.appConfig || {};
-        const channel = String(config.channel || 'stable').toLowerCase();
-
-        if (channel === 'dev') {
-            return 'WM<span class="selection-title-dev-letter">B</span>?';
-        }
-
-        return 'WMM?';
-    }
-
-    function syncTitle(header, active, options = {}) {
+    function syncTitle(header) {
         if (!header || typeof header.querySelector !== 'function') return;
 
         const title = header.querySelector('h1');
@@ -142,7 +131,7 @@ const TimelineSelectionController = (() => {
             dataset.defaultHtml = title.innerHTML;
         }
 
-        title.innerHTML = active ? getSelectionTitleHtml(options) : dataset.defaultHtml;
+        title.innerHTML = dataset.defaultHtml;
     }
 
     function setNavSetAccessibility(bottomNav, active, set) {
@@ -172,15 +161,24 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
-    function syncBottomNavSet(bottomNav, active) {
+    function syncBottomNavSet(bottomNav, options = {}) {
         if (!bottomNav) return;
 
-        if (!active) {
+        const selectionModeActive = !!options.selectionModeActive;
+        const navHighlighted = !!options.navHighlighted;
+        const actionsAvailable = !!options.actionsAvailable;
+
+        if (!selectionModeActive) {
             if (bottomNav.dataset) delete bottomNav.dataset.selectionSet;
             if (bottomNav.classList && typeof bottomNav.classList.remove === 'function') {
                 bottomNav.classList.remove('selection-show-main');
             }
             setNavSetAccessibility(bottomNav, false, NAV_SET_MAIN);
+            return;
+        }
+
+        if (!navHighlighted || !actionsAvailable) {
+            setBottomNavSet(bottomNav, NAV_SET_MAIN);
             return;
         }
 
@@ -214,8 +212,9 @@ const TimelineSelectionController = (() => {
         const currentPage = typeof options.getCurrentPage === 'function'
             ? options.getCurrentPage()
             : 'timeline';
-        const active = isActive(options) && currentPage !== 'settings';
-        const headerActionsActive = active && currentPage === 'timeline';
+        const selectionModeActive = isActive(options);
+        const active = selectionModeActive && currentPage !== 'settings';
+        const actionsAvailable = selectionModeActive && currentPage === 'timeline';
         const model = summary || getSummary(options);
         const selectedCount = Number(model.selectedCount || 0);
         const visibleCount = Number(model.visibleCount || 0);
@@ -230,15 +229,19 @@ const TimelineSelectionController = (() => {
 
         if (header) header.classList.toggle('selection-active', active);
         if (header) header.classList.toggle('delete-pending', deletePending);
-        syncTitle(header, active, options);
+        syncTitle(header);
         if (bottomNav) bottomNav.classList.toggle('selection-active', active);
         if (bottomNav) bottomNav.classList.toggle('delete-pending', deletePending);
-        syncBottomNavSet(bottomNav, active);
-        if (themeToggle) themeToggle.classList.toggle('hidden', headerActionsActive);
-        if (selectAllButton) selectAllButton.classList.toggle('hidden', !headerActionsActive);
+        syncBottomNavSet(bottomNav, {
+            selectionModeActive,
+            navHighlighted: active,
+            actionsAvailable
+        });
+        if (themeToggle) themeToggle.classList.toggle('hidden', actionsAvailable);
+        if (selectAllButton) selectAllButton.classList.toggle('hidden', !actionsAvailable);
 
         if (selectAllButton) {
-            selectAllButton.disabled = !headerActionsActive || visibleCount === 0;
+            selectAllButton.disabled = !actionsAvailable || visibleCount === 0;
             selectAllButton.textContent = model.visibleAllSelected ? '\u2705' : '\u2611\uFE0F';
             const selectAllLabel = model.visibleAllSelected
                 ? 'Deseleziona spese filtrate'
@@ -252,7 +255,7 @@ const TimelineSelectionController = (() => {
         }
 
         [copyButton, exportButton, deleteButton].forEach(button => {
-            if (button) button.disabled = !active || selectedCount === 0;
+            if (button) button.disabled = !actionsAvailable || selectedCount === 0;
         });
     }
 
@@ -597,7 +600,11 @@ const TimelineSelectionController = (() => {
         const canPage = () => (
             bottomNav.classList &&
             typeof bottomNav.classList.contains === 'function' &&
-            bottomNav.classList.contains('selection-active')
+            bottomNav.classList.contains('selection-active') &&
+            (
+                typeof options.getCurrentPage !== 'function' ||
+                options.getCurrentPage() === 'timeline'
+            )
         );
 
         const applyDelta = (deltaX, deltaY = 0) => {

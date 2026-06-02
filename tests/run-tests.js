@@ -2407,16 +2407,17 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert(elements['app-header'].classList.contains('selection-active'));
     assert(elements['bottom-nav'].classList.contains('selection-active'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
-    assert.equal(title.innerHTML, 'WM<span class="selection-title-dev-letter">B</span>?');
+    assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '✅');
     assert.equal(elements['btn-selection-select-all'].attributes['aria-label'], 'Deseleziona spese filtrate');
-    assert.equal(elements['btn-selection-copy'].disabled, false);
-    assert.equal(elements['btn-selection-export'].disabled, false);
-    assert.equal(elements['btn-selection-delete'].disabled, false);
-    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'actions');
-    assert.equal(mainSet.attributes['aria-hidden'], 'true');
-    assert.equal(selectionSet.attributes['aria-hidden'], 'false');
+    assert.equal(elements['btn-selection-copy'].disabled, true);
+    assert.equal(elements['btn-selection-export'].disabled, true);
+    assert.equal(elements['btn-selection-delete'].disabled, true);
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 
     TimelineSelectionController.setBottomNavSet(elements['bottom-nav'], 'main');
     assert(elements['bottom-nav'].classList.contains('selection-show-main'));
@@ -2469,8 +2470,8 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
-    assert(!elements['bottom-nav'].classList.contains('selection-show-main'));
-    assert.equal(elements['bottom-nav'].dataset.selectionSet, undefined);
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
     assert.equal(mainSet.attributes['aria-hidden'], 'false');
     assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 });

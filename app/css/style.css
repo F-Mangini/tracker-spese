@@ -1066,23 +1066,15 @@ body.expense-input-active #input-bar {
 }
 
 #bottom-nav.selection-active {
-    border-top-color: transparent;
+    border-top: 2px solid var(--accent);
 }
 
 #bottom-nav.selection-active::after {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--accent);
-    pointer-events: none;
-    z-index: 1;
+    content: none;
 }
 
-#bottom-nav.selection-active.delete-pending::after {
-    background: var(--danger);
+#bottom-nav.selection-active.delete-pending {
+    border-top-color: var(--danger);
 }
 
 #app-main:not(.no-input-bar)~#bottom-nav::before {

@@ -477,6 +477,10 @@ const AppWiring = (() => {
                     timelineSelectionOptions(),
                     fromPopstate
                 ),
+                hasActiveFilters: () => deps.ExpenseFilters.hasActive(app.filters),
+                resetFilters: () => deps.FilterController.resetFilters(filterOptions(), {
+                    showToast: false
+                }),
                 getCurrentPage: () => app.currentPage,
                 navigateTo: (page, fromPopstate) => deps.NavigationController.navigateTo(
                     navigationOptions(),

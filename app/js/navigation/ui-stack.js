@@ -14,6 +14,7 @@ const UIStack = (() => {
         CLOSE_FILTER: 'close-filter',
         CLOSE_TIMELINE_SELECTION: 'close-timeline-selection',
         NAVIGATE_TIMELINE: 'navigate-timeline',
+        RESET_FILTERS: 'reset-filters',
         NONE: 'none'
     });
 
@@ -51,6 +52,7 @@ const UIStack = (() => {
         if (state.filterOpen) return ACTIONS.CLOSE_FILTER;
         if (state.timelineSelectionActive) return ACTIONS.CLOSE_TIMELINE_SELECTION;
         if (state.currentPage && state.currentPage !== 'timeline') return ACTIONS.NAVIGATE_TIMELINE;
+        if (state.hasActiveFilters) return ACTIONS.RESET_FILTERS;
 
         return ACTIONS.NONE;
     }

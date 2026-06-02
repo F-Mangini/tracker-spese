@@ -28,6 +28,7 @@ const UIStackController = (() => {
             advancedFiltersOpen: !!(options.isAdvancedFiltersOpen && options.isAdvancedFiltersOpen()),
             filterOpen: !!(options.isFilterOpen && options.isFilterOpen()),
             timelineSelectionActive: !!(options.isTimelineSelectionActive && options.isTimelineSelectionActive()),
+            hasActiveFilters: !!(options.hasActiveFilters && options.hasActiveFilters()),
             currentPage: options.getCurrentPage ? options.getCurrentPage() : null
         };
     }
@@ -82,6 +83,10 @@ const UIStackController = (() => {
 
         if (action === stack.ACTIONS.NAVIGATE_TIMELINE) {
             (options.navigateTo || noop)('timeline', true);
+        }
+
+        if (action === stack.ACTIONS.RESET_FILTERS) {
+            (options.resetFilters || noop)();
         }
 
         return action;

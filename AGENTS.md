@@ -107,6 +107,7 @@ Non creare altri file di documentazione senza una ragione chiara. Se serve un nu
 - Manifest stabile: `app/manifest.json`; manifest dev: `app/manifest.dev.json`, copiato dal workflow in `public/dev/manifest.json`.
 - Icone stabili: `app/icons/stable/`; icone dev: `app/icons/dev/`.
 - Launcher offline stable: `app/stable-launch-service-worker.js`, registrato solo da `/stable/` con scope `./`; non deve diventare un service worker root-scope.
+- Se una modifica su `main` deve vedersi nella PWA installata da `/stable/`, fare bump di `STATIC_CACHE` in `app/stable-launch-service-worker.js` e mantenere `PRECACHE_URLS` allineato agli asset locali di `app/index.html`; `tests/run-tests.js` contiene un guardrail sul precache.
 - `app/js/domain/parser.js`: impatta l'inserimento rapido, flusso principale dell'app.
 - Gestione back button, modali, filtri, tastiera mobile e scroll: molte parti sono state sistemate dopo bug concreti.
 

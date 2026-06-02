@@ -45,6 +45,20 @@ Regola critica: non usare un service worker root-scope che controlli anche `/dev
 
 Eccezione controllata: `/stable/` registra `stable-launch-service-worker.js` con scope `./`. Questo service worker non rende la stable una release immutabile e non controlla `/`, `/dev/` o `/releases/`: cachea solo gli asset della stable scoped per permettere allo start URL installato da `/stable/` di avviarsi offline, leggere `spesa-tracker-launch-target` e reindirizzare alla release scelta dall'utente.
 
+### Manutenzione di stable/latest
+
+Quando si pubblicano modifiche su `main` che devono essere viste anche dalla PWA installata da `/stable/`, aggiornare sempre anche il launcher offline della stable:
+
+1. aumentare `STATIC_CACHE` in `app/stable-launch-service-worker.js`, per esempio da `static-v5` a `static-v6`;
+2. verificare che ogni asset locale referenziato da `app/index.html` sia presente in `PRECACHE_URLS`;
+3. se e stato aggiunto un nuovo file JS, CSS, manifest, icona o vendor locale, inserirlo nel precache;
+4. eseguire `tests/run-tests.js`, che include un controllo statico tra `app/index.html` e `PRECACHE_URLS`;
+5. dopo il deploy, chiudere e riaprire la PWA installata da `/stable/`; in alcuni casi serve una seconda riapertura per lasciare attivare il service worker nuovo.
+
+Questa regola vale anche quando non si crea una nuova release versionata: `stable/latest` cambia, ma la PWA installata puo continuare a ricevere asset dalla vecchia cache se il nome cache non cambia.
+
+Piu avanti si puo valutare un precache generato automaticamente dagli asset effettivi di `app/index.html`, o un nome cache derivato da hash/versione di build. Per ora il progetto resta senza build step e usa il test statico come guardrail leggero.
+
 Per una release:
 
 - il service worker vive nel path della release o viene registrato con scope limitato alla release;

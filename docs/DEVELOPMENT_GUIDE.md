@@ -47,6 +47,8 @@ Va bene portare tutto il branch dev su `main` quando tutte le modifiche contenut
 
 Se invece solo alcune modifiche sono pronte, usare cherry-pick o un branch dedicato di release, evitando di trascinare feature non ancora validate.
 
+Quando una promozione aggiorna `stable/latest` e deve essere visibile anche nella PWA installata da `/stable/`, controllare `app/stable-launch-service-worker.js`: fare bump di `STATIC_CACHE` e mantenere `PRECACHE_URLS` allineato agli asset locali di `app/index.html`. Il runner `tests/run-tests.js` fallisce se un asset locale dell'HTML manca dal precache, ma il bump cache resta una decisione esplicita del maintainer. In futuro si puo valutare di automatizzare il precache o derivare la cache da un hash di build, senza introdurlo finche non serve davvero.
+
 ## Linee Guida per i Dati
 
 `localStorage` e la sorgente principale. Prima di modificare `app/js/data/storage.js`, controllare:

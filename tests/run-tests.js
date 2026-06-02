@@ -9,6 +9,44 @@ function readAppScript(relativePath) {
     return fs.readFileSync(path.join(root, 'app/js', relativePath), 'utf8');
 }
 
+function readAppFile(relativePath) {
+    return fs.readFileSync(path.join(root, 'app', relativePath), 'utf8');
+}
+
+function normalizeStablePrecachePath(value) {
+    return './' + String(value || '')
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/^\.?\//, '');
+}
+
+function getLocalIndexAssetPaths() {
+    const html = readAppFile('index.html');
+    const paths = [];
+    const attrPattern = /<(script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g;
+    let match;
+
+    while ((match = attrPattern.exec(html))) {
+        const value = match[2];
+        if (!value || /^(https?:|data:|#)/i.test(value)) continue;
+        paths.push(normalizeStablePrecachePath(value));
+    }
+
+    return Array.from(new Set(paths)).sort();
+}
+
+function getStableLaunchPrecachePaths() {
+    const serviceWorker = readAppFile('stable-launch-service-worker.js');
+    const listMatch = serviceWorker.match(/const\s+PRECACHE_URLS\s*=\s*\[([\s\S]*?)\];/);
+
+    assert(listMatch, 'PRECACHE_URLS non trovato in stable-launch-service-worker.js');
+
+    return new Set(
+        Array.from(listMatch[1].matchAll(/["']([^"']+)["']/g))
+            .map(match => normalizeStablePrecachePath(match[1]))
+    );
+}
+
 function createLocalStorage() {
     const store = new Map();
 
@@ -3743,6 +3781,14 @@ test('Azioni impostazioni registrano il launcher offline solo su /stable/', asyn
         false
     );
     assert.equal(registered.length, 1);
+});
+
+test('Launcher offline stable precachea gli asset locali della stable', () => {
+    const indexAssets = getLocalIndexAssetPaths();
+    const precacheAssets = getStableLaunchPrecachePaths();
+    const missing = indexAssets.filter(asset => !precacheAssets.has(asset));
+
+    assert.deepEqual(missing, []);
 });
 
 test('Azioni impostazioni orchestrano flussi storage con adapter', () => {

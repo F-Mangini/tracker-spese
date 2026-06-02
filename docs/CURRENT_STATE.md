@@ -121,6 +121,7 @@ Il back button chiude, in ordine di priorita:
 - pannello filtri;
 - modalita selezione timeline;
 - pagina corrente tornando alla timeline.
+- filtri attivi, resettandoli prima del back finale che puo chiudere l'app.
 
 Le decisioni sono in `ui-stack.js`; l'esecuzione concreta di push/back/go/replace e in `history-controller.js`.
 

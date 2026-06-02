@@ -788,7 +788,7 @@ const FilterController = (() => {
         return n;
     }
 
-    function resetFilters(options = {}) {
+    function resetFilters(options = {}, config = {}) {
         const filters = options.filters;
 
         filters.query = '';
@@ -803,7 +803,9 @@ const FilterController = (() => {
 
         syncFilterUI(options);
         (options.onFilterChange || noop)();
-        (options.showToast || noop)('Filtri resettati', 'info');
+        if (config.showToast !== false) {
+            (options.showToast || noop)('Filtri resettati', 'info');
+        }
     }
 
     return {

@@ -4723,8 +4723,12 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
     );
     assert.equal(
-        UIStack.getPopstateAction({ currentPage: 'stats' }),
+        UIStack.getPopstateAction({ currentPage: 'stats', hasActiveFilters: true }),
         UIStack.ACTIONS.NAVIGATE_TIMELINE
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ currentPage: 'timeline', hasActiveFilters: true }),
+        UIStack.ACTIONS.RESET_FILTERS
     );
     assert.equal(
         UIStack.getPopstateAction({ currentPage: 'timeline' }),
@@ -4943,6 +4947,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         advancedFiltersOpen: false,
         filterOpen: false,
         timelineSelectionActive: false,
+        hasActiveFilters: false,
         currentPage: 'timeline',
         interactionActive: false,
         dropdownOpen: false,
@@ -4981,6 +4986,11 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         closeTimelineSelection: fromPopstate => {
             state.timelineSelectionActive = false;
             calls.push(['close-selection', fromPopstate]);
+        },
+        hasActiveFilters: () => state.hasActiveFilters,
+        resetFilters: () => {
+            state.hasActiveFilters = false;
+            calls.push('reset-filters');
         },
         getCurrentPage: () => state.currentPage,
         navigateTo: (page, fromPopstate) => calls.push(['navigate', page, fromPopstate]),
@@ -5026,6 +5036,13 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         UIStack.ACTIONS.CLOSE_TIMELINE_SELECTION
     );
     assert.deepEqual(calls[calls.length - 1], ['close-selection', true]);
+
+    state.hasActiveFilters = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.RESET_FILTERS
+    );
+    assert.deepEqual(calls[calls.length - 1], 'reset-filters');
 
     state.suppress = true;
     UIStackController.handlePopstate(options);

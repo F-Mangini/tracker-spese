@@ -2,6 +2,11 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 02/06/2026
+
+Tenendo premuto sul tastino dei filtri dell'header, voglio che si faccia toggle
+dei "filtri rapidi", personalizzabili nella futura pagina di personalizzazione.
+
 ### Aggiunte del 30/05/2026
 
 BUG in BROWSER: chiudendo il pannello filtri, il riassunto rimane bloccato a metà sotto l'header, ma succede solo se la pagina è stata prima refreshata.

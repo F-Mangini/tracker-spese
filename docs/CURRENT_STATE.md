@@ -70,13 +70,13 @@ JSON e il backup completo. CSV e supportato per interoperabilita con fogli di ca
 
 ### Inserimento Rapido
 
-L'utente scrive testo libero nella barra inferiore. Il parser estrae importo, tag, metodo e categoria probabile; se la descrizione resta vuota usa `Spesa`.
+L'utente scrive testo libero nella barra inferiore. Il parser estrae importo, tag, metodo e categoria probabile; se la descrizione resta vuota usa `Spesa`. Le keyword di categoria e metodo vengono riconosciute solo come termini interi, quindi una keyword breve come `bus` non viene letta dentro parole piu lunghe come `busta`.
 
 Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri, per esempio `pizza 4 formaggi 8 euro`. La dettatura vocale usa `SpeechRecognition` o `webkitSpeechRecognition` quando disponibili.
 
 ### Timeline
 
-La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana e mese; con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
+La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana corrente e mese; il totale settimanale considera solo il periodo lunedi-domenica della settimana corrente, senza includere settimane future. Con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
 
 Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il titolo dell'header resta invariato, il pulsante cerca resta nella posizione normale e il toggle tema dell'header viene sostituito dal toggle `Seleziona tutte`. Le azioni copia negli appunti, export JSON/CSV ed eliminazione con conferma vivono nella bottom nav come set dedicato disponibile solo in timeline; i pulsanti Timeline, Statistiche e Impostazioni restano raggiungibili con uno swipe orizzontale che cambia l'intero set di tre bottoni, senza scroll parziale. In statistiche e impostazioni resta disponibile solo il set principale della bottom nav; tornando da quelle pagine alla timeline il set principale resta visibile finche l'utente non richiede di nuovo il set azioni con lo swipe. La modalita resta visibile anche passando alle statistiche, con header e barra pagine evidenziati, ma `Seleziona tutte` resta disponibile solo in timeline. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, disponibile in timeline e statistiche, che limita le viste allo snapshot di spese selezionate nel momento in cui il filtro viene attivato; se una spesa viene poi deselezionata resta nel filtrato finche il filtro non viene spento e riacceso.
 

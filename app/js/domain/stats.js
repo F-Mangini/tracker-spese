@@ -352,6 +352,9 @@ const StatsData = (() => {
         const month = today.getMonth();
         const year = today.getFullYear();
         const monday = startOfWeek(today);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
         let todayTotal = 0;
         let weekTotal = 0;
         let monthTotal = 0;
@@ -362,7 +365,7 @@ const StatsData = (() => {
             const safeAmount = Number.isFinite(amount) ? amount : 0;
 
             if (dateKey(d) === todayKey) todayTotal += safeAmount;
-            if (d >= monday) weekTotal += safeAmount;
+            if (d >= monday && d <= sunday) weekTotal += safeAmount;
             if (d.getMonth() === month && d.getFullYear() === year) monthTotal += safeAmount;
         });
 

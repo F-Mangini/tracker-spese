@@ -30,8 +30,7 @@ const Parser = {
         const metodo = paymentInfo.id;
 
         if (paymentInfo.keyword) {
-            const pmRegex = new RegExp('\\b' + paymentInfo.keyword + '\\b', 'i');
-            descrizione = descrizione.replace(pmRegex, '').replace(/\s+/g, ' ').trim();
+            descrizione = this._removeKeyword(descrizione, paymentInfo.keyword);
         }
 
         if (!descrizione) descrizione = 'Spesa';
@@ -121,6 +120,32 @@ const Parser = {
         return score;
     },
 
+    _escapeRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    },
+
+    _keywordRegex(keyword) {
+        const pattern = this._escapeRegExp(keyword).replace(/\s+/g, '\\s+');
+        return new RegExp('(^|[^A-Za-z0-9À-ÖØ-öø-ÿ_])(' + pattern + ')(?=$|[^A-Za-z0-9À-ÖØ-öø-ÿ_])', 'i');
+    },
+
+    _findKeywordMatch(text, keyword) {
+        const match = String(text || '').match(this._keywordRegex(keyword));
+        if (!match) return null;
+
+        return {
+            index: match.index + match[1].length,
+            text: match[2]
+        };
+    },
+
+    _removeKeyword(text, keyword) {
+        return String(text || '')
+            .replace(this._keywordRegex(keyword), (match, prefix) => prefix)
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
     _detectCategory(text) {
         let firstMatchIndex = -1;
         let matchedCategory = 'altro';
@@ -129,9 +154,9 @@ const Parser = {
             if (cat.id === 'altro') continue;
 
             for (const keyword of cat.keywords) {
-                const index = text.indexOf(keyword);
-                if (index !== -1 && (firstMatchIndex === -1 || index < firstMatchIndex)) {
-                    firstMatchIndex = index;
+                const match = this._findKeywordMatch(text, keyword);
+                if (match && (firstMatchIndex === -1 || match.index < firstMatchIndex)) {
+                    firstMatchIndex = match.index;
                     matchedCategory = cat.id;
                 }
             }
@@ -145,10 +170,9 @@ const Parser = {
             if (method.id === 'altro_pag' || !method.keywords) continue;
 
             for (const keyword of method.keywords) {
-                const regex = new RegExp('\\b' + keyword + '\\b', 'i');
-                const match = text.match(regex);
+                const match = this._findKeywordMatch(text, keyword);
                 if (match) {
-                    return { id: method.id, keyword: match[0] };
+                    return { id: method.id, keyword: keyword };
                 }
             }
         }

@@ -585,6 +585,18 @@ test('Parser non confonde quantita pesate con importi', () => {
     assert.equal(pere.descrizione, '2 kg di pere');
 });
 
+test('Parser riconosce keyword categoria solo come parole intere', () => {
+    const Parser = loadParser();
+
+    const bus = Parser.parse('bus 2 euro');
+    const busta = Parser.parse('busta 2 euro');
+    const storeWithSymbol = Parser.parse('h&m 20 euro');
+
+    assert.equal(bus.categoria, 'trasporti');
+    assert.equal(busta.categoria, 'altro');
+    assert.equal(storeWithSymbol.categoria, 'abbigliamento');
+});
+
 test('Azioni spesa isolano parser e storage dall input rapido', () => {
     const { ExpenseActions } = loadUiViews();
     const calls = [];
@@ -711,6 +723,14 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
             categoria: 'alimentari',
             metodo: 'carta',
             data: '2026-05-19T10:00:00.000Z'
+        }),
+        expense({
+            id: 'future-next-week',
+            importo: 99,
+            descrizione: 'Spesa futura',
+            categoria: 'casa',
+            metodo: 'carta',
+            data: '2026-05-25T10:00:00.000Z'
         })
     ];
     const model = ExpenseQuery.buildFilterModel({
@@ -734,7 +754,7 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
     assert.deepEqual(model.filteredSpese.map(item => item.id), ['match']);
     assert.equal(model.quickTotals.todayTotal, 10);
     assert.equal(model.quickTotals.weekTotal, 15);
-    assert.equal(model.quickTotals.monthTotal, 15);
+    assert.equal(model.quickTotals.monthTotal, 114);
 
     const emptyFilters = ExpenseQuery.buildFilterModel({ spese, filters: {} });
     assert.equal(emptyFilters.hasActiveFilters, false);

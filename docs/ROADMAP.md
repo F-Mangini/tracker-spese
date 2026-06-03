@@ -25,6 +25,11 @@ Completato il 2026-06-01:
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
 - Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
 
+Completato il 2026-06-03:
+
+- Fix del totale `Settimana` nel riepilogo timeline e nella barra del pannello filtri: ora conta solo la settimana corrente lunedi-domenica e non include settimane future.
+- Fix del parser categorie/metodi: le keyword vengono riconosciute solo come termini interi, cosi `bus` non viene letto dentro `busta`.
+
 ## Repository e Canali
 
 Stato: completato. La dev refactor e stata promossa a stabile; la baseline della nuova fase PWA/offline e stata pubblicata su `main` per i test reali.
@@ -49,6 +54,7 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 
 Ancora da affrontare:
 
+- Comportamento del tasto filtri personalizzabile, inclusa modalita `adattivo` che decide se aprire automaticamente la tastiera in base alla dimensione del pannello semi-aperto.
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
 - Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
@@ -106,6 +112,7 @@ Da riprendere solo quando servira:
 
 ## Filtri e Ricerca
 
+- Pressione prolungata sul tasto filtri dell'header per attivare/disattivare filtri rapidi personalizzabili dalla futura pagina di personalizzazione.
 - Pannello filtri regolabile e bloccabile con lucchetto.
 - Apertura/chiusura pannello tramite swipe su barra inferiore o header.
 - Date range picker custom.
@@ -146,6 +153,8 @@ Da riprendere solo quando servira:
 
 ## Funzioni Future
 
+- Pulsante `+` a sinistra nella barra di inserimento per selezionare data e ora della nuova spesa.
+- Parsing di `.<categoria>` nella barra di inserimento per forzare una categoria; se il pattern compare piu volte, usare l'ultima occorrenza.
 - Spese ricorrenti.
 - Backup schedulato.
 - Accrediti oltre alle spese.

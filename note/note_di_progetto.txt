@@ -2,6 +2,18 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 03/06/2026
+
+FEAT: Comportamento tasto filtri personalizzabile. Tra le opzioni anche "adattivo" che rileva la dimensione del pannello semi-aperto e decide se selezionare automaticamente la tastiera.
+
+BUG: nel riassunto (anche in quello del pannello filtri) in "settimana" vengono contate anche spese future non della settimana corrente. Serve fix.
+
+BUG: le keywords non devono essere riconosciute all'interno di parole, ad esempio bus non deve essere riconosciuto nella parola busta.
+
+FEAT: + nella barra di inserimento a sinistra, per poter selezionare data e ora.
+
+FEAT: parsing di .<categoria> (punto seguito da carattere, senza spazio) per forzare una specifica categoria. Se il pattern è presente più volte, usare l'ultima occorrenza.
+
 ### Aggiunte del 02/06/2026
 
 Tenendo premuto sul tastino dei filtri dell'header, voglio che si faccia toggle

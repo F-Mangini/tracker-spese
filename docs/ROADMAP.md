@@ -23,7 +23,13 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
-- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+
+Completato il 2026-06-03:
+
+- Fix del totale `Settimana` nel riepilogo timeline e nella barra del pannello filtri: ora conta solo la settimana corrente lunedi-domenica e non include settimane future.
+- Fix del parser categorie/metodi: le keyword vengono riconosciute solo come termini interi, cosi `bus` non viene letto dentro `busta`.
+- Nuova release statica `releases/v2026.06.03/` creata e segnalata come consigliata in `releases.json`; la precedente `v2026.05.30` resta disponibile come release stabile storica.
 
 ## Repository e Canali
 
@@ -49,6 +55,7 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 
 Ancora da affrontare:
 
+- Comportamento del tasto filtri personalizzabile, inclusa modalita `adattivo` che decide se aprire automaticamente la tastiera in base alla dimensione del pannello semi-aperto.
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
 - Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
@@ -60,7 +67,7 @@ Ancora da affrontare:
 - Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
-- Aggiungere copia rapida e altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
+- Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
 - Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
 - Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
@@ -78,6 +85,7 @@ Completato:
 
 - Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 - `releases.json` e la cartella sorgente `releases/v2026.05.30/` definiscono la prima baseline versionata.
+- `releases/v2026.06.03/` definisce la release consigliata corrente.
 - i manifest dichiarano `scope` esplicito.
 - `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
 - le impostazioni leggono `releases.json` e mostrano una finestra versioni per installare `stable/latest` o la release consigliata, con badge `Installata` e senza applicare update automatici.
@@ -100,12 +108,13 @@ Completato:
 
 Da riprendere solo quando servira:
 
-- procedura di pubblicazione della prossima release;
+- procedura di pubblicazione delle release successive;
 - compatibilita dati tra versioni se cambiera lo schema;
-- gestione di piu release reali oltre alla prima baseline.
+- gestione di ulteriori release reali oltre a `v2026.05.30` e `v2026.06.03`.
 
 ## Filtri e Ricerca
 
+- Pressione prolungata sul tasto filtri dell'header per attivare/disattivare filtri rapidi personalizzabili dalla futura pagina di personalizzazione.
 - Pannello filtri regolabile e bloccabile con lucchetto.
 - Apertura/chiusura pannello tramite swipe su barra inferiore o header.
 - Date range picker custom.
@@ -130,8 +139,8 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con seleziona filtrate/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
-- Azioni bulk ancora da completare: copia negli appunti e formati TSV/tabella Markdown.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
+- Azioni bulk ancora da completare: formati TSV/tabella Markdown.
 - Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
 - Modifica spesa anche dalla pagina statistiche.
 
@@ -146,6 +155,8 @@ Da riprendere solo quando servira:
 
 ## Funzioni Future
 
+- Pulsante `+` a sinistra nella barra di inserimento per selezionare data e ora della nuova spesa.
+- Parsing di `.<categoria>` nella barra di inserimento per forzare una categoria; se il pattern compare piu volte, usare l'ultima occorrenza.
 - Spese ricorrenti.
 - Backup schedulato.
 - Accrediti oltre alle spese.

@@ -23,12 +23,12 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - filtri per ricerca, periodo, importo, categoria e metodo;
 - timeline con riepilogo giornaliero/settimanale/mensile e selezione multipla;
 - statistiche con grafici Chart.js;
-- import/export JSON e CSV, anche per le spese selezionate dalla timeline;
+- import/export JSON e CSV, copia negli appunti e cancellazione bulk per le spese selezionate dalla timeline;
 - tema chiaro/scuro/automatico;
 - manifest web app per installazione base;
 - baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.
 
-La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso localmente, la release versionata `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release, `/stable/` registra un launcher offline scoped e le impostazioni mostrano una finestra versioni alimentata da `releases.json`. `/` e `/dev/` non registrano service worker.
+La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso localmente, le release versionate sotto `releases/` registrano service worker con scope limitato alla singola release, `/stable/` registra un launcher offline scoped e le impostazioni mostrano una finestra versioni alimentata da `releases.json`. La release consigliata corrente e `releases/v2026.06.03/`; `/` e `/dev/` non registrano service worker.
 
 ## Struttura
 
@@ -39,6 +39,7 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 +-- releases.json
 +-- releases/
 |   +-- v2026.05.30/
+|   +-- v2026.06.03/
 +-- docs/
 |   +-- CODE_REVIEW.md
 |   +-- CURRENT_STATE.md

@@ -24,7 +24,7 @@ Questo progetto e personale ed e mantenuto da una sola persona. Le soluzioni dev
 - GitHub Pages pubblica `/` e `/stable/` da `main`, e `/dev/` da `dev`.
 - Il workflow Pages deve partire da `main`: l'environment `github-pages` non accetta deploy diretti dai branch di lavoro.
 - Esigenza immediata completata: esiste un link stabile per l'uso quotidiano e un link separato per testare la versione di sviluppo.
-- Baseline PWA/offline completata: Chart.js locale, release `releases/v2026.05.30/` scoped, launcher offline `/stable/`, finestra versioni e verifica Android del maintainer.
+- Baseline PWA/offline completata: Chart.js locale, prima release `releases/v2026.05.30/` scoped, release consigliata corrente `releases/v2026.06.03/`, launcher offline `/stable/`, finestra versioni e verifica Android del maintainer sulla baseline.
 - Vincolo importante: se stabile e dev sono servite dallo stesso dominio GitHub Pages, anche con path diversi, condividono `localStorage`; la versione dev deve quindi usare una storage key separata o un'origine diversa per non rischiare i dati reali.
 
 ## Priorita Operative

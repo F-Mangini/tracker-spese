@@ -13,6 +13,10 @@ function readAppFile(relativePath) {
     return fs.readFileSync(path.join(root, 'app', relativePath), 'utf8');
 }
 
+function readRepoFile(relativePath) {
+    return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
 function normalizeStablePrecachePath(value) {
     return './' + String(value || '')
         .trim()
@@ -40,6 +44,33 @@ function getStableLaunchPrecachePaths() {
     const listMatch = serviceWorker.match(/const\s+PRECACHE_URLS\s*=\s*\[([\s\S]*?)\];/);
 
     assert(listMatch, 'PRECACHE_URLS non trovato in stable-launch-service-worker.js');
+
+    return new Set(
+        Array.from(listMatch[1].matchAll(/["']([^"']+)["']/g))
+            .map(match => normalizeStablePrecachePath(match[1]))
+    );
+}
+
+function getReleaseIndexAssetPaths(releasePath) {
+    const html = readRepoFile(path.join(releasePath, 'index.html'));
+    const paths = [];
+    const attrPattern = /<(script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g;
+    let match;
+
+    while ((match = attrPattern.exec(html))) {
+        const value = match[2];
+        if (!value || /^(https?:|data:|#)/i.test(value)) continue;
+        paths.push(normalizeStablePrecachePath(value));
+    }
+
+    return Array.from(new Set(paths)).sort();
+}
+
+function getReleasePrecachePaths(releasePath) {
+    const serviceWorker = readRepoFile(path.join(releasePath, 'service-worker.js'));
+    const listMatch = serviceWorker.match(/const\s+PRECACHE_URLS\s*=\s*\[([\s\S]*?)\];/);
+
+    assert(listMatch, `PRECACHE_URLS non trovato in ${releasePath}/service-worker.js`);
 
     return new Set(
         Array.from(listMatch[1].matchAll(/["']([^"']+)["']/g))
@@ -585,6 +616,18 @@ test('Parser non confonde quantita pesate con importi', () => {
     assert.equal(pere.descrizione, '2 kg di pere');
 });
 
+test('Parser riconosce keyword categoria solo come parole intere', () => {
+    const Parser = loadParser();
+
+    const bus = Parser.parse('bus 2 euro');
+    const busta = Parser.parse('busta 2 euro');
+    const storeWithSymbol = Parser.parse('h&m 20 euro');
+
+    assert.equal(bus.categoria, 'trasporti');
+    assert.equal(busta.categoria, 'altro');
+    assert.equal(storeWithSymbol.categoria, 'abbigliamento');
+});
+
 test('Azioni spesa isolano parser e storage dall input rapido', () => {
     const { ExpenseActions } = loadUiViews();
     const calls = [];
@@ -711,6 +754,14 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
             categoria: 'alimentari',
             metodo: 'carta',
             data: '2026-05-19T10:00:00.000Z'
+        }),
+        expense({
+            id: 'future-next-week',
+            importo: 99,
+            descrizione: 'Spesa futura',
+            categoria: 'casa',
+            metodo: 'carta',
+            data: '2026-05-25T10:00:00.000Z'
         })
     ];
     const model = ExpenseQuery.buildFilterModel({
@@ -734,7 +785,7 @@ test('Query spese prepara filtri e riepiloghi una sola volta', () => {
     assert.deepEqual(model.filteredSpese.map(item => item.id), ['match']);
     assert.equal(model.quickTotals.todayTotal, 10);
     assert.equal(model.quickTotals.weekTotal, 15);
-    assert.equal(model.quickTotals.monthTotal, 15);
+    assert.equal(model.quickTotals.monthTotal, 114);
 
     const emptyFilters = ExpenseQuery.buildFilterModel({ spese, filters: {} });
     assert.equal(emptyFilters.hasActiveFilters, false);
@@ -2033,6 +2084,24 @@ test('Vista timeline renderizza riepilogo e card escapando il testo utente', () 
     assert(html.includes('new-card'));
     assert(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!html.includes('<script>alert(1)</script>'));
+
+    const pendingHtml = TimelineView.renderExpenseCard(expense({ id: 'a' }), {
+        selectionActive: true,
+        isSelected: true,
+        deletePending: true
+    });
+    const pendingSummary = TimelineView.renderSummary({
+        selection: {
+            active: true,
+            deletePending: true,
+            selectedCount: 1,
+            selectedTotal: 2
+        }
+    });
+
+    assert(pendingHtml.includes('delete-pending'));
+    assert(pendingHtml.includes('\u00d7'));
+    assert(pendingSummary.includes('\u00d7'));
 });
 
 test('Controller timeline riusa modello filtrato precomputato', () => {
@@ -2186,7 +2255,51 @@ test('Controller timeline coordina render e click card fuori da App', () => {
     assert(!elements['timeline-empty'].classList.contains('hidden'));
 });
 
-test('Controller selezione timeline gestisce selezione, export e delete bulk', () => {
+test('Controller timeline non deseleziona la card dopo long press e rerender', () => {
+    const { TimelineController } = loadUiViews();
+    const calls = [];
+    const timers = [];
+
+    function makeCard() {
+        return {
+            dataset: { id: 'a' },
+            listeners: {},
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            }
+        };
+    }
+
+    const firstCard = makeCard();
+    const rerenderedCard = makeCard();
+    const options = {
+        enterSelection: id => calls.push(['enter', id]),
+        toggleSelection: id => calls.push(['toggle', id]),
+        isSelectionActive: () => true,
+        openEditModal: id => calls.push(['open', id]),
+        setTimeout(callback) {
+            timers.push(callback);
+            return timers.length;
+        },
+        clearTimeout() {}
+    };
+
+    TimelineController.bindExpenseCard(firstCard, options);
+    firstCard.listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+    timers.shift()();
+
+    TimelineController.bindExpenseCard(rerenderedCard, options);
+    rerenderedCard.listeners.click({
+        preventDefault: () => calls.push('prevent-default')
+    });
+
+    assert.deepEqual(calls, [
+        ['enter', 'a'],
+        'prevent-default'
+    ]);
+});
+
+test('Controller selezione timeline gestisce selezione, copia, export e delete bulk', async () => {
     const { TimelineSelectionController } = loadUiViews();
     const calls = [];
     const state = {
@@ -2237,6 +2350,14 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
         refreshAfterDataChange: () => calls.push('refresh'),
         dateStamp: () => '2026-06-01',
         download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        navigatorLike: {
+            clipboard: {
+                writeText(text) {
+                    calls.push(['clipboard', text]);
+                    return Promise.resolve();
+                }
+            }
+        },
         showToast: (message, type) => calls.push(['toast', type, message]),
         showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)])
     };
@@ -2264,6 +2385,7 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert.equal(summary.selectedTotal, 9);
     assert.equal(summary.visibleCount, 2);
 
+    assert.equal(await TimelineSelectionController.copySelected(options), true);
     assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
     assert.equal(TimelineSelectionController.showExportChoices(options), true);
     assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
@@ -2275,6 +2397,7 @@ test('Controller selezione timeline gestisce selezione, export e delete bulk', (
     assert.deepEqual(calls.filter(call => Array.isArray(call) && call[0] === 'push'), [
         ['push', 'timeline-selection']
     ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'clipboard' && call[1] === 'csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
@@ -2307,11 +2430,23 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     function button(id) {
         return {
             id,
+            dataset: {},
             disabled: false,
             textContent: '',
             title: '',
             attributes: {},
             classList: makeClassList(['hidden']),
+            setAttribute(name, value) {
+                this.attributes[name] = value;
+            },
+            addEventListener() {
+            }
+        };
+    }
+
+    function navSet() {
+        return {
+            attributes: {},
             setAttribute(name, value) {
                 this.attributes[name] = value;
             }
@@ -2322,6 +2457,8 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
         innerHTML: 'Where\'s My <span style="color: #ff7c00;">Bug</span>?',
         dataset: {}
     };
+    const mainSet = navSet();
+    const selectionSet = navSet();
     const elements = {
         'app-header': {
             classList: makeClassList(),
@@ -2329,8 +2466,17 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
                 return selector === 'h1' ? title : null;
             }
         },
-        'bottom-nav': { classList: makeClassList() },
+        'bottom-nav': {
+            dataset: {},
+            classList: makeClassList(),
+            querySelector(selector) {
+                if (selector === '[data-nav-set="main"]') return mainSet;
+                if (selector === '[data-nav-set="selection"]') return selectionSet;
+                return null;
+            }
+        },
         'theme-toggle': { classList: makeClassList() },
+        'btn-selection-copy': button('btn-selection-copy'),
         'btn-selection-select-all': button('btn-selection-select-all'),
         'btn-selection-export': button('btn-selection-export'),
         'btn-selection-delete': button('btn-selection-delete')
@@ -2356,11 +2502,45 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert(elements['app-header'].classList.contains('selection-active'));
     assert(elements['bottom-nav'].classList.contains('selection-active'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
-    assert.equal(title.innerHTML, 'WM<span class="selection-title-dev-letter">B</span>?');
+    assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '✅');
     assert.equal(elements['btn-selection-select-all'].attributes['aria-label'], 'Deseleziona spese filtrate');
+    assert.equal(elements['btn-selection-copy'].disabled, true);
     assert.equal(elements['btn-selection-export'].disabled, true);
+    assert.equal(elements['btn-selection-delete'].disabled, true);
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
+
+    TimelineSelectionController.setBottomNavSet(elements['bottom-nav'], 'main');
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'timeline',
+        appConfig: { channel: 'dev' },
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    }, {
+        active: true,
+        selectedCount: 1,
+        selectedTotal: 5,
+        visibleCount: 1,
+        visibleAllSelected: true,
+        deletePending: true
+    });
+
+    assert(elements['app-header'].classList.contains('delete-pending'));
+    assert(elements['bottom-nav'].classList.contains('delete-pending'));
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
 
     TimelineSelectionController.syncHeader({
         document: doc,
@@ -2378,16 +2558,42 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     });
 
     assert(!elements['app-header'].classList.contains('selection-active'));
+    assert(!elements['app-header'].classList.contains('delete-pending'));
     assert(!elements['bottom-nav'].classList.contains('selection-active'));
+    assert(!elements['bottom-nav'].classList.contains('delete-pending'));
     assert(!elements['theme-toggle'].classList.contains('hidden'));
     assert.equal(title.innerHTML, 'Where\'s My <span style="color: #ff7c00;">Bug</span>?');
     assert(elements['btn-selection-select-all'].classList.contains('hidden'));
     assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
+    assert(elements['bottom-nav'].classList.contains('selection-show-main'));
+    assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
+    assert.equal(mainSet.attributes['aria-hidden'], 'false');
+    assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 });
 
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
     const { TimelineController } = loadUiViews();
     const calls = [];
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
     const card = {
         dataset: { id: 'a' },
         handlers: {},
@@ -2398,6 +2604,7 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     const elements = {
         'timeline-content': {
             innerHTML: '',
+            classList: makeClassList(),
             querySelectorAll(selector) {
                 return selector === '.expense-card' ? [card] : [];
             }
@@ -2408,7 +2615,7 @@ test('Controller timeline in modalita selezione non apre la modale al click card
                 remove() {}
             }
         },
-        'timeline-summary': { innerHTML: '' }
+        'timeline-summary': { innerHTML: '', classList: makeClassList() }
     };
     const doc = {
         getElementById(id) {
@@ -2427,14 +2634,16 @@ test('Controller timeline in modalita selezione non apre la modale al click card
         formatDayLabel: date => date,
         selection: {
             active: true,
-            selectedIds: new Set(['a'])
+            selectedIds: new Set(['a']),
+            deletePending: true
         },
         getSelectionSummary: () => ({
             active: true,
             selectedIds: new Set(['a']),
             selectedCount: 1,
             selectedTotal: 5,
-            visibleCount: 1
+            visibleCount: 1,
+            deletePending: true
         }),
         isSelectionActive: () => true,
         toggleSelection: id => calls.push(['toggle', id]),
@@ -2445,6 +2654,9 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     assert(elements['timeline-content'].innerHTML.includes('selection-mode'));
     assert(elements['timeline-content'].innerHTML.includes('selected'));
     assert(elements['timeline-summary'].innerHTML.includes('Selezione'));
+    assert(elements['timeline-summary'].innerHTML.includes('\u00d7'));
+    assert(elements['timeline-summary'].classList.contains('delete-pending'));
+    assert(elements['timeline-content'].classList.contains('delete-pending'));
 
     card.handlers.click();
 
@@ -3814,6 +4026,33 @@ test('Azioni impostazioni registrano il launcher offline solo su /stable/', asyn
 test('Launcher offline stable precachea gli asset locali della stable', () => {
     const indexAssets = getLocalIndexAssetPaths();
     const precacheAssets = getStableLaunchPrecachePaths();
+    const missing = indexAssets.filter(asset => !precacheAssets.has(asset));
+
+    assert.deepEqual(missing, []);
+});
+
+test('Manifest release punta a una release consigliata installabile', () => {
+    const manifest = JSON.parse(readRepoFile('releases.json'));
+    const recommended = manifest.releases.find(release => release.id === manifest.recommended);
+    const releasePath = recommended && recommended.path ? recommended.path.replace(/\/$/, '') : '';
+
+    assert(recommended, 'Release consigliata non trovata in releases.json');
+    assert.equal(recommended.status, 'recommended');
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'index.html')), true);
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'manifest.json')), true);
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'service-worker.js')), true);
+
+    const serviceWorker = readRepoFile(path.join(releasePath, 'service-worker.js'));
+    assert(serviceWorker.includes(`const RELEASE_ID = "${recommended.id}"`));
+    assert(serviceWorker.includes('url.href.startsWith(self.registration.scope)'));
+});
+
+test('Release consigliata precachea gli asset locali della propria pagina', () => {
+    const manifest = JSON.parse(readRepoFile('releases.json'));
+    const recommended = manifest.releases.find(release => release.id === manifest.recommended);
+    const releasePath = recommended.path.replace(/\/$/, '');
+    const indexAssets = getReleaseIndexAssetPaths(releasePath);
+    const precacheAssets = getReleasePrecachePaths(releasePath);
     const missing = indexAssets.filter(asset => !precacheAssets.has(asset));
 
     assert.deepEqual(missing, []);

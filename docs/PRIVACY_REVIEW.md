@@ -44,6 +44,7 @@ File e aree considerate:
 - `app/stable-launch-service-worker.js`;
 - `releases.json`;
 - `releases/v2026.05.30/`;
+- `releases/v2026.06.03/`;
 - `.github/workflows/pages.yml`;
 - manifest stabile/dev/release;
 - documentazione PWA, stato corrente, roadmap e strategia deploy.
@@ -58,6 +59,7 @@ File e aree considerate:
 | Preferenza release installata | `localStorage`, `spesa-tracker-launch-target` | No | Contiene solo un path tipo `releases/vYYYY.MM.DD/`. |
 | Cache service worker | Cache Storage browser | No | Contiene asset statici dell'app, non dati utente. |
 | Export JSON/CSV/raw e selezioni timeline | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. Gli export da selezione contengono solo le spese selezionate; il JSON mantiene anche la struttura backup con impostazioni correnti. |
+| Copia spese selezionate | Clipboard del sistema | Solo su azione utente | La copia usa contenuto CSV delle sole spese selezionate. Non invia dati in rete, ma dopo la copia la protezione dipende dagli appunti del sistema e dalle app in cui l'utente incolla. |
 | Import JSON/CSV | File scelto dall'utente, letto con `FileReader` | No | Il contenuto viene validato localmente prima del commit. |
 | Dettatura vocale | API `SpeechRecognition` / `webkitSpeechRecognition` del browser | Potenzialmente si | Dipende dal browser/OS: puo usare servizi esterni del provider. La funzione e opzionale e attivata dall'utente. |
 | Richieste asset e `releases.json` | GitHub Pages / hosting statico | Si, come metadati HTTP | IP, user agent, path richiesto e timestamp sono visibili all'hosting; i dati delle spese no. |
@@ -67,8 +69,8 @@ File e aree considerate:
 La review del codice non mostra CDN o asset applicativi remoti nel percorso normale dell'app:
 
 - `app/index.html` carica CSS, manifest, icone, Chart.js e JavaScript da path locali;
-- `releases/v2026.05.30/index.html` fa lo stesso dentro la cartella release;
-- `app/vendor/chart.umd.min.js` e `releases/v2026.05.30/vendor/chart.umd.min.js` sono copie locali.
+- le release sotto `releases/vYYYY.MM.DD/index.html` fanno lo stesso dentro la propria cartella release;
+- `app/vendor/chart.umd.min.js` e le copie `releases/vYYYY.MM.DD/vendor/chart.umd.min.js` sono locali.
 
 La chiamata di rete applicativa rilevante e:
 
@@ -82,7 +84,7 @@ Lo stato attuale e corretto per la privacy:
 
 - `/` e `/dev/` non registrano service worker;
 - `/stable/` registra `stable-launch-service-worker.js` solo con scope `./`;
-- `releases/v2026.05.30/` registra `service-worker.js` solo con scope `./`;
+- le release versionate, oggi `releases/v2026.05.30/` e `releases/v2026.06.03/`, registrano `service-worker.js` solo con scope `./`;
 - i service worker intercettano solo richieste `GET`, same-origin e dentro `self.registration.scope`;
 - le cache hanno prefissi namespaced e non cancellano cache di altre release.
 
@@ -117,7 +119,7 @@ Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e s
 
 Gli export sono avviati localmente tramite `Blob` e object URL temporaneo, poi l'object URL viene revocato. Non c'e upload automatico.
 
-JSON e raw sono backup completi e possono contenere descrizioni, note, tag, timestamp e impostazioni. CSV e piu limitato ma resta un file in chiaro. Dalla timeline e possibile esportare anche solo le spese selezionate in JSON o CSV: il contenuto e piu ristretto, ma resta comunque in chiaro dopo il download. Il rischio principale e successivo al download: cartella Download condivisa, sincronizzazioni cloud del device, invio manuale a terzi o salvataggio in aree non protette.
+JSON e raw sono backup completi e possono contenere descrizioni, note, tag, timestamp e impostazioni. CSV e piu limitato ma resta un file in chiaro. Dalla timeline e possibile esportare anche solo le spese selezionate in JSON o CSV, oppure copiarle negli appunti come CSV: il contenuto e piu ristretto, ma resta comunque in chiaro dopo il download o nella clipboard. Il rischio principale e successivo all'azione utente: cartella Download condivisa, sincronizzazioni cloud del device, appunti di sistema, invio manuale a terzi o salvataggio in aree non protette.
 
 Gli import sono letti con `FileReader` e validati localmente. In sostituzione viene creato uno snapshot locale prima del commit.
 
@@ -155,6 +157,7 @@ https://f-mangini.github.io/tracker-spese/
 https://f-mangini.github.io/tracker-spese/stable/
 https://f-mangini.github.io/tracker-spese/dev/
 https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/
+https://f-mangini.github.io/tracker-spese/releases/v2026.06.03/
 ```
 
 La separazione stabile/dev e mitigata dalla chiave dev dedicata. Le release stabili versionate usano invece la chiave stabile: questa scelta e intenzionale, perche devono leggere gli stessi dati quotidiani della stabile.

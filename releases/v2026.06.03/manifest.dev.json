@@ -1,0 +1,39 @@
+{
+    "name": "Where's My Bug?",
+    "short_name": "WMB",
+    "description": "Versione di sviluppo di Where's My Money?",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "background_color": "#f0f2f5",
+    "theme_color": "#ff7c00",
+    "orientation": "portrait",
+    "categories": ["finance"],
+    "lang": "it",
+    "icons": [
+        {
+            "src": "icons/dev/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/dev/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/dev/maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/dev/maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

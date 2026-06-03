@@ -13,6 +13,10 @@ function readAppFile(relativePath) {
     return fs.readFileSync(path.join(root, 'app', relativePath), 'utf8');
 }
 
+function readRepoFile(relativePath) {
+    return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
 function normalizeStablePrecachePath(value) {
     return './' + String(value || '')
         .trim()
@@ -40,6 +44,33 @@ function getStableLaunchPrecachePaths() {
     const listMatch = serviceWorker.match(/const\s+PRECACHE_URLS\s*=\s*\[([\s\S]*?)\];/);
 
     assert(listMatch, 'PRECACHE_URLS non trovato in stable-launch-service-worker.js');
+
+    return new Set(
+        Array.from(listMatch[1].matchAll(/["']([^"']+)["']/g))
+            .map(match => normalizeStablePrecachePath(match[1]))
+    );
+}
+
+function getReleaseIndexAssetPaths(releasePath) {
+    const html = readRepoFile(path.join(releasePath, 'index.html'));
+    const paths = [];
+    const attrPattern = /<(script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g;
+    let match;
+
+    while ((match = attrPattern.exec(html))) {
+        const value = match[2];
+        if (!value || /^(https?:|data:|#)/i.test(value)) continue;
+        paths.push(normalizeStablePrecachePath(value));
+    }
+
+    return Array.from(new Set(paths)).sort();
+}
+
+function getReleasePrecachePaths(releasePath) {
+    const serviceWorker = readRepoFile(path.join(releasePath, 'service-worker.js'));
+    const listMatch = serviceWorker.match(/const\s+PRECACHE_URLS\s*=\s*\[([\s\S]*?)\];/);
+
+    assert(listMatch, `PRECACHE_URLS non trovato in ${releasePath}/service-worker.js`);
 
     return new Set(
         Array.from(listMatch[1].matchAll(/["']([^"']+)["']/g))
@@ -3995,6 +4026,33 @@ test('Azioni impostazioni registrano il launcher offline solo su /stable/', asyn
 test('Launcher offline stable precachea gli asset locali della stable', () => {
     const indexAssets = getLocalIndexAssetPaths();
     const precacheAssets = getStableLaunchPrecachePaths();
+    const missing = indexAssets.filter(asset => !precacheAssets.has(asset));
+
+    assert.deepEqual(missing, []);
+});
+
+test('Manifest release punta a una release consigliata installabile', () => {
+    const manifest = JSON.parse(readRepoFile('releases.json'));
+    const recommended = manifest.releases.find(release => release.id === manifest.recommended);
+    const releasePath = recommended && recommended.path ? recommended.path.replace(/\/$/, '') : '';
+
+    assert(recommended, 'Release consigliata non trovata in releases.json');
+    assert.equal(recommended.status, 'recommended');
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'index.html')), true);
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'manifest.json')), true);
+    assert.equal(fs.existsSync(path.join(root, releasePath, 'service-worker.js')), true);
+
+    const serviceWorker = readRepoFile(path.join(releasePath, 'service-worker.js'));
+    assert(serviceWorker.includes(`const RELEASE_ID = "${recommended.id}"`));
+    assert(serviceWorker.includes('url.href.startsWith(self.registration.scope)'));
+});
+
+test('Release consigliata precachea gli asset locali della propria pagina', () => {
+    const manifest = JSON.parse(readRepoFile('releases.json'));
+    const recommended = manifest.releases.find(release => release.id === manifest.recommended);
+    const releasePath = recommended.path.replace(/\/$/, '');
+    const indexAssets = getReleaseIndexAssetPaths(releasePath);
+    const precacheAssets = getReleasePrecachePaths(releasePath);
     const missing = indexAssets.filter(asset => !precacheAssets.has(asset));
 
     assert.deepEqual(missing, []);

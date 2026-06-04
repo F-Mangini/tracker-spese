@@ -18,14 +18,14 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 ## Prossime Priorita
 
 1. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-2. Rendere piu chiari export/import e preparare il futuro export custom senza cambiare schema dati.
+2. Rifinire import/export senza cambiare schema dati.
 3. Migliorare statistiche e visualizzazioni quando i flussi UX vicini sono stabili.
 4. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
-- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export della selezione, eliminazione bulk con snapshot e back button dedicato.
 
 Completato il 2026-06-03:
 
@@ -47,7 +47,9 @@ Completato su `codex/ux-export`:
 
 - Import ed export riuniti nella stessa card impostazioni.
 - Export Default con JSON completo e conferma semplice.
-- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, preferenze locali salvate, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- Finestra `Esporta Custom` con dropdown formato JSON/CSV, checklist contenuti, preferenze locali salvate, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- Configurazione export ricordata: al primo uso seleziona tutte le spese, poi riparte da filtri e selezione dell'ultimo export; il bottone `Filtra 🔍` mostra il badge rosso con i filtri attivi.
+- Il bottone export della modalita selezione apre `Esporta Custom` nelle impostazioni mantenendo la selezione corrente.
 - JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
 
 ## Repository e Canali
@@ -84,12 +86,12 @@ Ancora da affrontare:
 
 - Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
 - Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
-- Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
+- Il rischio file export in chiaro resta documentato in privacy review senza appesantire la finestra export personale.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
-- Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
+- Completato export delle spese selezionate tramite modalita selezione timeline e finestra `Esporta Custom`.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
-- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti e filtri/selezione.
+- Export custom completato come prima versione: Default JSON completo; Custom con formato, checklist contenuti e filtri/selezione salvati.
 - Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
@@ -159,9 +161,9 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/apertura export custom/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: formati TSV/tabella Markdown.
-- Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
+- Modalita selezione riusata dall'export custom: primo uso export con tutte le spese selezionate, usi successivi con filtri e selezione salvati dall'ultimo export.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

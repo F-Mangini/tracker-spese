@@ -2367,6 +2367,7 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
             }
         },
         showToast: (message, type) => calls.push(['toast', type, message]),
+        openCustomExport: payload => calls.push(['open-custom-export', payload.selectedIds]),
         showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)])
     };
 
@@ -2411,6 +2412,7 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert.equal(await TimelineSelectionController.copySelected(options), true);
     assert.equal(TimelineSelectionController.exportSelected(options, 'csv'), true);
     assert.equal(TimelineSelectionController.showExportChoices(options), true);
+    assert.equal(TimelineSelectionController.openCustomExport(options), true);
     assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
     assert.equal(state.deletePending, true);
     assert.equal(TimelineSelectionController.deleteSelected(options), true);
@@ -2423,6 +2425,7 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert(calls.some(call => Array.isArray(call) && call[0] === 'clipboard' && call[1] === 'csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'open-custom-export' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
     assert(calls.includes('refresh'));
 });
@@ -3806,7 +3809,9 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     }, true);
 
     assert(page.includes('btn-export-raw'));
-    assert(page.includes('Importa / Esporta dati'));
+    assert(page.includes('Esporta Dati'));
+    assert(page.includes('Scarica un backup JSON o nel formato che preferisci.'));
+    assert(page.includes('Importa Dati'));
     assert(page.includes('btn-export-default'));
     assert(page.includes('btn-export-custom'));
     assert(page.includes('btn-import'));
@@ -3832,9 +3837,11 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
         selectedCount: 3,
         filterCount: 2
     });
-    assert(exportModal.includes('JSON backup'));
+    assert(exportModal.includes('sd-export-format'));
     assert(exportModal.includes('3 spese selezionate'));
     assert(exportModal.includes('Personalizzazioni'));
+    assert(!exportModal.includes('JSON puo includere'));
+    assert(!exportModal.includes('file in chiaro'));
 });
 
 test('Azioni impostazioni isolano formati, scelte e download', () => {
@@ -3857,8 +3864,12 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         ['cancel', 'replace']
     );
     assert.deepEqual(
-        SettingsActions.getExportFormats().map(format => format.value),
+        SettingsActions.getExportFormats().map(format => format.id),
         ['json', 'csv']
+    );
+    assert.deepEqual(
+        SettingsActions.getExportFormats().map(format => format.nome),
+        ['JSON', 'CSV']
     );
 
     const prefsStorage = createLocalStorage();
@@ -3870,15 +3881,32 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             includeSettings: true,
             includePersonalizzazioni: true,
             selectedIds: ['a', 2],
+            filterSnapshot: {
+                query: ' caffe ',
+                categories: new Set(['bar']),
+                amountMin: 2,
+                amountMax: null,
+                dateFrom: '2026-06-01'
+            },
             selectionInitialized: true
         }
     );
     assert.equal(normalizedPrefs.format, 'csv');
     assert.equal(normalizedPrefs.includeSettings, false);
+    assert.equal(normalizedPrefs.filterSnapshot.query, 'caffe');
+    assert.deepEqual(normalizedPrefs.filterSnapshot.categories, ['bar']);
+    assert.equal(
+        SettingsActions.countActiveFilterSnapshot(normalizedPrefs.filterSnapshot),
+        4
+    );
     assert.deepEqual(
         SettingsActions.readExportPreferences(prefsStorage, { KEY: 'spese-test' }).selectedIds,
         ['a', '2']
     );
+    const appliedFilters = SettingsActions.applyFilterSnapshot({}, normalizedPrefs.filterSnapshot);
+    assert.equal(appliedFilters.query, 'caffe');
+    assert.deepEqual(Array.from(appliedFilters.categories), ['bar']);
+    assert.equal(appliedFilters.amountMax, Infinity);
 
     const csv = SettingsActions.getExportDownloadSpec('csv', 'a,b', '2026-05-19');
     const json = SettingsActions.getExportDownloadSpec('json', '{}', '2026-05-19');
@@ -4448,7 +4476,29 @@ test('Controller impostazioni collega finestra export a history e selezione time
     const classes = new Set(['hidden']);
     const calls = [];
     const body = { innerHTML: '' };
-    const filterBtn = { textContent: '' };
+    const filterLabel = { textContent: '' };
+    const filterBadgeClasses = new Set(['hidden']);
+    const filterBadge = {
+        textContent: '',
+        classList: {
+            toggle(cls, force) {
+                if (force) filterBadgeClasses.add(cls);
+                else filterBadgeClasses.delete(cls);
+            },
+            contains(cls) {
+                return filterBadgeClasses.has(cls);
+            }
+        }
+    };
+    const filterBtn = {
+        textContent: '',
+        querySelector(selector) {
+            if (selector === '.export-filter-label') return filterLabel;
+            if (selector === '#export-filter-badge') return filterBadge;
+            return null;
+        }
+    };
+    const localStorage = createLocalStorage();
     const modal = {
         dataset: {},
         classList: {
@@ -4462,6 +4512,14 @@ test('Controller impostazioni collega finestra export a history e selezione time
             return null;
         }
     };
+    SettingsActions.saveExportPreferences(localStorage, { KEY: 'spese-test' }, {
+        selectedIds: ['a'],
+        filterSnapshot: {
+            query: 'caffe',
+            categories: ['bar']
+        },
+        selectionInitialized: true
+    });
     const options = {
         document: {
             getElementById(id) {
@@ -4469,9 +4527,9 @@ test('Controller impostazioni collega finestra export a history e selezione time
             }
         },
         storage: { KEY: 'spese-test' },
-        localStorage: createLocalStorage(),
+        localStorage,
         getSelectedSpese: () => [expense({ id: 'a' })],
-        countActiveFilters: () => 2,
+        countExportFilters: snapshot => SettingsActions.countActiveFilterSnapshot(snapshot),
         pushUiState: state => calls.push(['push', state]),
         consumeUiState: () => calls.push(['consume'])
     };
@@ -4479,7 +4537,9 @@ test('Controller impostazioni collega finestra export a history e selezione time
     SettingsController.openExportModal(options);
     assert.equal(SettingsController.isExportModalOpen(options), true);
     assert(body.innerHTML.includes('1 spesa selezionata'));
-    assert.equal(filterBtn.textContent, 'Filtri (2)');
+    assert.equal(filterLabel.textContent, 'Filtra 🔍');
+    assert.equal(filterBadge.textContent, '2');
+    assert(!filterBadge.classList.contains('hidden'));
     assert.deepEqual(calls, [['push', { panel: 'export-modal' }]]);
 
     SettingsController.closeExportModal(options);
@@ -4491,7 +4551,7 @@ test('Controller impostazioni collega finestra export a history e selezione time
 
     let clickHandler = null;
     const fields = {
-        '#export-format': { value: 'json' },
+        '#sd-export-format .sd-input': { dataset: { value: 'json' }, value: 'JSON' },
         '#export-include-data': { checked: true },
         '#export-include-settings': { checked: false },
         '#export-include-personalizzazioni': { checked: true },
@@ -4521,6 +4581,7 @@ test('Controller impostazioni collega finestra export a history e selezione time
         localStorage: createLocalStorage(),
         getTimelineSelectedIds: () => [],
         getSelectedSpese: () => [],
+        applyExportFilterSnapshot: snapshot => calls.push(['apply-export-filters', snapshot]),
         beginExportSelection(config) {
             calls.push(['begin-export-selection', config]);
             return { selectedIds: ['b', 'c'] };
@@ -4535,7 +4596,16 @@ test('Controller impostazioni collega finestra export a history e selezione time
         filterOptions.localStorage,
         filterOptions.storage
     );
-    assert.deepEqual(calls.slice(-2), [
+    assert.deepEqual(calls.slice(-3), [
+        ['apply-export-filters', {
+            query: '',
+            categories: [],
+            methods: [],
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '',
+            dateTo: ''
+        }],
         ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: true }],
         ['navigate-timeline']
     ]);

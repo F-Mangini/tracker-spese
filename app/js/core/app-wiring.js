@@ -58,6 +58,7 @@ const AppWiring = (() => {
             ModalMobileController: typeof ModalMobileController === 'undefined' ? null : ModalMobileController,
             ModalInteractions: typeof ModalInteractions === 'undefined' ? null : ModalInteractions,
             ModalController: typeof ModalController === 'undefined' ? null : ModalController,
+            SettingsActions: typeof SettingsActions === 'undefined' ? null : SettingsActions,
             SettingsController: typeof SettingsController === 'undefined' ? null : SettingsController,
             UIStack: typeof UIStack === 'undefined' ? null : UIStack,
             HistoryController: typeof HistoryController === 'undefined' ? null : HistoryController,
@@ -181,6 +182,25 @@ const AppWiring = (() => {
                 filters: app.filters,
                 selectedIds: getTimelineSelectedIdsForFilters(),
                 selectedOnlyIds: getSelectedOnlyIdsForFilters()
+            });
+        }
+
+        function applyExportFilterSnapshot(snapshot) {
+            deps.SettingsActions.applyFilterSnapshot(app.filters, snapshot);
+            syncFiltersAndViews();
+        }
+
+        function openCustomExportFromSelection(payload = {}) {
+            const selectedIds = Array.isArray(payload.selectedIds)
+                ? payload.selectedIds
+                : Array.from(app.timelineSelectedIds || []);
+
+            if (app.currentPage !== 'settings') {
+                deps.NavigationController.navigateTo(navigationOptions(), 'settings');
+            }
+
+            deps.SettingsController.openExportModal(settingsOptions(), {
+                selectedIds
             });
         }
 
@@ -429,6 +449,7 @@ const AppWiring = (() => {
                 }),
                 navigatorLike: deps.window.navigator,
                 showToast: (message, type) => app.showToast(message, type),
+                openCustomExport: openCustomExportFromSelection,
                 showChoices: (message, choices) => deps.ConfirmController.showChoices({
                     ...confirmOptions(),
                     message,
@@ -584,6 +605,9 @@ const AppWiring = (() => {
                     timelineSelectionOptions()
                 ),
                 countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
+                countExportFilters: snapshot => deps.SettingsActions.countActiveFilterSnapshot(snapshot),
+                getCurrentFilterSnapshot: () => deps.SettingsActions.snapshotFilters(app.filters),
+                applyExportFilterSnapshot,
                 beginExportSelection: config => deps.TimelineSelectionController.beginExportSelection(
                     timelineSelectionOptions(),
                     config

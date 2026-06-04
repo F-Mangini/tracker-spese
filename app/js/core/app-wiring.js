@@ -58,6 +58,7 @@ const AppWiring = (() => {
             ModalMobileController: typeof ModalMobileController === 'undefined' ? null : ModalMobileController,
             ModalInteractions: typeof ModalInteractions === 'undefined' ? null : ModalInteractions,
             ModalController: typeof ModalController === 'undefined' ? null : ModalController,
+            SettingsActions: typeof SettingsActions === 'undefined' ? null : SettingsActions,
             SettingsController: typeof SettingsController === 'undefined' ? null : SettingsController,
             UIStack: typeof UIStack === 'undefined' ? null : UIStack,
             HistoryController: typeof HistoryController === 'undefined' ? null : HistoryController,
@@ -202,6 +203,28 @@ const AppWiring = (() => {
 
             if (app.currentPage === 'timeline') app.renderTimeline(model);
             if (app.currentPage === 'stats') app.renderStats(model);
+        }
+
+        function applyFilterSnapshot(snapshot = {}, selectedIds = []) {
+            const filters = deps.SettingsActions && typeof deps.SettingsActions.normalizeFilterSnapshot === 'function'
+                ? deps.SettingsActions.normalizeFilterSnapshot(snapshot)
+                : snapshot;
+
+            app.filters.query = filters.query || '';
+            app.filters.categories = new Set(filters.categories || []);
+            app.filters.methods = new Set(filters.methods || []);
+            app.filters.amountMin = Number(filters.amountMin || 0);
+            app.filters.amountMax = filters.amountMax === Infinity
+                ? Infinity
+                : Number(filters.amountMax);
+            app.filters.dateFrom = filters.dateFrom || '';
+            app.filters.dateTo = filters.dateTo || '';
+            app.filters.selectedOnly = !!filters.selectedOnly;
+            app.filters.selectedOnlyIds = filters.selectedOnly
+                ? new Set(selectedIds || [])
+                : new Set();
+
+            syncFiltersAndViews();
         }
 
         function themeOptions() {
@@ -580,6 +603,8 @@ const AppWiring = (() => {
                 localStorage: deps.window.localStorage,
                 getCurrentPage: () => app.currentPage,
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
+                getCurrentFilters: () => app.filters,
+                applyExportFilters: applyFilterSnapshot,
                 getSelectedSpese: () => deps.TimelineSelectionController.getSelectedSpese(
                     timelineSelectionOptions()
                 ),

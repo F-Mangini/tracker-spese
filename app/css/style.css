@@ -2070,6 +2070,34 @@ body.expense-input-active #input-bar {
     min-width: 120px;
 }
 
+.export-filter-btn {
+    position: relative;
+}
+
+.export-filter-btn .filter-badge {
+    top: -6px;
+    right: -6px;
+}
+
+.export-config-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.72fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.export-config-field {
+    min-width: 0;
+}
+
+.export-format-dropdown .sd-input {
+    min-height: 44px;
+}
+
+.export-format-dropdown .sd-list {
+    max-height: 112px;
+}
+
 .export-checklist {
     display: grid;
     gap: 8px;
@@ -2086,6 +2114,7 @@ body.expense-input-active #input-bar {
     color: var(--text-primary);
     font-size: 0.9rem;
     font-weight: 600;
+    min-height: 42px;
 }
 
 .export-check-row input {
@@ -2113,8 +2142,7 @@ body.expense-input-active #input-bar {
     font-size: 0.95rem;
 }
 
-.export-selection-summary span,
-.export-plain-hint {
+.export-selection-summary span {
     font-size: 0.8rem;
     color: var(--text-tertiary);
 }

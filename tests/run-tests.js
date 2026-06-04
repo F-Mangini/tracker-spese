@@ -3832,7 +3832,11 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
         selectedCount: 3,
         filterCount: 2
     });
-    assert(exportModal.includes('JSON backup'));
+    assert(exportModal.includes('JSON'));
+    assert(!exportModal.includes('JSON backup'));
+    assert(!exportModal.includes('CSV tabella'));
+    assert(!exportModal.includes('file in chiaro'));
+    assert(!exportModal.includes('JSON puo includere'));
     assert(exportModal.includes('3 spese selezionate'));
     assert(exportModal.includes('Personalizzazioni'));
 });
@@ -3860,6 +3864,27 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         SettingsActions.getExportFormats().map(format => format.value),
         ['json', 'csv']
     );
+    assert.deepEqual(
+        SettingsActions.normalizeFilterSnapshot({
+            query: ' caffe ',
+            categories: ['bar', 2],
+            methods: new Set(['carta']),
+            amountMin: '3',
+            amountMax: null,
+            dateFrom: '2026-06-01',
+            selectedOnly: true
+        }),
+        {
+            query: 'caffe',
+            categories: ['bar', '2'],
+            methods: ['carta'],
+            amountMin: 3,
+            amountMax: Infinity,
+            dateFrom: '2026-06-01',
+            dateTo: '',
+            selectedOnly: true
+        }
+    );
 
     const prefsStorage = createLocalStorage();
     const normalizedPrefs = SettingsActions.saveExportPreferences(
@@ -3870,11 +3895,43 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             includeSettings: true,
             includePersonalizzazioni: true,
             selectedIds: ['a', 2],
-            selectionInitialized: true
+            selectionInitialized: true,
+            lastExport: {
+                selectedIds: ['b'],
+                filters: {
+                    query: 'pane',
+                    categories: ['spesa'],
+                    amountMax: 40
+                }
+            }
         }
     );
     assert.equal(normalizedPrefs.format, 'csv');
     assert.equal(normalizedPrefs.includeSettings, false);
+    assert.deepEqual(normalizedPrefs.lastExport.selectedIds, ['b']);
+    assert.equal(normalizedPrefs.lastExport.filters.query, 'pane');
+    assert.deepEqual(normalizedPrefs.lastExport.filters.categories, ['spesa']);
+    assert.deepEqual(
+        SettingsActions.normalizeExportPreferences({
+            lastExport: {
+                selectedIds: [],
+                filters: { query: 'solo impostazioni' }
+            }
+        }).lastExport,
+        {
+            selectedIds: [],
+            filters: {
+                query: 'solo impostazioni',
+                categories: [],
+                methods: [],
+                amountMin: 0,
+                amountMax: Infinity,
+                dateFrom: '',
+                dateTo: '',
+                selectedOnly: false
+            }
+        }
+    );
     assert.deepEqual(
         SettingsActions.readExportPreferences(prefsStorage, { KEY: 'spese-test' }).selectedIds,
         ['a', '2']
@@ -4448,7 +4505,7 @@ test('Controller impostazioni collega finestra export a history e selezione time
     const classes = new Set(['hidden']);
     const calls = [];
     const body = { innerHTML: '' };
-    const filterBtn = { textContent: '' };
+    const filterBtn = { textContent: '', innerHTML: '' };
     const modal = {
         dataset: {},
         classList: {
@@ -4471,7 +4528,9 @@ test('Controller impostazioni collega finestra export a history e selezione time
         storage: { KEY: 'spese-test' },
         localStorage: createLocalStorage(),
         getSelectedSpese: () => [expense({ id: 'a' })],
+        getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
         countActiveFilters: () => 2,
+        beginExportSelection: config => calls.push(['begin-export-selection-open', config]),
         pushUiState: state => calls.push(['push', state]),
         consumeUiState: () => calls.push(['consume'])
     };
@@ -4479,12 +4538,18 @@ test('Controller impostazioni collega finestra export a history e selezione time
     SettingsController.openExportModal(options);
     assert.equal(SettingsController.isExportModalOpen(options), true);
     assert(body.innerHTML.includes('1 spesa selezionata'));
-    assert.equal(filterBtn.textContent, 'Filtri (2)');
-    assert.deepEqual(calls, [['push', { panel: 'export-modal' }]]);
+    assert(filterBtn.innerHTML.includes('Filtra \uD83D\uDD0D'));
+    assert(filterBtn.innerHTML.includes('filter-badge'));
+    assert(filterBtn.innerHTML.includes('2'));
+    assert.deepEqual(calls, [
+        ['begin-export-selection-open', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
 
     SettingsController.closeExportModal(options);
     assert.equal(SettingsController.isExportModalOpen(options), false);
     assert.deepEqual(calls, [
+        ['begin-export-selection-open', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }],
         ['consume']
     ]);
@@ -4539,10 +4604,136 @@ test('Controller impostazioni collega finestra export a history e selezione time
         ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: true }],
         ['navigate-timeline']
     ]);
-    assert.equal(savedPrefs.selectionInitialized, true);
-    assert.deepEqual(savedPrefs.selectedIds, ['b', 'c']);
+    assert.equal(savedPrefs.selectionInitialized, false);
+    assert.deepEqual(savedPrefs.selectedIds, []);
     assert.equal(savedPrefs.includeSettings, false);
     assert.equal(savedPrefs.includePersonalizzazioni, true);
+});
+
+test('Controller impostazioni ricorda solo ultimo export custom riuscito', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const calls = [];
+    let clickHandler = null;
+    const localStorage = createLocalStorage();
+    const storage = {
+        KEY: 'spese-test',
+        exportJSON(options) {
+            calls.push(['export-json', options]);
+            return { success: true, content: '{"ok":true}', count: 2 };
+        }
+    };
+    const fields = {
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: false },
+        '#export-include-personalizzazioni': { checked: true },
+        '#export-modal-close': null
+    };
+    const boundModal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const exportOptions = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? boundModal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getTimelineSelectedIds: () => new Set(['a', 'b']),
+        getSelectedSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
+        getCurrentFilters: () => ({
+            query: 'caffe',
+            categories: new Set(['bar']),
+            methods: new Set(['carta']),
+            amountMin: 2,
+            amountMax: 12,
+            dateFrom: '2026-06-01',
+            dateTo: '',
+            selectedOnly: true
+        }),
+        dateStamp: () => '2026-06-04',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        selectedIds: ['draft-only'],
+        selectionInitialized: true
+    });
+
+    SettingsController.bindExportModal(exportOptions);
+    clickHandler({ target: { id: 'btn-export-run' } });
+
+    const savedAfterExport = SettingsActions.readExportPreferences(localStorage, storage);
+    assert.deepEqual(savedAfterExport.selectedIds, ['a', 'b']);
+    assert.equal(savedAfterExport.selectionInitialized, true);
+    assert.deepEqual(savedAfterExport.lastExport.selectedIds, ['a', 'b']);
+    assert.equal(savedAfterExport.lastExport.filters.query, 'caffe');
+    assert.deepEqual(savedAfterExport.lastExport.filters.categories, ['bar']);
+    assert.deepEqual(savedAfterExport.lastExport.filters.methods, ['carta']);
+    assert.equal(savedAfterExport.lastExport.filters.selectedOnly, true);
+    assert.deepEqual(calls, [
+        ['export-json', {
+            spese: [expense({ id: 'a' }), expense({ id: 'b' })],
+            includeData: true,
+            includeSettings: false,
+            includePersonalizzazioni: true
+        }],
+        ['download', 'spese_export_2026-06-04.json', 'application/json', '{"ok":true}'],
+        ['toast', 'info', 'Export JSON custom avviato...']
+    ]);
+
+    const classes = new Set(['hidden']);
+    const body = { innerHTML: '' };
+    const filterBtn = { innerHTML: '' };
+    const openModal = {
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const reopenCalls = [];
+    SettingsController.openExportModal({
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? openModal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' }), expense({ id: 'c' })],
+        getSelectedSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
+        countActiveFilters: () => 5,
+        applyExportFilters: (filters, selectedIds) => reopenCalls.push(['apply-filters', filters, selectedIds]),
+        beginExportSelection: config => reopenCalls.push(['begin-selection', config]),
+        pushUiState: state => reopenCalls.push(['push', state])
+    });
+
+    assert.deepEqual(reopenCalls, [
+        ['apply-filters', savedAfterExport.lastExport.filters, ['a', 'b']],
+        ['begin-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+    assert(filterBtn.innerHTML.includes('filter-badge'));
+    assert(filterBtn.innerHTML.includes('5'));
 });
 
 test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {

@@ -47,7 +47,7 @@ Completato su `codex/ux-export`:
 
 - Import ed export riuniti nella stessa card impostazioni.
 - Export Default con JSON completo e conferma semplice.
-- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, preferenze locali salvate, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
 - JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
 
 ## Repository e Canali
@@ -84,12 +84,12 @@ Ancora da affrontare:
 
 - Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
 - Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
-- Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
+- Rivalutare dove spiegare che JSON/CSV/raw sono file in chiaro se l'app verra condivisa oltre l'uso personale del maintainer, evitando disclaimer ripetuti nei flussi quotidiani.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
-- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti e filtri/selezione.
+- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti, filtri/selezione e ripristino dell'ultimo export custom riuscito.
 - Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.

@@ -123,6 +123,14 @@ const SettingsController = (() => {
             : [];
 
         if (ids instanceof Set) return Array.from(ids).filter(Boolean);
+        if (
+            ids &&
+            typeof ids.size === 'number' &&
+            typeof ids.has === 'function' &&
+            typeof ids.forEach === 'function'
+        ) {
+            return Array.from(ids).filter(Boolean);
+        }
         if (Array.isArray(ids)) return ids.filter(Boolean);
         return [];
     }
@@ -134,6 +142,20 @@ const SettingsController = (() => {
 
         const selectedIds = new Set(getCurrentSelectedIds(options));
         return getSpese(options).filter(spesa => spesa && selectedIds.has(spesa.id));
+    }
+
+    function getAllExpenseIds(options = {}) {
+        return getSpese(options)
+            .map(spesa => spesa && spesa.id)
+            .filter(Boolean);
+    }
+
+    function getCurrentFilterSnapshot(options = {}) {
+        const filters = typeof options.getCurrentFilters === 'function'
+            ? options.getCurrentFilters()
+            : {};
+
+        return SettingsActions.createExportFilterSnapshot(filters);
     }
 
     function getExportModalModel(options = {}) {
@@ -160,8 +182,38 @@ const SettingsController = (() => {
             const filterCount = typeof options.countActiveFilters === 'function'
                 ? options.countActiveFilters()
                 : 0;
-            filterBtn.textContent = filterCount > 0 ? `Filtri (${filterCount})` : 'Filtri';
+            const filterLabel = 'Filtra \uD83D\uDD0D';
+            filterBtn.innerHTML = filterCount > 0
+                ? `${filterLabel}<span class="filter-badge">${filterCount}</span>`
+                : filterLabel;
         }
+    }
+
+    function initializeExportModalSelection(options = {}) {
+        const prefs = getExportPreferences(options);
+        const lastExport = prefs.lastExport;
+        const lastSelectedIds = lastExport && Array.isArray(lastExport.selectedIds)
+            ? lastExport.selectedIds
+            : [];
+        const selectedIds = lastExport
+            ? lastSelectedIds
+            : getAllExpenseIds(options);
+
+        if (lastExport && lastExport.filters && typeof options.applyExportFilters === 'function') {
+            options.applyExportFilters(lastExport.filters, selectedIds);
+        }
+
+        if (typeof options.beginExportSelection === 'function') {
+            options.beginExportSelection({
+                selectedIds,
+                selectFilteredWhenEmpty: !lastExport && selectedIds.length === 0
+            });
+        }
+
+        return {
+            selectedIds,
+            restoredLastExport: !!lastExport
+        };
     }
 
     function openReleaseModal(options = {}) {
@@ -198,6 +250,7 @@ const SettingsController = (() => {
         const modal = getExportModal(options);
         if (!modal) return;
 
+        initializeExportModalSelection(options);
         renderExportModal(options);
 
         const wasOpen = !modal.classList.contains('hidden');
@@ -253,7 +306,7 @@ const SettingsController = (() => {
 
     function showDefaultExportConfirm(options = {}) {
         options.showConfirm(
-            'Esportare un backup JSON completo? Il file sara in chiaro.',
+            'Esportare un backup JSON completo?',
             () => downloadExport('json', options),
             {
                 yesText: 'Esporta',
@@ -289,7 +342,7 @@ const SettingsController = (() => {
         const dataField = modal.querySelector('#export-include-data');
         const settingsField = modal.querySelector('#export-include-settings');
         const personalizzazioniField = modal.querySelector('#export-include-personalizzazioni');
-        const format = formatField ? formatField.value : 'json';
+        const format = formatField ? (formatField.value || formatField.dataset.value) : 'json';
         const csvMode = format === 'csv';
 
         return SettingsActions.normalizeExportPreferences({
@@ -297,8 +350,7 @@ const SettingsController = (() => {
             format,
             includeData: csvMode || !dataField || dataField.checked,
             includeSettings: !csvMode && (!settingsField || settingsField.checked),
-            includePersonalizzazioni: !csvMode && !!(personalizzazioniField && personalizzazioniField.checked),
-            selectedIds: getCurrentSelectedIds(options)
+            includePersonalizzazioni: !csvMode && !!(personalizzazioniField && personalizzazioniField.checked)
         });
     }
 
@@ -328,7 +380,12 @@ const SettingsController = (() => {
 
         saveExportPreferences(options, {
             ...prefs,
-            selectedIds: getCurrentSelectedIds(options)
+            selectedIds: getCurrentSelectedIds(options),
+            selectionInitialized: true,
+            lastExport: {
+                selectedIds: getCurrentSelectedIds(options),
+                filters: getCurrentFilterSnapshot(options)
+            }
         });
 
         const spec = result.download;
@@ -339,28 +396,16 @@ const SettingsController = (() => {
     function openExportFilters(options = {}) {
         const prefs = persistExportModalDraft(options);
         const currentSelectedIds = getCurrentSelectedIds(options);
-        const selectedIds = currentSelectedIds.length > 0
-            ? currentSelectedIds
-            : prefs.selectedIds;
-        const initialized = prefs.selectionInitialized || selectedIds.length > 0;
+        const lastSelectedIds = prefs.lastExport && Array.isArray(prefs.lastExport.selectedIds)
+            ? prefs.lastExport.selectedIds
+            : [];
+        const hasLastExport = !!prefs.lastExport;
+        const selectedIds = currentSelectedIds.length > 0 ? currentSelectedIds : lastSelectedIds;
 
         if (typeof options.beginExportSelection === 'function') {
-            const result = options.beginExportSelection({
-                selectedIds: initialized ? selectedIds : [],
-                selectFilteredWhenEmpty: !initialized
-            });
-
-            saveExportPreferences(options, {
-                ...prefs,
-                selectionInitialized: true,
-                selectedIds: result && Array.isArray(result.selectedIds)
-                    ? result.selectedIds
-                    : getCurrentSelectedIds(options)
-            });
-        } else {
-            saveExportPreferences(options, {
-                ...prefs,
-                selectionInitialized: true
+            options.beginExportSelection({
+                selectedIds,
+                selectFilteredWhenEmpty: !hasLastExport && selectedIds.length === 0
             });
         }
 
@@ -648,6 +693,91 @@ const SettingsController = (() => {
         return replaceLocationAfterHistoryCleanup(link.href, options);
     }
 
+    function closest(target, selector) {
+        return target && typeof target.closest === 'function'
+            ? target.closest(selector)
+            : null;
+    }
+
+    function getExportFormatDropdown(modal) {
+        return modal && typeof modal.querySelector === 'function'
+            ? modal.querySelector('#export-format-dropdown')
+            : null;
+    }
+
+    function closeExportFormatDropdown(modal) {
+        const dropdown = getExportFormatDropdown(modal);
+        if (dropdown && dropdown.classList && typeof dropdown.classList.remove === 'function') {
+            dropdown.classList.remove('open');
+        }
+    }
+
+    function toggleExportFormatDropdown(modal, open) {
+        const dropdown = getExportFormatDropdown(modal);
+        if (!dropdown || !dropdown.classList) return;
+
+        const shouldOpen = open == null
+            ? !dropdown.classList.contains('open')
+            : !!open;
+        const method = shouldOpen ? 'add' : 'remove';
+
+        if (typeof dropdown.classList[method] === 'function') {
+            dropdown.classList[method]('open');
+        }
+    }
+
+    function selectExportFormat(modal, value, options = {}) {
+        const field = modal.querySelector('#export-format');
+        const input = modal.querySelector('#export-format-dropdown .sd-input');
+        const item = modal.querySelector(`#export-format-dropdown .sd-item[data-format="${value}"]`);
+
+        if (field) field.value = value;
+        if (input) {
+            input.dataset.value = value;
+            input.value = item ? item.textContent.trim() : value.toUpperCase();
+        }
+
+        closeExportFormatDropdown(modal);
+        syncExportModalFromDraft(options);
+    }
+
+    function handleExportFormatKeydown(event, modal, options = {}) {
+        const dropdown = closest(event.target, '#export-format-dropdown');
+        if (!dropdown) return;
+
+        const items = Array.from(dropdown.querySelectorAll('.sd-item'));
+        if (items.length === 0) return;
+
+        const currentIndex = Math.max(
+            0,
+            items.findIndex(item => item.classList.contains('highlighted') || item.classList.contains('selected'))
+        );
+        const setHighlight = index => {
+            items.forEach((item, itemIndex) => {
+                item.classList.toggle('highlighted', itemIndex === index);
+            });
+        };
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            toggleExportFormatDropdown(modal, true);
+            setHighlight(Math.min(currentIndex + 1, items.length - 1));
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            toggleExportFormatDropdown(modal, true);
+            setHighlight(Math.max(currentIndex - 1, 0));
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            const highlighted = dropdown.querySelector('.sd-item.highlighted') ||
+                dropdown.querySelector('.sd-item.selected') ||
+                items[0];
+            selectExportFormat(modal, highlighted.dataset.format, options);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            closeExportFormatDropdown(modal);
+        }
+    }
+
     function bindReleaseModal(options = {}) {
         const modal = getReleaseModal(options);
         if (!modal || modal.dataset.bound === 'true') return;
@@ -690,6 +820,17 @@ const SettingsController = (() => {
                 return;
             }
 
+            const formatItem = closest(event.target, '#export-format-dropdown .sd-item');
+            if (formatItem) {
+                selectExportFormat(modal, formatItem.dataset.format, options);
+                return;
+            }
+
+            if (closest(event.target, '#export-format-dropdown')) {
+                toggleExportFormatDropdown(modal);
+                return;
+            }
+
             if (event.target.id === 'btn-export-filters') {
                 openExportFilters(options);
                 return;
@@ -697,12 +838,25 @@ const SettingsController = (() => {
 
             if (event.target.id === 'btn-export-run') {
                 downloadCustomExport(options);
+                return;
             }
+
+            closeExportFormatDropdown(modal);
+        });
+
+        modal.addEventListener('focusin', event => {
+            if (closest(event.target, '#export-format-dropdown')) {
+                toggleExportFormatDropdown(modal, true);
+            }
+        });
+
+        modal.addEventListener('keydown', event => {
+            handleExportFormatKeydown(event, modal, options);
         });
 
         modal.addEventListener('change', event => {
             const target = event.target;
-            if (!target || !target.id || !/^export-(format|include-)/.test(target.id)) return;
+            if (!target || !target.id || !/^export-include-/.test(target.id)) return;
 
             syncExportModalFromDraft(options);
         });

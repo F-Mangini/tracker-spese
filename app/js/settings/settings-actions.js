@@ -11,7 +11,8 @@ const SettingsActions = (() => {
         includeSettings: true,
         includePersonalizzazioni: false,
         selectedIds: [],
-        selectionInitialized: false
+        selectionInitialized: false,
+        lastExport: null
     });
 
     function detectImportFormat(file = {}) {
@@ -36,15 +37,15 @@ const SettingsActions = (() => {
     function getExportChoices() {
         return [
             { text: 'Annulla', className: 'btn-secondary' },
-            { text: 'JSON backup', className: 'btn-primary', format: 'json' },
-            { text: 'CSV tabella', className: 'btn-secondary', format: 'csv' }
+            { text: 'JSON', className: 'btn-primary', format: 'json' },
+            { text: 'CSV', className: 'btn-secondary', format: 'csv' }
         ];
     }
 
     function getExportFormats() {
         return [
-            { value: 'json', label: 'JSON backup' },
-            { value: 'csv', label: 'CSV tabella' }
+            { value: 'json', label: 'JSON' },
+            { value: 'csv', label: 'CSV' }
         ];
     }
 
@@ -57,11 +58,74 @@ const SettingsActions = (() => {
             return Array.from(value).map(String).filter(Boolean);
         }
 
+        if (
+            value &&
+            typeof value.size === 'number' &&
+            typeof value.has === 'function' &&
+            typeof value.forEach === 'function'
+        ) {
+            return Array.from(value).map(String).filter(Boolean);
+        }
+
         if (Array.isArray(value)) {
             return value.map(String).filter(Boolean);
         }
 
         return [];
+    }
+
+    function normalizeNumber(value, fallback = 0) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+    }
+
+    function normalizeFilterSnapshot(value = {}) {
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+            ? value
+            : {};
+        const rawMax = source.amountMax === Infinity ||
+            source.amountMax === null ||
+            source.amountMax === 'Infinity'
+            ? Infinity
+            : Number(source.amountMax);
+
+        return {
+            query: String(source.query || '').trim(),
+            categories: normalizeIdList(source.categories),
+            methods: normalizeIdList(source.methods),
+            amountMin: Math.max(0, normalizeNumber(source.amountMin, 0)),
+            amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
+            dateFrom: String(source.dateFrom || '').trim(),
+            dateTo: String(source.dateTo || '').trim(),
+            selectedOnly: source.selectedOnly === true
+        };
+    }
+
+    function createExportFilterSnapshot(filters = {}) {
+        return normalizeFilterSnapshot({
+            query: filters.query,
+            categories: filters.categories,
+            methods: filters.methods,
+            amountMin: filters.amountMin,
+            amountMax: filters.amountMax,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+            selectedOnly: filters.selectedOnly
+        });
+    }
+
+    function normalizeLastExport(value = {}) {
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+            ? value
+            : {};
+        const selectedIds = normalizeIdList(source.selectedIds);
+
+        if (selectedIds.length === 0 && !source.filters) return null;
+
+        return {
+            selectedIds,
+            filters: normalizeFilterSnapshot(source.filters || {})
+        };
     }
 
     function normalizeExportPreferences(value = {}) {
@@ -76,7 +140,8 @@ const SettingsActions = (() => {
             includeSettings: source.includeSettings !== false,
             includePersonalizzazioni: source.includePersonalizzazioni === true,
             selectedIds: normalizeIdList(source.selectedIds),
-            selectionInitialized: source.selectionInitialized === true
+            selectionInitialized: source.selectionInitialized === true,
+            lastExport: normalizeLastExport(source.lastExport)
         };
 
         if (format === 'csv') {
@@ -547,6 +612,8 @@ const SettingsActions = (() => {
         detectImportFormat,
         getExportChoices,
         getExportFormats,
+        normalizeFilterSnapshot,
+        createExportFilterSnapshot,
         normalizeExportPreferences,
         readExportPreferences,
         saveExportPreferences,

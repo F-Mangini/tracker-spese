@@ -411,24 +411,6 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
-    function openCustomExport(options = {}) {
-        const selected = getSelectedSpese(options);
-        if (selected.length === 0) {
-            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
-            return false;
-        }
-
-        if (typeof options.openCustomExport === 'function') {
-            options.openCustomExport({
-                selectedIds: Array.from(getSelectedIds(options)),
-                selectedSpese: selected
-            });
-            return true;
-        }
-
-        return showExportChoices(options);
-    }
-
     function fallbackCopyText(options = {}, text = '') {
         const doc = getDocument(options);
         if (!doc || typeof doc.createElement !== 'function' || !doc.body) {
@@ -625,7 +607,7 @@ const TimelineSelectionController = (() => {
 
         if (exportButton && exportButton.dataset.selectionBound !== 'true') {
             exportButton.dataset.selectionBound = 'true';
-            exportButton.addEventListener('click', () => openCustomExport(options));
+            exportButton.addEventListener('click', () => showExportChoices(options));
         }
 
         if (deleteButton && deleteButton.dataset.selectionBound !== 'true') {
@@ -705,7 +687,6 @@ const TimelineSelectionController = (() => {
         beginExportSelection,
         getExportChoices,
         showExportChoices,
-        openCustomExport,
         copySelected,
         exportSelected,
         showDeleteConfirm,

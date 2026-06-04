@@ -64,7 +64,7 @@ Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccat
 
 La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.
 
-L'export Default genera un backup JSON completo con conferma semplice. L'export Custom salva preferenze locali dedicate per formato, contenuti, selezione e filtri: il formato si sceglie da un dropdown JSON/CSV, JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari. Al primo uso vengono selezionate tutte le spese; dagli usi successivi vengono riapplicati i filtri e la selezione dell'ultimo export. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
+L'export Default genera un backup JSON completo. L'export Custom salva preferenze locali dedicate per formato, contenuti e selezione: JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
 
 ## Funzioni Implementate
 
@@ -78,7 +78,7 @@ Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri
 
 La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana corrente e mese; il totale settimanale considera solo il periodo lunedi-domenica della settimana corrente, senza includere settimane future. Con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
 
-Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il titolo dell'header resta invariato, il pulsante cerca resta nella posizione normale e il toggle tema dell'header viene sostituito dal toggle `Seleziona tutte`. Le azioni copia negli appunti, apertura di `Esporta Custom` sulle spese selezionate ed eliminazione con conferma vivono nella bottom nav come set dedicato disponibile solo in timeline; i pulsanti Timeline, Statistiche e Impostazioni restano raggiungibili con uno swipe orizzontale che cambia l'intero set di tre bottoni, senza scroll parziale. In statistiche e impostazioni resta disponibile solo il set principale della bottom nav; tornando da quelle pagine alla timeline il set principale resta visibile finche l'utente non richiede di nuovo il set azioni con lo swipe. La modalita resta visibile anche passando alle statistiche, con header e barra pagine evidenziati, ma `Seleziona tutte` resta disponibile solo in timeline. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, disponibile in timeline e statistiche, che limita le viste allo snapshot di spese selezionate nel momento in cui il filtro viene attivato; se una spesa viene poi deselezionata resta nel filtrato finche il filtro non viene spento e riacceso.
+Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il titolo dell'header resta invariato, il pulsante cerca resta nella posizione normale e il toggle tema dell'header viene sostituito dal toggle `Seleziona tutte`. Le azioni copia negli appunti, export JSON/CSV ed eliminazione con conferma vivono nella bottom nav come set dedicato disponibile solo in timeline; i pulsanti Timeline, Statistiche e Impostazioni restano raggiungibili con uno swipe orizzontale che cambia l'intero set di tre bottoni, senza scroll parziale. In statistiche e impostazioni resta disponibile solo il set principale della bottom nav; tornando da quelle pagine alla timeline il set principale resta visibile finche l'utente non richiede di nuovo il set azioni con lo swipe. La modalita resta visibile anche passando alle statistiche, con header e barra pagine evidenziati, ma `Seleziona tutte` resta disponibile solo in timeline. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, disponibile in timeline e statistiche, che limita le viste allo snapshot di spese selezionate nel momento in cui il filtro viene attivato; se una spesa viene poi deselezionata resta nel filtrato finche il filtro non viene spento e riacceso.
 
 ### Filtri
 
@@ -136,9 +136,9 @@ La pagina statistiche e di sola lettura: oggi non apre direttamente la modifica 
 La pagina impostazioni include:
 
 - tema chiaro, scuro o automatico;
-- card unica con sezione export e sezione import dati;
+- card unica per import/export dati;
 - export Default con conferma semplice e JSON completo;
-- export Custom con finestra dedicata, dropdown formato JSON/CSV, checklist contenuti, selezione tramite timeline, badge filtri attivi e preferenze locali salvate;
+- export Custom con finestra dedicata, scelta formato, checklist contenuti, selezione tramite timeline e preferenze locali salvate;
 - import JSON/CSV con preview;
 - finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
@@ -151,7 +151,7 @@ La pagina impostazioni include:
 - cancellazione completa con conferma.
 - opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
 
-La finestra `Esporta Custom` entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. Il pulsante `Filtra 🔍` chiude la finestra, applica la snapshot filtri salvata e porta alla timeline in modalita selezione. Al primo uso la configurazione parte da tutte le spese selezionate e zero filtri; dagli usi successivi riusa filtri e selezione dell'ultimo export. Il numero di filtri attivi viene mostrato con il badge rosso sul pulsante.
+La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. Il pulsante `Filtri` chiude la finestra, porta alla timeline in modalita selezione e al primo ingresso seleziona tutto il filtrato corrente; dagli ingressi successivi riusa la selezione salvata quando disponibile. Il pulsante mostra anche il numero di filtri attivi.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 

@@ -23,7 +23,7 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - filtri per ricerca, periodo, importo, categoria e metodo;
 - timeline con riepilogo giornaliero/settimanale/mensile e selezione multipla;
 - statistiche con grafici Chart.js;
-- import/export JSON e CSV, export custom con filtri/selezione, copia negli appunti e cancellazione bulk per le spese selezionate dalla timeline;
+- import/export JSON e CSV, copia negli appunti e cancellazione bulk per le spese selezionate dalla timeline;
 - tema chiaro/scuro/automatico;
 - manifest web app per installazione base;
 - baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.

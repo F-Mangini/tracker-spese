@@ -101,9 +101,6 @@ const ModalInteractions = (() => {
             input.value = ModalView.formatDropdownItem(item);
             input.dataset.value = item.id;
             close();
-            if (typeof options.onChange === 'function') {
-                options.onChange(item.id, item);
-            }
             try { input.blur(); } catch (_) { }
         };
 

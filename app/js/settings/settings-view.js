@@ -177,13 +177,12 @@ const SettingsView = (() => {
             </div>
 
             <div class="settings-section">
-                <h3>\uD83D\uDCE4 Esporta Dati</h3>
-                <p class="settings-hint">Scarica un backup JSON o nel formato che preferisci.</p>
+                <h3>\uD83D\uDCE4 Importa / Esporta dati</h3>
+                <p class="settings-hint">Default crea un backup JSON completo. Custom permette di scegliere formato, contenuti e selezione.</p>
                 <div class="settings-buttons">
                     <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
                     <button id="btn-export-custom" class="btn btn-secondary btn-block">Custom</button>
                 </div>
-                <h3>\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
                 <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
                 <button id="btn-import" class="btn btn-secondary btn-block">\uD83D\uDCC1 Scegli file...</button>
@@ -223,6 +222,7 @@ const SettingsView = (() => {
 
     function renderExportModal(model = {}) {
         const prefs = SettingsActions.normalizeExportPreferences(model.preferences || {});
+        const formats = SettingsActions.getExportFormats();
         const selectedCount = Number(model.selectedCount || 0);
         const selectedLabel = selectedCount === 1
             ? '1 spesa selezionata'
@@ -230,34 +230,39 @@ const SettingsView = (() => {
         const csvMode = prefs.format === 'csv';
 
         return `
-            <div class="export-options-grid">
-                <div class="form-group">
-                    <label>Contenuti</label>
-                    <div class="export-checklist">
-                        <label class="export-check-row">
-                            <input type="checkbox" id="export-include-data" ${prefs.includeData ? 'checked' : ''} ${csvMode ? 'checked disabled' : ''}>
-                            <span>Dati</span>
-                        </label>
-                        <label class="export-check-row ${csvMode ? 'disabled' : ''}">
-                            <input type="checkbox" id="export-include-settings" ${prefs.includeSettings && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
-                            <span>Impostazioni</span>
-                        </label>
-                        <label class="export-check-row ${csvMode ? 'disabled' : ''}">
-                            <input type="checkbox" id="export-include-personalizzazioni" ${prefs.includePersonalizzazioni && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
-                            <span>Personalizzazioni</span>
-                        </label>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label for="export-format">Formato</label>
+                <select id="export-format">
+                    ${formats.map(format => `
+                        <option value="${AppUI.escapeHtml(format.value)}" ${prefs.format === format.value ? 'selected' : ''}>${AppUI.escapeHtml(format.label)}</option>
+                    `).join('')}
+                </select>
+            </div>
 
-                <div class="form-group export-format-field">
-                    <label>Formato</label>
-                    <div id="sd-export-format" class="searchable-dropdown"></div>
+            <div class="form-group">
+                <label>Contenuti</label>
+                <div class="export-checklist">
+                    <label class="export-check-row">
+                        <input type="checkbox" id="export-include-data" ${prefs.includeData ? 'checked' : ''} ${csvMode ? 'checked disabled' : ''}>
+                        <span>Dati</span>
+                    </label>
+                    <label class="export-check-row ${csvMode ? 'disabled' : ''}">
+                        <input type="checkbox" id="export-include-settings" ${prefs.includeSettings && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
+                        <span>Impostazioni</span>
+                    </label>
+                    <label class="export-check-row ${csvMode ? 'disabled' : ''}">
+                        <input type="checkbox" id="export-include-personalizzazioni" ${prefs.includePersonalizzazioni && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
+                        <span>Personalizzazioni</span>
+                    </label>
                 </div>
             </div>
 
             <div class="export-selection-summary">
                 <strong>${AppUI.escapeHtml(selectedLabel)}</strong>
+                <span>${csvMode ? 'CSV esporta solo i dati selezionati.' : 'JSON puo includere dati, impostazioni e personalizzazioni.'}</span>
             </div>
+
+            <p class="settings-hint export-plain-hint">Gli export sono file in chiaro: proteggili come un backup personale.</p>
         `;
     }
 

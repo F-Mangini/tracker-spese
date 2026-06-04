@@ -11,15 +11,6 @@ const SettingsActions = (() => {
         includeSettings: true,
         includePersonalizzazioni: false,
         selectedIds: [],
-        filterSnapshot: {
-            query: '',
-            categories: [],
-            methods: [],
-            amountMin: 0,
-            amountMax: Infinity,
-            dateFrom: '',
-            dateTo: ''
-        },
         selectionInitialized: false
     });
 
@@ -45,15 +36,15 @@ const SettingsActions = (() => {
     function getExportChoices() {
         return [
             { text: 'Annulla', className: 'btn-secondary' },
-            { text: 'JSON', className: 'btn-primary', format: 'json' },
-            { text: 'CSV', className: 'btn-secondary', format: 'csv' }
+            { text: 'JSON backup', className: 'btn-primary', format: 'json' },
+            { text: 'CSV tabella', className: 'btn-secondary', format: 'csv' }
         ];
     }
 
     function getExportFormats() {
         return [
-            { id: 'json', nome: 'JSON' },
-            { id: 'csv', nome: 'CSV' }
+            { value: 'json', label: 'JSON backup' },
+            { value: 'csv', label: 'CSV tabella' }
         ];
     }
 
@@ -66,82 +57,11 @@ const SettingsActions = (() => {
             return Array.from(value).map(String).filter(Boolean);
         }
 
-        if (
-            value &&
-            typeof value.size === 'number' &&
-            typeof value.forEach === 'function'
-        ) {
-            const items = [];
-            value.forEach(item => items.push(item));
-            return items.map(String).filter(Boolean);
-        }
-
         if (Array.isArray(value)) {
             return value.map(String).filter(Boolean);
         }
 
         return [];
-    }
-
-    function normalizeFilterSnapshot(value = {}) {
-        const source = value && typeof value === 'object' && !Array.isArray(value)
-            ? value
-            : {};
-        const rawMin = Number(source.amountMin);
-        const rawMax = source.amountMax === Infinity || source.amountMax === null || source.amountMax === undefined
-            ? Infinity
-            : Number(source.amountMax);
-
-        return {
-            query: String(source.query || '').trim(),
-            categories: normalizeIdList(source.categories),
-            methods: normalizeIdList(source.methods),
-            amountMin: Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 0,
-            amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
-            dateFrom: String(source.dateFrom || '').trim(),
-            dateTo: String(source.dateTo || '').trim()
-        };
-    }
-
-    function snapshotFilters(filters = {}) {
-        return normalizeFilterSnapshot({
-            query: filters.query,
-            categories: filters.categories,
-            methods: filters.methods,
-            amountMin: filters.amountMin,
-            amountMax: filters.amountMax,
-            dateFrom: filters.dateFrom,
-            dateTo: filters.dateTo
-        });
-    }
-
-    function applyFilterSnapshot(filters = {}, snapshot = {}) {
-        const state = normalizeFilterSnapshot(snapshot);
-
-        filters.query = state.query;
-        filters.categories = new Set(state.categories);
-        filters.methods = new Set(state.methods);
-        filters.amountMin = state.amountMin;
-        filters.amountMax = state.amountMax;
-        filters.dateFrom = state.dateFrom;
-        filters.dateTo = state.dateTo;
-        filters.selectedOnly = false;
-        filters.selectedOnlyIds = new Set();
-
-        return filters;
-    }
-
-    function countActiveFilterSnapshot(snapshot = {}) {
-        const state = normalizeFilterSnapshot(snapshot);
-        let count = 0;
-
-        if (state.query) count += 1;
-        if (state.categories.length > 0) count += 1;
-        if (state.methods.length > 0) count += 1;
-        if (state.amountMin > 0 || state.amountMax < Infinity) count += 1;
-        if (state.dateFrom || state.dateTo) count += 1;
-
-        return count;
     }
 
     function normalizeExportPreferences(value = {}) {
@@ -156,7 +76,6 @@ const SettingsActions = (() => {
             includeSettings: source.includeSettings !== false,
             includePersonalizzazioni: source.includePersonalizzazioni === true,
             selectedIds: normalizeIdList(source.selectedIds),
-            filterSnapshot: normalizeFilterSnapshot(source.filterSnapshot),
             selectionInitialized: source.selectionInitialized === true
         };
 
@@ -629,10 +548,6 @@ const SettingsActions = (() => {
         getExportChoices,
         getExportFormats,
         normalizeExportPreferences,
-        normalizeFilterSnapshot,
-        snapshotFilters,
-        applyFilterSnapshot,
-        countActiveFilterSnapshot,
         readExportPreferences,
         saveExportPreferences,
         getImportChoices,

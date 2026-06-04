@@ -1183,14 +1183,8 @@ body.expense-input-active #input-bar {
 }
 
 .bottom-action-btn:disabled {
-    color: var(--text-primary);
     opacity: 0.42;
     cursor: default;
-}
-
-.bottom-action-btn:disabled:active,
-.bottom-action-btn.pressed:disabled {
-    color: var(--text-primary);
 }
 
 .nav-icon {
@@ -2032,10 +2026,6 @@ body.expense-input-active #input-bar {
     margin-bottom: 12px;
 }
 
-.settings-section .settings-buttons + h3 {
-    margin-top: 18px;
-}
-
 .settings-hint {
     font-size: 0.82rem;
     color: var(--text-tertiary);
@@ -2085,26 +2075,6 @@ body.expense-input-active #input-bar {
     gap: 8px;
 }
 
-.export-options-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(140px, 0.85fr);
-    gap: 14px;
-    align-items: start;
-}
-
-.export-format-field {
-    min-width: 0;
-}
-
-.export-filter-btn {
-    position: relative;
-}
-
-.export-filter-btn .filter-badge {
-    top: -6px;
-    right: -6px;
-}
-
 .export-check-row {
     display: flex;
     align-items: center;
@@ -2133,6 +2103,7 @@ body.expense-input-active #input-bar {
     display: grid;
     gap: 4px;
     padding: 12px;
+    margin-bottom: 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--bg-primary);
@@ -2142,15 +2113,10 @@ body.expense-input-active #input-bar {
     font-size: 0.95rem;
 }
 
-.export-selection-summary span {
+.export-selection-summary span,
+.export-plain-hint {
     font-size: 0.8rem;
     color: var(--text-tertiary);
-}
-
-@media (max-width: 420px) {
-    .export-options-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 .release-list {

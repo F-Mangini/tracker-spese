@@ -18,7 +18,9 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 ## Prossime Priorita
 
 1. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-2. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
+2. Rendere piu chiari export/import e preparare il futuro export custom senza cambiare schema dati.
+3. Migliorare statistiche e visualizzazioni quando i flussi UX vicini sono stabili.
+4. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
 
 Completato il 2026-06-01:
 
@@ -30,6 +32,16 @@ Completato il 2026-06-03:
 - Fix del totale `Settimana` nel riepilogo timeline e nella barra del pannello filtri: ora conta solo la settimana corrente lunedi-domenica e non include settimane future.
 - Fix del parser categorie/metodi: le keyword vengono riconosciute solo come termini interi, cosi `bus` non viene letto dentro `busta`.
 - Nuova release statica `releases/v2026.06.03/` creata e segnalata come consigliata in `releases.json`; la precedente `v2026.05.30` resta disponibile come release stabile storica.
+
+Aggiunte dagli appunti del 2026-06-03 e 2026-06-04:
+
+- Comportamento del tasto filtri configurabile, con modalita `adattivo`.
+- Pulsante `+` nella barra di inserimento per scegliere data e ora della nuova spesa.
+- Parsing `.<categoria>` per forzare la categoria dall'inserimento rapido.
+- Animazioni verticali del banner riassuntivo quando si disattivano i filtri e quando si entra/esce dalla modalita selezione.
+- Import ed export da rendere piu coerenti nella pagina impostazioni, possibilmente nella stessa card.
+- Statistiche per categoria e dettaglio categorie da unificare in una sezione con piu viste selezionabili via swipe.
+- Nuove aggregazioni statistiche trasversali, per esempio distribuzione delle spese nei giorni della settimana calcolata su tutte le settimane nel periodo filtrato.
 
 ## Repository e Canali
 
@@ -58,6 +70,7 @@ Ancora da affrontare:
 - Comportamento del tasto filtri personalizzabile, inclusa modalita `adattivo` che decide se aprire automaticamente la tastiera in base alla dimensione del pannello semi-aperto.
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
+- Animazione verticale del banner riassuntivo quando si disattivano filtri e quando si entra o esce dalla modalita selezione.
 - Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
 
 ## Dati, Privacy e Import/Export
@@ -68,7 +81,7 @@ Ancora da affrontare:
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
-- Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
+- Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi; nella pagina impostazioni valutare import ed export dentro la stessa card.
 - Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
 - Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
@@ -146,10 +159,12 @@ Da riprendere solo quando servira:
 
 ## Statistiche e Grafici
 
+- Unificare `Per categoria` e `Dettaglio categorie` in una sola sezione con viste alternative selezionabili via swipe: torta, barre, elenco/dettaglio e future varianti.
+- Nel grafico a torta mostrare label o percentuali per le categorie principali e spostare le quote minori in un elenco sotto la visualizzazione, riusando l'attuale dettaglio categorie come una delle viste.
+- Aggiungere aggregazioni statistiche trasversali al periodo filtrato, per esempio distribuzione delle spese nei giorni della settimana considerando tutte le settimane incluse.
 - Grafico spese nel tempo colorato per categorie.
 - Barre divise per categoria.
 - Soglia indicativa per mostrare contributi categoria dentro una barra.
-- Grafico a torta con label principali e percentuali minori in elenco.
 - Linee verticali tratteggiate per settimane, mesi o anni.
 - Eventuale segnale visivo per sforamento budget.
 

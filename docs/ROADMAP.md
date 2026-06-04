@@ -43,6 +43,13 @@ Aggiunte dagli appunti del 2026-06-03 e 2026-06-04:
 - Statistiche per categoria e dettaglio categorie da unificare in una sezione con piu viste selezionabili via swipe.
 - Nuove aggregazioni statistiche trasversali, per esempio distribuzione delle spese nei giorni della settimana calcolata su tutte le settimane nel periodo filtrato.
 
+Completato su `codex/ux-export`:
+
+- Import ed export riuniti nella stessa card impostazioni.
+- Export Default con JSON completo e conferma semplice.
+- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, preferenze locali salvate, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
+
 ## Repository e Canali
 
 Stato: completato. La dev refactor e stata promossa a stabile; la baseline della nuova fase PWA/offline e stata pubblicata su `main` per i test reali.
@@ -81,9 +88,9 @@ Ancora da affrontare:
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
-- Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi; nella pagina impostazioni valutare import ed export dentro la stessa card.
-- Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
-- Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
+- Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
+- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti e filtri/selezione.
+- Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
 - Definire eventuali migrazioni schema in modo idempotente.

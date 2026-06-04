@@ -2070,6 +2070,55 @@ body.expense-input-active #input-bar {
     min-width: 120px;
 }
 
+.export-checklist {
+    display: grid;
+    gap: 8px;
+}
+
+.export-check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.export-check-row input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.export-check-row.disabled {
+    color: var(--text-tertiary);
+    background: var(--bg-primary);
+}
+
+.export-selection-summary {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+}
+
+.export-selection-summary strong {
+    font-size: 0.95rem;
+}
+
+.export-selection-summary span,
+.export-plain-hint {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
 .release-list {
     display: grid;
     gap: 0;

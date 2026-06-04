@@ -457,6 +457,11 @@ const AppWiring = (() => {
 
                     return result;
                 },
+                isExportModalOpen: () => deps.SettingsController.isExportModalOpen(settingsOptions()),
+                closeExportModal: fromPopstate => deps.SettingsController.closeExportModal(
+                    settingsOptions(),
+                    fromPopstate
+                ),
                 isReleaseModalOpen: () => deps.SettingsController.isReleaseModalOpen(settingsOptions()),
                 closeReleaseModal: fromPopstate => deps.SettingsController.closeReleaseModal(
                     settingsOptions(),
@@ -574,6 +579,23 @@ const AppWiring = (() => {
                 appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
                 localStorage: deps.window.localStorage,
                 getCurrentPage: () => app.currentPage,
+                getTimelineSelectedIds: () => app.timelineSelectedIds,
+                getSelectedSpese: () => deps.TimelineSelectionController.getSelectedSpese(
+                    timelineSelectionOptions()
+                ),
+                countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
+                beginExportSelection: config => deps.TimelineSelectionController.beginExportSelection(
+                    timelineSelectionOptions(),
+                    config
+                ),
+                navigateToTimeline: () => {
+                    consumeUiState(app.currentPage === 'timeline' ? 1 : 2);
+                    deps.NavigationController.navigateTo(
+                        navigationOptions(),
+                        'timeline',
+                        true
+                    );
+                },
                 pushUiState,
                 consumeUiState: steps => consumeUiState(steps),
                 dateStamp: () => deps.AppUI.dateStamp(),

@@ -343,6 +343,40 @@ const TimelineSelectionController = (() => {
         return visibleIds.length;
     }
 
+    function beginExportSelection(options = {}, config = {}) {
+        const model = getFilterModel(options);
+        const allIds = new Set(
+            (model.allSpese || getAllSpese(options))
+                .map(item => item && item.id)
+                .filter(Boolean)
+        );
+        const selectedIds = toIdSet(config.selectedIds);
+        const visibleIds = (
+            (model.filteredSpese || [])
+                .map(item => item && item.id)
+                .filter(Boolean)
+        );
+        const nextIds = selectedIds.size > 0 || !config.selectFilteredWhenEmpty
+            ? new Set(Array.from(selectedIds).filter(id => allIds.has(id)))
+            : new Set(visibleIds);
+        const wasActive = isActive(options);
+
+        setActive(options, true);
+        setSelectedIds(options, nextIds);
+        setDeletePending(options, false);
+
+        if (!wasActive && typeof options.pushUiState === 'function') {
+            options.pushUiState({ panel: 'timeline-selection' });
+        }
+
+        notifySelectionChanged(options);
+
+        return {
+            selectedIds: Array.from(nextIds),
+            selectedCount: nextIds.size
+        };
+    }
+
     function getExportChoices(options = {}) {
         return [
             {
@@ -650,6 +684,7 @@ const TimelineSelectionController = (() => {
         exit,
         toggle,
         selectVisible,
+        beginExportSelection,
         getExportChoices,
         showExportChoices,
         copySelected,

@@ -522,6 +522,11 @@ test('Storage esporta subset e cancella selezione multipla con snapshot', () => 
     localStorage.setItem(Storage.KEY, JSON.stringify(current));
 
     const json = Storage.exportJSON({ spese: [current.spese[1]] });
+    const jsonDataOnly = Storage.exportJSON({
+        spese: [current.spese[1]],
+        includeSettings: false,
+        includePersonalizzazioni: true
+    });
     const csv = Storage.exportCSV({ spese: [current.spese[0], current.spese[2]] });
     const deleted = Storage.deleteSpese(['a', 'c']);
 
@@ -529,6 +534,9 @@ test('Storage esporta subset e cancella selezione multipla con snapshot', () => 
     assert.equal(JSON.parse(json.content).spese.length, 1);
     assert.equal(JSON.parse(json.content).spese[0].id, 'b');
     assert.equal(JSON.parse(json.content).impostazioni.tema, 'dark');
+    assert.equal(JSON.parse(jsonDataOnly.content).spese[0].id, 'b');
+    assert.equal(JSON.parse(jsonDataOnly.content).impostazioni, undefined);
+    assert.deepEqual(JSON.parse(jsonDataOnly.content).personalizzazioni, {});
     assert.equal(csv.success, true);
     assert(csv.content.includes('\na,'));
     assert(csv.content.includes('\nc,'));
@@ -2380,6 +2388,21 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     TimelineSelectionController.selectVisible(options);
     assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
 
+    TimelineSelectionController.beginExportSelection(options, {
+        selectedIds: [],
+        selectFilteredWhenEmpty: true
+    });
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['b', 'c']);
+
+    TimelineSelectionController.beginExportSelection(options, {
+        selectedIds: ['a'],
+        selectFilteredWhenEmpty: false
+    });
+    assert.deepEqual(Array.from(state.selectedIds), ['a']);
+
+    TimelineSelectionController.selectVisible(options);
+    assert.deepEqual(Array.from(state.selectedIds).sort(), ['a', 'b', 'c']);
+
     const summary = TimelineSelectionController.getSummary(options);
     assert.equal(summary.selectedCount, 3);
     assert.equal(summary.selectedTotal, 9);
@@ -3783,6 +3806,10 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     }, true);
 
     assert(page.includes('btn-export-raw'));
+    assert(page.includes('Importa / Esporta dati'));
+    assert(page.includes('btn-export-default'));
+    assert(page.includes('btn-export-custom'));
+    assert(page.includes('btn-import'));
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
     assert(page.includes('Puoi cambiare la versione installata quando vuoi.'));
@@ -3794,6 +3821,20 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(preview.includes('2 spese valide con impostazioni'));
     assert(preview.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert(!preview.includes('<script>alert(1)</script>'));
+
+    const exportModal = SettingsView.renderExportModal({
+        preferences: {
+            format: 'json',
+            includeData: true,
+            includeSettings: false,
+            includePersonalizzazioni: true
+        },
+        selectedCount: 3,
+        filterCount: 2
+    });
+    assert(exportModal.includes('JSON backup'));
+    assert(exportModal.includes('3 spese selezionate'));
+    assert(exportModal.includes('Personalizzazioni'));
 });
 
 test('Azioni impostazioni isolano formati, scelte e download', () => {
@@ -3815,15 +3856,40 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         SettingsActions.getImportChoices(false).map(choice => choice.mode || 'cancel'),
         ['cancel', 'replace']
     );
+    assert.deepEqual(
+        SettingsActions.getExportFormats().map(format => format.value),
+        ['json', 'csv']
+    );
+
+    const prefsStorage = createLocalStorage();
+    const normalizedPrefs = SettingsActions.saveExportPreferences(
+        prefsStorage,
+        { KEY: 'spese-test' },
+        {
+            format: 'csv',
+            includeSettings: true,
+            includePersonalizzazioni: true,
+            selectedIds: ['a', 2],
+            selectionInitialized: true
+        }
+    );
+    assert.equal(normalizedPrefs.format, 'csv');
+    assert.equal(normalizedPrefs.includeSettings, false);
+    assert.deepEqual(
+        SettingsActions.readExportPreferences(prefsStorage, { KEY: 'spese-test' }).selectedIds,
+        ['a', '2']
+    );
 
     const csv = SettingsActions.getExportDownloadSpec('csv', 'a,b', '2026-05-19');
     const json = SettingsActions.getExportDownloadSpec('json', '{}', '2026-05-19');
+    const customJson = SettingsActions.getCustomExportDownloadSpec('json', '{}', '2026-05-19');
     const raw = SettingsActions.getRawDownloadSpec('raw', '2026-05-19');
 
     assert.equal(csv.filename, 'spese_2026-05-19.csv');
     assert(csv.content.startsWith('\uFEFF'));
     assert.equal(json.filename, 'spese_backup_2026-05-19.json');
     assert.equal(json.mime, 'application/json');
+    assert.equal(customJson.filename, 'spese_export_2026-05-19.json');
     assert.equal(raw.filename, 'spese_raw_2026-05-19.txt');
     assert.equal(
         SettingsActions.getReleasesManifestUrl({ href: 'https://f-mangini.github.io/tracker-spese/stable/' }),
@@ -4071,11 +4137,11 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
             return { success: true, format: 'csv', count: 2 };
         },
         exportJSON() {
-            calls.push(['export-json']);
+            calls.push(['export-json', arguments[0] || null]);
             return { success: true, content: '{"ok":true}' };
         },
         exportCSV() {
-            calls.push(['export-csv']);
+            calls.push(['export-csv', arguments[0] || null]);
             return { success: true, content: 'a,b' };
         },
         exportRaw() {
@@ -4151,6 +4217,15 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
         storage,
         dateStamp: '2026-05-19'
     });
+    const customDownload = SettingsActions.buildCustomExportDownload({
+        format: 'json',
+        storage,
+        selectedSpese: [expense({ id: 'sel' })],
+        includeData: true,
+        includeSettings: false,
+        includePersonalizzazioni: true,
+        dateStamp: '2026-05-19'
+    });
     const importResult = SettingsActions.commitImport({
         preview: { format: 'csv' },
         content: 'a,b',
@@ -4169,6 +4244,7 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.equal(jsonDownload.download.filename, 'spese_backup_2026-05-19.json');
     assert.equal(csvDownload.download.filename, 'spese_2026-05-19.csv');
     assert.equal(rawDownload.download.filename, 'spese_raw_2026-05-19.txt');
+    assert.equal(customDownload.download.filename, 'spese_export_2026-05-19.json');
     assert.equal(importResult.toast, '2 spese aggiunte, 1 id rigenerati \u2713');
     assert.equal(themeResult.theme, 'dark');
     assert.equal(clearResult.toast, 'Dati eliminati');
@@ -4178,9 +4254,15 @@ test('Azioni impostazioni orchestrano flussi storage con adapter', () => {
     assert.deepEqual(calls, [
         ['preview-json', '{}'],
         ['preview-csv', 'a,b'],
-        ['export-json'],
-        ['export-csv'],
+        ['export-json', null],
+        ['export-csv', null],
         ['export-raw'],
+        ['export-json', {
+            spese: [expense({ id: 'sel' })],
+            includeData: true,
+            includeSettings: false,
+            includePersonalizzazioni: true
+        }],
         ['import-csv', 'a,b', 'append'],
         ['update-settings', 'dark'],
         ['clear-all', { clearSnapshot: false }],
@@ -4359,6 +4441,108 @@ test('Controller impostazioni collega finestra versioni a history e back button'
         ['consume'],
         ['push', { panel: 'release-modal' }]
     ]);
+});
+
+test('Controller impostazioni collega finestra export a history e selezione timeline', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const classes = new Set(['hidden']);
+    const calls = [];
+    const body = { innerHTML: '' };
+    const filterBtn = { textContent: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage: { KEY: 'spese-test' },
+        localStorage: createLocalStorage(),
+        getSelectedSpese: () => [expense({ id: 'a' })],
+        countActiveFilters: () => 2,
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: () => calls.push(['consume'])
+    };
+
+    SettingsController.openExportModal(options);
+    assert.equal(SettingsController.isExportModalOpen(options), true);
+    assert(body.innerHTML.includes('1 spesa selezionata'));
+    assert.equal(filterBtn.textContent, 'Filtri (2)');
+    assert.deepEqual(calls, [['push', { panel: 'export-modal' }]]);
+
+    SettingsController.closeExportModal(options);
+    assert.equal(SettingsController.isExportModalOpen(options), false);
+    assert.deepEqual(calls, [
+        ['push', { panel: 'export-modal' }],
+        ['consume']
+    ]);
+
+    let clickHandler = null;
+    const fields = {
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: false },
+        '#export-include-personalizzazioni': { checked: true },
+        '#export-modal-close': null
+    };
+    const boundModal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const filterOptions = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? boundModal : null;
+            }
+        },
+        storage: { KEY: 'spese-test' },
+        localStorage: createLocalStorage(),
+        getTimelineSelectedIds: () => [],
+        getSelectedSpese: () => [],
+        beginExportSelection(config) {
+            calls.push(['begin-export-selection', config]);
+            return { selectedIds: ['b', 'c'] };
+        },
+        navigateToTimeline: () => calls.push(['navigate-timeline'])
+    };
+
+    SettingsController.bindExportModal(filterOptions);
+    clickHandler({ target: { id: 'btn-export-filters' } });
+
+    const savedPrefs = SettingsActions.readExportPreferences(
+        filterOptions.localStorage,
+        filterOptions.storage
+    );
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: true }],
+        ['navigate-timeline']
+    ]);
+    assert.equal(savedPrefs.selectionInitialized, true);
+    assert.deepEqual(savedPrefs.selectedIds, ['b', 'c']);
+    assert.equal(savedPrefs.includeSettings, false);
+    assert.equal(savedPrefs.includePersonalizzazioni, true);
 });
 
 test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {
@@ -5134,6 +5318,10 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_CONFIRM
     );
     assert.equal(
+        UIStack.getPopstateAction({ exportModalOpen: true, releaseModalOpen: true }),
+        UIStack.ACTIONS.CLOSE_EXPORT_MODAL
+    );
+    assert.equal(
         UIStack.getPopstateAction({ releaseModalOpen: true, modalOpen: true }),
         UIStack.ACTIONS.CLOSE_RELEASE_MODAL
     );
@@ -5383,6 +5571,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     const state = {
         suppress: false,
         confirmOpen: false,
+        exportModalOpen: false,
         releaseModalOpen: false,
         modalOpen: false,
         filterSearchActive: false,
@@ -5407,6 +5596,8 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         },
         isConfirmOpen: () => state.confirmOpen,
         closeConfirm: fromPopstate => calls.push(['close-confirm', fromPopstate]),
+        isExportModalOpen: () => state.exportModalOpen,
+        closeExportModal: fromPopstate => calls.push(['close-export-modal', fromPopstate]),
         isReleaseModalOpen: () => state.releaseModalOpen,
         closeReleaseModal: fromPopstate => calls.push(['close-release-modal', fromPopstate]),
         isModalOpen: () => state.modalOpen,
@@ -5492,6 +5683,14 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);
 
     state.suppress = false;
+    state.exportModalOpen = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLOSE_EXPORT_MODAL
+    );
+    assert.deepEqual(calls[calls.length - 1], ['close-export-modal', true]);
+
+    state.exportModalOpen = false;
     state.releaseModalOpen = true;
     assert.equal(
         UIStackController.handlePopstate(options),

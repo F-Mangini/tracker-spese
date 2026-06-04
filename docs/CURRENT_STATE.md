@@ -64,7 +64,7 @@ Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccat
 
 La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.
 
-JSON e il backup completo. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
+L'export Default genera un backup JSON completo. L'export Custom salva preferenze locali dedicate per formato, contenuti e selezione: JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
 
 ## Funzioni Implementate
 
@@ -136,7 +136,9 @@ La pagina statistiche e di sola lettura: oggi non apre direttamente la modifica 
 La pagina impostazioni include:
 
 - tema chiaro, scuro o automatico;
-- export JSON/CSV;
+- card unica per import/export dati;
+- export Default con conferma semplice e JSON completo;
+- export Custom con finestra dedicata, scelta formato, checklist contenuti, selezione tramite timeline e preferenze locali salvate;
 - import JSON/CSV con preview;
 - finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
@@ -148,6 +150,8 @@ La pagina impostazioni include:
 - versione/canale corrente visibili nel footer delle impostazioni;
 - cancellazione completa con conferma.
 - opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
+
+La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. Il pulsante `Filtri` chiude la finestra, porta alla timeline in modalita selezione e al primo ingresso seleziona tutto il filtrato corrente; dagli ingressi successivi riusa la selezione salvata quando disponibile. Il pulsante mostra anche il numero di filtri attivi.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 
@@ -169,7 +173,7 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 - Le cache offline versionate esistono in cartelle release immutabili, oggi `releases/v2026.05.30/` e `releases/v2026.06.03/`; ogni nuova release richiede una nuova cartella e un nuovo cache namespace.
 - La UI versioni copre il flusso guidato minimo; eventuali migrazioni dati tra versioni andranno progettate quando cambiera lo schema.
 - Categorie e metodi sono statici.
-- Non esistono ancora cestino, swipe su card, formati TSV/Markdown per la copia o finestra export custom completa.
+- Non esistono ancora cestino, swipe su card o formati TSV/Markdown per la copia/export.
 - La pagina statistiche non permette ancora di aprire/modificare una spesa.
 - Desktop e iOS sono usabili ma meno rifiniti dell'esperienza Android.
 - Accessibilita e semantica dei controlli custom sono migliorabili.

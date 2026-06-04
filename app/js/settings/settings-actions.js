@@ -4,6 +4,15 @@
 
 const SettingsActions = (() => {
     const LAUNCH_TARGET_KEY = 'spesa-tracker-launch-target';
+    const EXPORT_PREFS_SUFFIX = ':export-custom';
+    const DEFAULT_EXPORT_PREFS = Object.freeze({
+        format: 'json',
+        includeData: true,
+        includeSettings: true,
+        includePersonalizzazioni: false,
+        selectedIds: [],
+        selectionInitialized: false
+    });
 
     function detectImportFormat(file = {}) {
         const fileName = String(file.name || '').toLowerCase();
@@ -30,6 +39,84 @@ const SettingsActions = (() => {
             { text: 'JSON backup', className: 'btn-primary', format: 'json' },
             { text: 'CSV tabella', className: 'btn-secondary', format: 'csv' }
         ];
+    }
+
+    function getExportFormats() {
+        return [
+            { value: 'json', label: 'JSON backup' },
+            { value: 'csv', label: 'CSV tabella' }
+        ];
+    }
+
+    function normalizeExportFormat(format) {
+        return format === 'csv' ? 'csv' : 'json';
+    }
+
+    function normalizeIdList(value) {
+        if (value instanceof Set) {
+            return Array.from(value).map(String).filter(Boolean);
+        }
+
+        if (Array.isArray(value)) {
+            return value.map(String).filter(Boolean);
+        }
+
+        return [];
+    }
+
+    function normalizeExportPreferences(value = {}) {
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+            ? value
+            : {};
+        const format = normalizeExportFormat(source.format);
+        const prefs = {
+            ...DEFAULT_EXPORT_PREFS,
+            format,
+            includeData: source.includeData !== false,
+            includeSettings: source.includeSettings !== false,
+            includePersonalizzazioni: source.includePersonalizzazioni === true,
+            selectedIds: normalizeIdList(source.selectedIds),
+            selectionInitialized: source.selectionInitialized === true
+        };
+
+        if (format === 'csv') {
+            prefs.includeData = true;
+            prefs.includeSettings = false;
+            prefs.includePersonalizzazioni = false;
+        }
+
+        return prefs;
+    }
+
+    function getExportPreferencesKey(storage) {
+        const key = storage && storage.KEY ? storage.KEY : 'spesa-tracker-data';
+        return `${key}${EXPORT_PREFS_SUFFIX}`;
+    }
+
+    function readExportPreferences(storageLike, storage) {
+        if (!storageLike || typeof storageLike.getItem !== 'function') {
+            return normalizeExportPreferences();
+        }
+
+        try {
+            const raw = storageLike.getItem(getExportPreferencesKey(storage));
+            return normalizeExportPreferences(raw ? JSON.parse(raw) : {});
+        } catch (_) {
+            return normalizeExportPreferences();
+        }
+    }
+
+    function saveExportPreferences(storageLike, storage, preferences = {}) {
+        const prefs = normalizeExportPreferences(preferences);
+        if (!storageLike || typeof storageLike.setItem !== 'function') {
+            return prefs;
+        }
+
+        try {
+            storageLike.setItem(getExportPreferencesKey(storage), JSON.stringify(prefs));
+        } catch (_) { }
+
+        return prefs;
     }
 
     function getImportChoices(hasSpese) {
@@ -62,6 +149,24 @@ const SettingsActions = (() => {
             filename: `spese_${dateStamp}.csv`,
             mime: 'text/csv;charset=utf-8',
             toast: 'Download CSV avviato...'
+        };
+    }
+
+    function getCustomExportDownloadSpec(format, content, dateStamp) {
+        if (format === 'json') {
+            return {
+                content,
+                filename: `spese_export_${dateStamp}.json`,
+                mime: 'application/json',
+                toast: 'Export JSON custom avviato...'
+            };
+        }
+
+        return {
+            content: '\uFEFF' + content,
+            filename: `spese_export_${dateStamp}.csv`,
+            mime: 'text/csv;charset=utf-8',
+            toast: 'Export CSV custom avviato...'
         };
     }
 
@@ -317,6 +422,47 @@ const SettingsActions = (() => {
         };
     }
 
+    function buildCustomExportDownload(options = {}) {
+        const storage = options.storage;
+        const format = normalizeExportFormat(options.format);
+        const includeData = options.includeData !== false;
+        const includeSettings = format === 'json' && options.includeSettings !== false;
+        const includePersonalizzazioni = format === 'json' && options.includePersonalizzazioni === true;
+        const selectedSpese = Array.isArray(options.selectedSpese) ? options.selectedSpese : [];
+
+        if (format === 'csv' && selectedSpese.length === 0) {
+            return fail('Seleziona almeno una spesa per esportare CSV custom.', 'empty-custom-selection');
+        }
+
+        if (format === 'json' && !includeData && !includeSettings && !includePersonalizzazioni) {
+            return fail('Seleziona almeno un contenuto da esportare.', 'empty-custom-content');
+        }
+
+        if (includeData && selectedSpese.length === 0) {
+            return fail('Seleziona almeno una spesa o usa Export Default per il backup completo.', 'empty-custom-selection');
+        }
+
+        let result;
+        if (format === 'csv') {
+            result = storage.exportCSV({ spese: selectedSpese });
+        } else {
+            result = storage.exportJSON({
+                spese: includeData ? selectedSpese : [],
+                includeData,
+                includeSettings,
+                includePersonalizzazioni
+            });
+        }
+
+        if (!result.success) return result;
+
+        return {
+            success: true,
+            count: result.count,
+            download: getCustomExportDownloadSpec(format, result.content, options.dateStamp)
+        };
+    }
+
     function buildRawDownload(options = {}) {
         const { storage, dateStamp } = options;
         const result = storage.exportRaw();
@@ -400,8 +546,13 @@ const SettingsActions = (() => {
     return {
         detectImportFormat,
         getExportChoices,
+        getExportFormats,
+        normalizeExportPreferences,
+        readExportPreferences,
+        saveExportPreferences,
         getImportChoices,
         getExportDownloadSpec,
+        getCustomExportDownloadSpec,
         getRawDownloadSpec,
         getImportSuccessMessage,
         getReleasesManifestUrl,
@@ -414,6 +565,7 @@ const SettingsActions = (() => {
         normalizeReleaseManifest,
         previewImportFile,
         buildExportDownload,
+        buildCustomExportDownload,
         buildRawDownload,
         commitImport,
         updateTheme,

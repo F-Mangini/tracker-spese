@@ -98,6 +98,72 @@ const SettingsController = (() => {
         return doc.getElementById('release-modal-overlay');
     }
 
+    function getExportModal(options = {}) {
+        const doc = options.document || (typeof document === 'undefined' ? null : document);
+        if (!doc || typeof doc.getElementById !== 'function') return null;
+
+        return doc.getElementById('export-modal-overlay');
+    }
+
+    function getExportPreferences(options = {}) {
+        return SettingsActions.readExportPreferences(options.localStorage, options.storage);
+    }
+
+    function saveExportPreferences(options = {}, preferences = {}) {
+        return SettingsActions.saveExportPreferences(
+            options.localStorage,
+            options.storage,
+            preferences
+        );
+    }
+
+    function getCurrentSelectedIds(options = {}) {
+        const ids = typeof options.getTimelineSelectedIds === 'function'
+            ? options.getTimelineSelectedIds()
+            : [];
+
+        if (ids instanceof Set) return Array.from(ids).filter(Boolean);
+        if (Array.isArray(ids)) return ids.filter(Boolean);
+        return [];
+    }
+
+    function getSelectedSpese(options = {}) {
+        if (typeof options.getSelectedSpese === 'function') {
+            return options.getSelectedSpese();
+        }
+
+        const selectedIds = new Set(getCurrentSelectedIds(options));
+        return getSpese(options).filter(spesa => spesa && selectedIds.has(spesa.id));
+    }
+
+    function getExportModalModel(options = {}) {
+        return {
+            preferences: getExportPreferences(options),
+            selectedCount: getSelectedSpese(options).length,
+            filterCount: typeof options.countActiveFilters === 'function'
+                ? options.countActiveFilters()
+                : 0
+        };
+    }
+
+    function renderExportModal(options = {}) {
+        const modal = getExportModal(options);
+        if (!modal || typeof modal.querySelector !== 'function') return;
+
+        const body = modal.querySelector('#export-modal-body');
+        if (body) {
+            body.innerHTML = SettingsView.renderExportModal(getExportModalModel(options));
+        }
+
+        const filterBtn = modal.querySelector('#btn-export-filters');
+        if (filterBtn) {
+            const filterCount = typeof options.countActiveFilters === 'function'
+                ? options.countActiveFilters()
+                : 0;
+            filterBtn.textContent = filterCount > 0 ? `Filtri (${filterCount})` : 'Filtri';
+        }
+    }
+
     function openReleaseModal(options = {}) {
         const modal = getReleaseModal(options);
         if (!modal) return;
@@ -128,6 +194,38 @@ const SettingsController = (() => {
         return !!(modal && !modal.classList.contains('hidden'));
     }
 
+    function openExportModal(options = {}) {
+        const modal = getExportModal(options);
+        if (!modal) return;
+
+        renderExportModal(options);
+
+        const wasOpen = !modal.classList.contains('hidden');
+        modal.classList.remove('hidden');
+
+        if (!wasOpen && typeof options.pushUiState === 'function') {
+            options.pushUiState({ panel: 'export-modal' });
+        }
+    }
+
+    function closeExportModal(options = {}, fromPopstate = false) {
+        const modal = getExportModal(options);
+        if (!modal) return;
+
+        const wasOpen = !modal.classList.contains('hidden');
+        modal.classList.add('hidden');
+
+        if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
+            options.consumeUiState();
+        }
+    }
+
+    function isExportModalOpen(options = {}) {
+        const modal = getExportModal(options);
+
+        return !!(modal && !modal.classList.contains('hidden'));
+    }
+
     function createExportChoices(options = {}) {
         return SettingsActions.getExportChoices().map(choice => ({
             ...choice,
@@ -153,6 +251,17 @@ const SettingsController = (() => {
         );
     }
 
+    function showDefaultExportConfirm(options = {}) {
+        options.showConfirm(
+            'Esportare un backup JSON completo? Il file sara in chiaro.',
+            () => downloadExport('json', options),
+            {
+                yesText: 'Esporta',
+                yesClass: 'btn-primary'
+            }
+        );
+    }
+
     function downloadExport(format, options = {}) {
         const result = SettingsActions.buildExportDownload({
             format,
@@ -168,6 +277,98 @@ const SettingsController = (() => {
         const spec = result.download;
         options.download(spec.content, spec.filename, spec.mime);
         options.showToast(spec.toast, 'info');
+    }
+
+    function readExportModalDraft(options = {}) {
+        const modal = getExportModal(options);
+        if (!modal || typeof modal.querySelector !== 'function') {
+            return getExportPreferences(options);
+        }
+
+        const formatField = modal.querySelector('#export-format');
+        const dataField = modal.querySelector('#export-include-data');
+        const settingsField = modal.querySelector('#export-include-settings');
+        const personalizzazioniField = modal.querySelector('#export-include-personalizzazioni');
+        const format = formatField ? formatField.value : 'json';
+        const csvMode = format === 'csv';
+
+        return SettingsActions.normalizeExportPreferences({
+            ...getExportPreferences(options),
+            format,
+            includeData: csvMode || !dataField || dataField.checked,
+            includeSettings: !csvMode && (!settingsField || settingsField.checked),
+            includePersonalizzazioni: !csvMode && !!(personalizzazioniField && personalizzazioniField.checked),
+            selectedIds: getCurrentSelectedIds(options)
+        });
+    }
+
+    function persistExportModalDraft(options = {}) {
+        return saveExportPreferences(options, readExportModalDraft(options));
+    }
+
+    function syncExportModalFromDraft(options = {}) {
+        const prefs = persistExportModalDraft(options);
+        saveExportPreferences(options, prefs);
+        renderExportModal(options);
+    }
+
+    function downloadCustomExport(options = {}) {
+        const prefs = persistExportModalDraft(options);
+        const result = SettingsActions.buildCustomExportDownload({
+            ...prefs,
+            storage: options.storage,
+            selectedSpese: getSelectedSpese(options),
+            dateStamp: options.dateStamp()
+        });
+
+        if (!result.success) {
+            options.showToast(result.error || 'Export custom non riuscito', 'error');
+            return;
+        }
+
+        saveExportPreferences(options, {
+            ...prefs,
+            selectedIds: getCurrentSelectedIds(options)
+        });
+
+        const spec = result.download;
+        options.download(spec.content, spec.filename, spec.mime);
+        options.showToast(spec.toast, 'info');
+    }
+
+    function openExportFilters(options = {}) {
+        const prefs = persistExportModalDraft(options);
+        const currentSelectedIds = getCurrentSelectedIds(options);
+        const selectedIds = currentSelectedIds.length > 0
+            ? currentSelectedIds
+            : prefs.selectedIds;
+        const initialized = prefs.selectionInitialized || selectedIds.length > 0;
+
+        if (typeof options.beginExportSelection === 'function') {
+            const result = options.beginExportSelection({
+                selectedIds: initialized ? selectedIds : [],
+                selectFilteredWhenEmpty: !initialized
+            });
+
+            saveExportPreferences(options, {
+                ...prefs,
+                selectionInitialized: true,
+                selectedIds: result && Array.isArray(result.selectedIds)
+                    ? result.selectedIds
+                    : getCurrentSelectedIds(options)
+            });
+        } else {
+            saveExportPreferences(options, {
+                ...prefs,
+                selectionInitialized: true
+            });
+        }
+
+        closeExportModal(options, true);
+
+        if (typeof options.navigateToTimeline === 'function') {
+            options.navigateToTimeline();
+        }
     }
 
     function downloadRawData(options = {}) {
@@ -286,8 +487,15 @@ const SettingsController = (() => {
             btn.addEventListener('click', () => updateTheme(btn.dataset.theme, options));
         });
 
-        container.querySelector('#btn-export')
-            .addEventListener('click', () => showExportChoice(options));
+        const defaultExportBtn = container.querySelector('#btn-export-default');
+        if (defaultExportBtn) {
+            defaultExportBtn.addEventListener('click', () => showDefaultExportConfirm(options));
+        }
+
+        const customExportBtn = container.querySelector('#btn-export-custom');
+        if (customExportBtn) {
+            customExportBtn.addEventListener('click', () => openExportModal(options));
+        }
 
         const rawBtn = container.querySelector('#btn-export-raw');
         if (rawBtn) {
@@ -465,6 +673,41 @@ const SettingsController = (() => {
         });
     }
 
+    function bindExportModal(options = {}) {
+        const modal = getExportModal(options);
+        if (!modal || modal.dataset.bound === 'true') return;
+
+        modal.dataset.bound = 'true';
+
+        const closeBtn = modal.querySelector('#export-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => closeExportModal(options));
+        }
+
+        modal.addEventListener('click', event => {
+            if (event.target.id === 'export-modal-overlay') {
+                closeExportModal(options);
+                return;
+            }
+
+            if (event.target.id === 'btn-export-filters') {
+                openExportFilters(options);
+                return;
+            }
+
+            if (event.target.id === 'btn-export-run') {
+                downloadCustomExport(options);
+            }
+        });
+
+        modal.addEventListener('change', event => {
+            const target = event.target;
+            if (!target || !target.id || !/^export-(format|include-)/.test(target.id)) return;
+
+            syncExportModalFromDraft(options);
+        });
+    }
+
     function render(options = {}) {
         const { container, storage } = options;
         if (!container || !storage) return;
@@ -472,6 +715,7 @@ const SettingsController = (() => {
         container.innerHTML = SettingsView.renderPage(getRenderModel(options));
         bindEvents(container, options);
         bindReleaseModal(options);
+        bindExportModal(options);
         loadReleases(container, options);
     }
 
@@ -483,7 +727,11 @@ const SettingsController = (() => {
         openReleaseModal,
         closeReleaseModal,
         isReleaseModalOpen,
+        openExportModal,
+        closeExportModal,
+        isExportModalOpen,
         bindReleaseModal,
+        bindExportModal,
         installReleaseFromLink,
         render
     };

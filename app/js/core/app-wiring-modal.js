@@ -94,6 +94,9 @@ const AppWiringModal = (() => {
 
         function modalInteractionHooks() {
             return {
+                document: deps.document,
+                window: deps.window,
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
                 ensureInteractionState: () => deps.ModalMobileController.ensureInteractionState(modalMobileOptions()),
                 releaseInteractionState: () => deps.ModalMobileController.releaseInteractionState(modalMobileOptions()),
                 isInteractionActive: () => app._modalInteractionActive,

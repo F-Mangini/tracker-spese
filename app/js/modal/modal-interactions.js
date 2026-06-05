@@ -28,6 +28,63 @@ const ModalInteractions = (() => {
         return !!document.querySelector(`${modalSelector} .searchable-dropdown.open`);
     }
 
+    function getWindow(options = {}) {
+        if (options.window) return options.window;
+        if (typeof window !== 'undefined') return window;
+        return null;
+    }
+
+    function getDefer(options = {}) {
+        return options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
+    }
+
+    function revealDropdown(container, options = {}) {
+        if (!container || typeof container.getBoundingClientRect !== 'function') return;
+
+        const modalBody = typeof container.closest === 'function'
+            ? container.closest('.modal-body')
+            : null;
+        const win = getWindow(options);
+        const doc = typeof document !== 'undefined' ? document : null;
+        const viewportHeight = win && win.visualViewport && Number.isFinite(win.visualViewport.height)
+            ? win.visualViewport.height
+            : win && Number.isFinite(win.innerHeight)
+                ? win.innerHeight
+                : doc && doc.documentElement
+                    ? doc.documentElement.clientHeight
+                    : 0;
+        const rect = container.getBoundingClientRect();
+        const margin = 14;
+
+        if (!viewportHeight) {
+            if (typeof container.scrollIntoView === 'function') {
+                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        const overflowBottom = rect.bottom - (viewportHeight - margin);
+        const overflowTop = margin - rect.top;
+
+        if (modalBody && Number.isFinite(modalBody.scrollTop)) {
+            if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
+            else if (overflowTop > 0) modalBody.scrollTop -= overflowTop;
+            return;
+        }
+
+        if ((overflowBottom > 0 || overflowTop > 0) && typeof container.scrollIntoView === 'function') {
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function scheduleDropdownReveal(container, options = {}) {
+        const defer = getDefer(options);
+        [0, 120, 280, 460].forEach(delay => {
+            defer(() => revealDropdown(container, options), delay);
+        });
+    }
+
     function ensureInteraction(options, wasClosed) {
         if (wasClosed) call(options.ensureInteractionState);
     }
@@ -110,6 +167,7 @@ const ModalInteractions = (() => {
 
             ensureInteraction(options, wasClosed);
             renderList();
+            scheduleDropdownReveal(container, options);
         };
 
         input.addEventListener('mousedown', e => {
@@ -124,17 +182,15 @@ const ModalInteractions = (() => {
                 input.value = '';
                 input.focus();
 
-                setTimeout(() => {
-                    if (typeof container.scrollIntoView === 'function') {
-                        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }, 300);
+                scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
             if (!container.classList.contains('open')) {
                 open();
+            } else {
+                scheduleDropdownReveal(container, options);
             }
         });
 
@@ -143,6 +199,7 @@ const ModalInteractions = (() => {
                 open();
             }
             renderList(input.value);
+            scheduleDropdownReveal(container, options);
         });
 
         input.addEventListener('blur', () => {
@@ -272,6 +329,7 @@ const ModalInteractions = (() => {
 
             ensureInteraction(options, wasClosed);
             renderList();
+            scheduleDropdownReveal(container, options);
         };
 
         const close = () => {
@@ -305,14 +363,19 @@ const ModalInteractions = (() => {
                 input.readOnly = false;
                 input.value = '';
                 input.focus();
+                scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
             if (!container.classList.contains('open')) open();
+            else scheduleDropdownReveal(container, options);
         });
 
-        input.addEventListener('input', () => renderList(input.value));
+        input.addEventListener('input', () => {
+            renderList(input.value);
+            scheduleDropdownReveal(container, options);
+        });
         input.addEventListener('blur', () => close());
 
         input.addEventListener('keydown', e => {

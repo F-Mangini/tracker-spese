@@ -4917,7 +4917,11 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         getTimelineSelectedIds: () => [],
         getSelectedSpese: () => [],
         getSpese: () => [],
-        countActiveFilters: () => 0
+        countActiveFilters: () => 0,
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: () => calls.push('consume'),
+        setTimeout: callback => callback(),
+        window: { innerHeight: 600 }
     };
 
     SettingsController.bindExportModal(options);
@@ -4929,6 +4933,19 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert(classes.has('open'));
     assert.equal(input.readOnly, true);
     assert(!jsonItem.classList.contains('highlighted'));
+    assert.deepEqual(calls.slice(-2), ['focus', ['push', { panel: 'export-format' }]]);
+    assert.equal(SettingsController.isExportFormatDropdownOpen(options), true);
+
+    SettingsController.clearExportModalInteraction(options, true);
+    assert.equal(classes.has('open'), false);
+    assert.equal(modal.dataset.exportFormatInteraction, undefined);
+    assert(!calls.includes('consume'));
+
+    mouseDownHandler({
+        target: input,
+        preventDefault: () => calls.push('prevent-reopen')
+    });
+    assert(classes.has('open'));
 
     mouseDownHandler({
         target: input,
@@ -4949,6 +4966,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert.equal(prefs.includeSettings, false);
     assert.equal(prefs.includePersonalizzazioni, false);
     assert.equal(modal.dataset.exportPreCsvContents, '{"includeData":false,"includeSettings":true,"includePersonalizzazioni":true}');
+    assert(calls.includes('consume'));
 
     field.value = 'csv';
     fields['#export-include-data'].checked = true;
@@ -5840,6 +5858,10 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         UIStack.ACTIONS.CLOSE_CONFIRM
     );
     assert.equal(
+        UIStack.getPopstateAction({ exportFormatDropdownOpen: true, exportModalOpen: true }),
+        UIStack.ACTIONS.CLEAR_EXPORT_INTERACTION
+    );
+    assert.equal(
         UIStack.getPopstateAction({ exportModalOpen: true, releaseModalOpen: true }),
         UIStack.ACTIONS.CLOSE_EXPORT_MODAL
     );
@@ -6093,6 +6115,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     const state = {
         suppress: false,
         confirmOpen: false,
+        exportDropdownOpen: false,
         exportModalOpen: false,
         releaseModalOpen: false,
         modalOpen: false,
@@ -6118,6 +6141,11 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         },
         isConfirmOpen: () => state.confirmOpen,
         closeConfirm: fromPopstate => calls.push(['close-confirm', fromPopstate]),
+        isExportFormatDropdownOpen: () => state.exportDropdownOpen,
+        clearExportModalInteraction: fromPopstate => {
+            state.exportDropdownOpen = false;
+            calls.push(['clear-export-interaction', fromPopstate]);
+        },
         isExportModalOpen: () => state.exportModalOpen,
         closeExportModal: fromPopstate => calls.push(['close-export-modal', fromPopstate]),
         isReleaseModalOpen: () => state.releaseModalOpen,
@@ -6205,6 +6233,15 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);
 
     state.suppress = false;
+    state.exportDropdownOpen = true;
+    state.exportModalOpen = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLEAR_EXPORT_INTERACTION
+    );
+    assert.deepEqual(calls[calls.length - 1], ['clear-export-interaction', true]);
+
+    state.exportDropdownOpen = false;
     state.exportModalOpen = true;
     assert.equal(
         UIStackController.handlePopstate(options),

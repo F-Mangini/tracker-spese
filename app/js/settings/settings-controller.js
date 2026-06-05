@@ -419,6 +419,23 @@ const SettingsController = (() => {
         return !!(modal && !modal.classList.contains('hidden'));
     }
 
+    function isExportFormatDropdownOpen(options = {}) {
+        const modal = getExportModal(options);
+        const dropdown = getExportFormatDropdown(modal);
+
+        return !!(dropdown && dropdown.classList && dropdown.classList.contains('open'));
+    }
+
+    function clearExportModalInteraction(options = {}, fromPopstate = false) {
+        const modal = getExportModal(options);
+        if (!modal) return;
+
+        closeExportFormatDropdown(modal, options, {
+            fromPopstate,
+            blur: true
+        });
+    }
+
     function createExportChoices(options = {}) {
         return SettingsActions.getExportChoices().map(choice => ({
             ...choice,
@@ -845,8 +862,84 @@ const SettingsController = (() => {
             : null;
     }
 
-    function closeExportFormatDropdown(modal) {
+    function getWindowLike(options = {}) {
+        if (options.window) return options.window;
+        if (typeof window !== 'undefined') return window;
+        return null;
+    }
+
+    function getDefer(options = {}) {
+        return options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
+    }
+
+    function revealExportDropdown(dropdown, options = {}) {
+        if (!dropdown || typeof dropdown.getBoundingClientRect !== 'function') return;
+
+        const modalBody = typeof dropdown.closest === 'function'
+            ? dropdown.closest('.modal-body')
+            : null;
+        const win = getWindowLike(options);
+        const doc = options.document || (typeof document === 'undefined' ? null : document);
+        const viewportHeight = win && win.visualViewport && Number.isFinite(win.visualViewport.height)
+            ? win.visualViewport.height
+            : win && Number.isFinite(win.innerHeight)
+                ? win.innerHeight
+                : doc && doc.documentElement
+                    ? doc.documentElement.clientHeight
+                    : 0;
+        const rect = dropdown.getBoundingClientRect();
+        const margin = 14;
+
+        if (!viewportHeight) {
+            if (typeof dropdown.scrollIntoView === 'function') {
+                dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        const overflowBottom = rect.bottom - (viewportHeight - margin);
+        const overflowTop = margin - rect.top;
+
+        if (modalBody && Number.isFinite(modalBody.scrollTop)) {
+            if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
+            else if (overflowTop > 0) modalBody.scrollTop -= overflowTop;
+            return;
+        }
+
+        if ((overflowBottom > 0 || overflowTop > 0) && typeof dropdown.scrollIntoView === 'function') {
+            dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function scheduleExportDropdownReveal(dropdown, options = {}) {
+        const defer = getDefer(options);
+        [0, 120, 280, 460].forEach(delay => {
+            defer(() => revealExportDropdown(dropdown, options), delay);
+        });
+    }
+
+    function ensureExportFormatInteraction(modal, options = {}) {
+        if (!modal || !modal.dataset || modal.dataset.exportFormatInteraction === 'true') return;
+
+        modal.dataset.exportFormatInteraction = 'true';
+        if (typeof options.pushUiState === 'function') {
+            options.pushUiState({ panel: 'export-format' });
+        }
+    }
+
+    function releaseExportFormatInteraction(modal, options = {}, config = {}) {
+        if (!modal || !modal.dataset || modal.dataset.exportFormatInteraction !== 'true') return;
+
+        delete modal.dataset.exportFormatInteraction;
+        if (!config.fromPopstate && typeof options.consumeUiState === 'function') {
+            options.consumeUiState();
+        }
+    }
+
+    function closeExportFormatDropdown(modal, options = {}, config = {}) {
         const dropdown = getExportFormatDropdown(modal);
+        const wasOpen = !!(dropdown && dropdown.classList && dropdown.classList.contains('open'));
         if (dropdown && dropdown.classList && typeof dropdown.classList.remove === 'function') {
             dropdown.classList.remove('open');
         }
@@ -858,15 +951,21 @@ const SettingsController = (() => {
             input.readOnly = true;
             const selected = dropdown.querySelector('.sd-item.selected');
             input.value = selected ? selected.textContent.trim() : input.value;
+            if (config.blur !== false && typeof input.blur === 'function') {
+                try { input.blur(); } catch (_) { }
+            }
         }
+
+        if (wasOpen) releaseExportFormatInteraction(modal, options, config);
     }
 
-    function toggleExportFormatDropdown(modal, open) {
+    function toggleExportFormatDropdown(modal, open, options = {}) {
         const dropdown = getExportFormatDropdown(modal);
         if (!dropdown || !dropdown.classList) return;
 
+        const wasOpen = dropdown.classList.contains('open');
         const shouldOpen = open == null
-            ? !dropdown.classList.contains('open')
+            ? !wasOpen
             : !!open;
         const method = shouldOpen ? 'add' : 'remove';
 
@@ -875,7 +974,11 @@ const SettingsController = (() => {
         }
 
         if (shouldOpen) {
+            if (!wasOpen) ensureExportFormatInteraction(modal, options);
             filterExportFormatDropdown(dropdown);
+            scheduleExportDropdownReveal(dropdown, options);
+        } else if (wasOpen) {
+            releaseExportFormatInteraction(modal, options);
         }
     }
 
@@ -964,7 +1067,7 @@ const SettingsController = (() => {
             input.value = item ? item.textContent.trim() : value.toUpperCase();
         }
 
-        closeExportFormatDropdown(modal);
+        closeExportFormatDropdown(modal, options);
         renderExportModal(options);
     }
 
@@ -988,11 +1091,11 @@ const SettingsController = (() => {
 
         if (event.key === 'ArrowDown') {
             event.preventDefault();
-            toggleExportFormatDropdown(modal, true);
+            toggleExportFormatDropdown(modal, true, options);
             setHighlight(Math.min(currentIndex + 1, items.length - 1));
         } else if (event.key === 'ArrowUp') {
             event.preventDefault();
-            toggleExportFormatDropdown(modal, true);
+            toggleExportFormatDropdown(modal, true, options);
             setHighlight(Math.max(currentIndex - 1, 0));
         } else if (event.key === 'Enter') {
             event.preventDefault();
@@ -1002,11 +1105,11 @@ const SettingsController = (() => {
             selectExportFormat(modal, highlighted.dataset.format, options);
         } else if (event.key === 'Escape') {
             event.preventDefault();
-            closeExportFormatDropdown(modal);
+            closeExportFormatDropdown(modal, options);
         }
     }
 
-    function handleExportFormatMousedown(event, modal) {
+    function handleExportFormatMousedown(event, modal, options = {}) {
         if (closest(event.target, '#export-format-dropdown .sd-item')) return;
 
         const dropdown = closest(event.target, '#export-format-dropdown');
@@ -1020,7 +1123,7 @@ const SettingsController = (() => {
         if (!dropdown.classList.contains('open')) {
             event.preventDefault();
             if (typeof input.focus === 'function') input.focus();
-            toggleExportFormatDropdown(modal, true);
+            toggleExportFormatDropdown(modal, true, options);
             return;
         }
 
@@ -1030,6 +1133,7 @@ const SettingsController = (() => {
             input.value = '';
             if (typeof input.focus === 'function') input.focus();
             filterExportFormatDropdown(dropdown);
+            scheduleExportDropdownReveal(dropdown, options);
         }
     }
 
@@ -1105,16 +1209,16 @@ const SettingsController = (() => {
                 return;
             }
 
-            closeExportFormatDropdown(modal);
+            closeExportFormatDropdown(modal, options);
         });
 
         modal.addEventListener('mousedown', event => {
-            handleExportFormatMousedown(event, modal);
+            handleExportFormatMousedown(event, modal, options);
         });
 
         modal.addEventListener('focusin', event => {
             if (closest(event.target, '#export-format-dropdown')) {
-                toggleExportFormatDropdown(modal, true);
+                toggleExportFormatDropdown(modal, true, options);
             }
         });
 
@@ -1129,8 +1233,9 @@ const SettingsController = (() => {
             const dropdown = closest(input, '#export-format-dropdown');
             if (!dropdown) return;
 
-            toggleExportFormatDropdown(modal, true);
+            toggleExportFormatDropdown(modal, true, options);
             filterExportFormatDropdown(dropdown, input.value);
+            scheduleExportDropdownReveal(dropdown, options);
         });
 
         modal.addEventListener('change', event => {
@@ -1163,6 +1268,8 @@ const SettingsController = (() => {
         openExportModal,
         closeExportModal,
         isExportModalOpen,
+        isExportFormatDropdownOpen,
+        clearExportModalInteraction,
         bindReleaseModal,
         bindExportModal,
         installReleaseFromLink,

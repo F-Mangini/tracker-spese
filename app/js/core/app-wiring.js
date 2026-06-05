@@ -488,6 +488,11 @@ const AppWiring = (() => {
                     return result;
                 },
                 isExportModalOpen: () => deps.SettingsController.isExportModalOpen(settingsOptions()),
+                isExportFormatDropdownOpen: () => deps.SettingsController.isExportFormatDropdownOpen(settingsOptions()),
+                clearExportModalInteraction: fromPopstate => deps.SettingsController.clearExportModalInteraction(
+                    settingsOptions(),
+                    fromPopstate
+                ),
                 closeExportModal: fromPopstate => deps.SettingsController.closeExportModal(
                     settingsOptions(),
                     fromPopstate

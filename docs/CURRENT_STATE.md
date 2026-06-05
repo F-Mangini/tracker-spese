@@ -103,7 +103,7 @@ La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e not
 
 Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 
-I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela.
+I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela. Quando un dropdown ricercabile passa in modalita scrittura, la modale ritenta lo scroll mentre la tastiera si assesta per mantenere visibile la tendina sopra la tastiera.
 
 ### Navigazione e Mobile
 
@@ -151,7 +151,7 @@ La pagina impostazioni include:
 - cancellazione completa con conferma.
 - opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
 
-La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. All'apertura dalle impostazioni seleziona automaticamente tutte le spese se non esiste ancora un export custom riuscito; dagli ingressi successivi ripristina la selezione e i filtri usati nell'ultimo export custom completato. Quando viene aperta dal pulsante `Esporta` della modalita selezione timeline, resta sulla timeline e conserva la selezione corrente invece di ripristinare l'ultimo export. I toggle `Ultima Selezione` e `Ultimi Filtri` riapplicano l'ultima selezione esportata o tutte le spese corrispondenti agli ultimi filtri salvati; se i due insiemi coincidono possono risultare attivi insieme, altrimenti l'uno esclude l'altro. Il pulsante `Filtra 🔍` chiude la finestra e porta alla timeline in modalita selezione; quando ci sono filtri attivi mostra il badge rosso con il conteggio.
+La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. Se la tendina formato e aperta, il back chiude solo quella interazione e lascia aperta `Esporta Custom`. All'apertura dalle impostazioni seleziona automaticamente tutte le spese se non esiste ancora un export custom riuscito; dagli ingressi successivi ripristina la selezione e i filtri usati nell'ultimo export custom completato. Quando viene aperta dal pulsante `Esporta` della modalita selezione timeline, resta sulla timeline e conserva la selezione corrente invece di ripristinare l'ultimo export. I toggle `Ultima Selezione` e `Ultimi Filtri` riapplicano l'ultima selezione esportata o tutte le spese corrispondenti agli ultimi filtri salvati; se i due insiemi coincidono possono risultare attivi insieme, altrimenti l'uno esclude l'altro. Il pulsante `Filtra 🔍` chiude la finestra e porta alla timeline in modalita selezione; quando ci sono filtri attivi mostra il badge rosso con il conteggio. Anche la tendina formato ritenta lo scroll mentre la tastiera si apre, cosi resta visibile sopra la tastiera.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 

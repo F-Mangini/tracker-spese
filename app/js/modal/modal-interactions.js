@@ -161,6 +161,7 @@ const ModalInteractions = (() => {
     function createSearchableDropdown(options = {}) {
         if (typeof document === 'undefined') return null;
 
+        const activeDocument = getDocument(options);
         const container = options.container || document.getElementById(options.containerId);
         const items = Array.isArray(options.items) ? options.items : [];
         if (!container) return null;
@@ -231,6 +232,14 @@ const ModalInteractions = (() => {
             scheduleDropdownReveal(container, options);
         };
 
+        const closeAfterBlur = () => {
+            const defer = getDefer(options);
+            defer(() => {
+                if (activeDocument && activeDocument.activeElement === input) return;
+                close();
+            }, 0);
+        };
+
         input.addEventListener('mousedown', e => {
             if (!container.classList.contains('open')) {
                 e.preventDefault();
@@ -271,9 +280,7 @@ const ModalInteractions = (() => {
             scheduleDropdownReveal(container, options);
         });
 
-        input.addEventListener('blur', () => {
-            close();
-        });
+        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             const itemsInList = list.querySelectorAll('.sd-item');
@@ -316,6 +323,7 @@ const ModalInteractions = (() => {
     function createTagInput(options = {}) {
         if (typeof document === 'undefined') return null;
 
+        const activeDocument = getDocument(options);
         const container = options.container || document.getElementById(options.containerId || 'sd-tags');
         const chipsEl = options.chipsEl || document.getElementById(options.chipsId || 'tag-chips');
         if (!container || !chipsEl) return null;
@@ -414,6 +422,14 @@ const ModalInteractions = (() => {
             call(options.restoreModalRevealScroll);
         };
 
+        const closeAfterBlur = () => {
+            const defer = getDefer(options);
+            defer(() => {
+                if (activeDocument && activeDocument.activeElement === input) return;
+                close();
+            }, 0);
+        };
+
         input.addEventListener('mousedown', e => {
             const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
 
@@ -455,7 +471,7 @@ const ModalInteractions = (() => {
             renderList(input.value);
             scheduleDropdownReveal(container, options);
         });
-        input.addEventListener('blur', () => close());
+        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;

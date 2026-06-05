@@ -3214,6 +3214,119 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
     assert.equal(modalBody.scrollTop, 194);
 });
 
+test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi', () => {
+    const timeouts = [];
+    const classes = new Set();
+    const restoreCalls = [];
+    let activeElement = null;
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {
+            activeElement = input;
+        },
+        blur() {
+            activeElement = null;
+            if (this.listeners.blur) this.listeners.blur();
+        }
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        getBoundingClientRect() {
+            return { top: 368, bottom: 512 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 0,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
+        }
+    };
+    const documentLike = {
+        documentElement: { clientHeight: 640 },
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        window: { innerHeight: 640, visualViewport: { height: 360 } },
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        },
+        restoreModalRevealScroll: () => restoreCalls.push('restore')
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+    assert(classes.has('open'));
+
+    timeouts.length = 0;
+    input.listeners.mousedown({ preventDefault() {} });
+    assert.equal(input.readOnly, false);
+
+    activeElement = null;
+    input.listeners.blur();
+    activeElement = input;
+    timeouts[timeouts.length - 1].callback();
+
+    assert(classes.has('open'));
+    assert.equal(input.readOnly, false);
+    assert.equal(restoreCalls.length, 0);
+
+    timeouts.length = 0;
+    input.listeners.mousedown({ preventDefault() {} });
+    input.listeners.click();
+
+    assert(classes.has('open'));
+    assert.equal(restoreCalls.length, 0);
+
+    activeElement = null;
+    input.listeners.blur();
+    timeouts[timeouts.length - 1].callback();
+
+    assert(!classes.has('open'));
+    assert.equal(input.readOnly, true);
+    assert.equal(restoreCalls.length, 1);
+});
+
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
     const { ModalView } = loadUiViews();
     const spese = [

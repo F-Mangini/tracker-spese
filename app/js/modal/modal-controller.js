@@ -143,6 +143,9 @@ const ModalController = (() => {
         win.addEventListener('popstate', () => options.handlePopstate());
 
         formController.bindPlainFieldEnterBlur({ document: doc });
+        if (typeof options.bindPlainFieldReveal === 'function') {
+            options.bindPlainFieldReveal();
+        }
     }
 
     function open(options = {}, id) {

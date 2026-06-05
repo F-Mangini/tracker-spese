@@ -3436,8 +3436,10 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     const sdInput = makeElement('sd-input', { inModal: true, inDropdown: true });
     const modalBody = {
         scrollTop: 0,
+        dataset: {},
+        style: {},
         getBoundingClientRect() {
-            return { top: 80, bottom: 620 };
+            return { top: 80, bottom: 360 };
         }
     };
     const dropdownList = {
@@ -3459,7 +3461,13 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
             return { top: 320, bottom: 364 };
         }
     };
-    const modal = { contains: el => !!(el && el.inModal) };
+    const modal = {
+        style: {},
+        contains: el => !!(el && el.inModal),
+        querySelector(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        }
+    };
     const editDesc = makeElement('edit-descrizione', { inModal: true, tagName: 'TEXTAREA' });
     const editData = makeElement('edit-data', { inModal: true, type: 'date', classes: ['picker-open'] });
     const editOra = makeElement('edit-ora', { inModal: true, type: 'time', classes: ['picker-open'] });
@@ -3481,6 +3489,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
         }
     };
     const elements = {
+        'modal-overlay': { style: {} },
         'edit-modal': modal,
         'edit-data': editData,
         'edit-ora': editOra,
@@ -3639,21 +3648,26 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert.equal(typeof winListeners.focus, 'function');
 });
 
-test('Controller mobile modale scorre prima la finestra e poi la pagina', () => {
+test('Controller mobile modale scorre solo la finestra aggiungendo spazio interno', () => {
     const { ModalMobileController } = loadUiViews();
     let pageScroll = 0;
     const modalBody = {
         scrollTop: 80,
-        scrollHeight: 500,
+        dataset: {},
+        style: {},
+        get scrollHeight() {
+            const extraPadding = Number.parseFloat(this.style.paddingBottom || '0') || 0;
+            return 500 + extraPadding;
+        },
         clientHeight: 400,
         getBoundingClientRect() {
-            return { top: 80, bottom: 620 };
+            return { top: 80, bottom: 360 };
         }
     };
-    const offset = () => (modalBody.scrollTop - 80) + pageScroll;
+    const offset = () => modalBody.scrollTop - 80;
     const list = {
         getBoundingClientRect() {
-            return { top: 368 - offset(), bottom: 548 - offset() };
+            return { top: 368 - offset(), bottom: 548 - offset(), height: 180 };
         }
     };
     const dropdown = {
@@ -3673,7 +3687,19 @@ test('Controller mobile modale scorre prima la finestra e poi la pagina', () => 
         }
     };
     const doc = {
-        documentElement: { clientHeight: 640 }
+        documentElement: { clientHeight: 640 },
+        getElementById(id) {
+            if (id === 'modal-overlay') return { style: {} };
+            if (id === 'edit-modal') {
+                return {
+                    style: {},
+                    querySelector(selector) {
+                        return selector === '.modal-body' ? modalBody : null;
+                    }
+                };
+            }
+            return null;
+        }
     };
     const win = {
         innerHeight: 640,
@@ -3688,8 +3714,79 @@ test('Controller mobile modale scorre prima la finestra e poi la pagina', () => 
         window: win
     });
 
-    assert.equal(modalBody.scrollTop, 100);
-    assert.equal(pageScroll, 174);
+    assert.equal(modalBody.style.paddingBottom, '208px');
+    assert.equal(modalBody.scrollTop, 274);
+    assert.equal(pageScroll, 0);
+});
+
+test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera', () => {
+    const { ModalMobileController } = loadUiViews();
+    const timeouts = [];
+    let lastViewportHeight = 0;
+    let pageScroll = 0;
+    const noteField = {
+        id: 'edit-nota',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        getBoundingClientRect() {
+            return { top: 330, bottom: 410 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 0,
+        dataset: {},
+        style: {},
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const overlay = { style: {} };
+    const modal = {
+        style: {},
+        querySelector(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        }
+    };
+    const doc = {
+        getElementById(id) {
+            if (id === 'modal-overlay') return overlay;
+            if (id === 'edit-modal') return modal;
+            if (id === 'edit-nota') return noteField;
+            return null;
+        }
+    };
+    const win = {
+        innerHeight: 640,
+        visualViewport: { height: 360, offsetTop: 0 },
+        scrollBy(arg, y) {
+            pageScroll += typeof arg === 'object' ? arg.top : y;
+        }
+    };
+    const options = {
+        document: doc,
+        window: win,
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        },
+        setLastViewportHeight(value) {
+            lastViewportHeight = value;
+        }
+    };
+
+    ModalMobileController.bindPlainFieldReveal(options);
+    noteField.listeners.focus();
+
+    assert.equal(lastViewportHeight, 360);
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
+
+    timeouts[0].callback();
+
+    assert.equal(overlay.style.paddingBottom, '280px');
+    assert.equal(modal.style.maxHeight, '352px');
+    assert.equal(modalBody.scrollTop, 56);
+    assert.equal(pageScroll, 0);
 });
 
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {
@@ -5043,6 +5140,25 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
             return null;
         }
     };
+    const exportBody = {
+        scrollTop: 0,
+        dataset: {},
+        style: {},
+        get scrollHeight() {
+            const extraPadding = Number.parseFloat(this.style.paddingBottom || '0') || 0;
+            return 460 + extraPadding;
+        },
+        clientHeight: 320,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const exportOffset = () => exportBody.scrollTop;
+    const dropdownList = {
+        getBoundingClientRect() {
+            return { top: 368 - exportOffset(), bottom: 488 - exportOffset(), height: 120 };
+        }
+    };
     const dropdown = {
         classList: {
             add(cls) { classes.add(cls); },
@@ -5051,6 +5167,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         },
         querySelector(selector) {
             if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return dropdownList;
             if (selector === '.sd-item.selected') return jsonItem;
             return null;
         },
@@ -5059,6 +5176,12 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
                 return [jsonItem, csvItem];
             }
             return [];
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? exportBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320 - exportOffset(), bottom: 364 - exportOffset() };
         }
     };
     const fields = {
@@ -5072,14 +5195,23 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         '#export-include-personalizzazioni': { checked: true },
         '#export-modal-close': null
     };
+    const exportPanel = {
+        style: {},
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return exportBody;
+            return fields[selector] || null;
+        }
+    };
     const modal = {
         dataset: {},
+        style: {},
         classList: {
             contains: () => false,
             add() {},
             remove() {}
         },
         querySelector(selector) {
+            if (selector === '#export-modal') return exportPanel;
             return fields[selector] || null;
         },
         addEventListener(event, handler) {
@@ -5103,7 +5235,13 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         pushUiState: state => calls.push(['push', state]),
         consumeUiState: () => calls.push('consume'),
         setTimeout: callback => callback(),
-        window: { innerHeight: 600 }
+        window: {
+            innerHeight: 640,
+            visualViewport: { height: 360, offsetTop: 0 },
+            scrollBy() {
+                throw new Error('La pagina sotto la finestra export non deve scrollare');
+            }
+        }
     };
 
     SettingsController.bindExportModal(options);
@@ -5117,10 +5255,15 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert(!jsonItem.classList.contains('highlighted'));
     assert.deepEqual(calls.slice(-2), ['focus', ['push', { panel: 'export-format' }]]);
     assert.equal(SettingsController.isExportFormatDropdownOpen(options), true);
+    assert.equal(modal.style.paddingBottom, '280px');
+    assert.equal(exportPanel.style.maxHeight, '352px');
+    assert.equal(exportBody.style.paddingBottom, '148px');
+    assert.equal(exportBody.scrollTop, 134);
 
     SettingsController.clearExportModalInteraction(options, true);
     assert.equal(classes.has('open'), false);
     assert.equal(modal.dataset.exportFormatInteraction, undefined);
+    assert.equal(exportBody.style.paddingBottom, '');
     assert(!calls.includes('consume'));
 
     mouseDownHandler({

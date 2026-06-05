@@ -5,6 +5,10 @@
 const ModalMobileController = (() => {
     const DROPDOWN_TOP_GAP = 8;
     const DROPDOWN_BOTTOM_GAP = 6;
+    const MODAL_TOP_GAP = 8;
+    const BODY_EXTRA_GAP = 12;
+    const DEFAULT_BODY_PADDING_BOTTOM = 16;
+    const PLAIN_FIELD_IDS = ['edit-importo', 'edit-descrizione', 'edit-nota'];
 
     function noop() { }
 
@@ -27,6 +31,18 @@ const ModalMobileController = (() => {
         return win.innerHeight || (doc.documentElement && doc.documentElement.clientHeight) || 0;
     }
 
+    function getKeyboardInset(options = {}) {
+        const win = getWindow(options);
+        const vv = win.visualViewport;
+
+        if (!vv || !Number.isFinite(vv.height)) return 0;
+
+        const offsetTop = Number.isFinite(vv.offsetTop) ? vv.offsetTop : 0;
+        const inset = win.innerHeight - (offsetTop + vv.height);
+
+        return Math.max(0, Math.round(inset));
+    }
+
     function isModalOpen(options = {}) {
         return !!(options.isModalOpen && options.isModalOpen());
     }
@@ -34,6 +50,20 @@ const ModalMobileController = (() => {
     function getOpenDropdown(options = {}) {
         const doc = getDocument(options);
         return doc.querySelector('#edit-modal .searchable-dropdown.open');
+    }
+
+    function getModalParts(options = {}) {
+        const doc = getDocument(options);
+        const overlay = doc.getElementById('modal-overlay');
+        const modal = doc.getElementById('edit-modal');
+        const body = modal && typeof modal.querySelector === 'function'
+            ? modal.querySelector('.modal-body')
+            : null;
+        const footer = modal && typeof modal.querySelector === 'function'
+            ? modal.querySelector('.modal-footer')
+            : null;
+
+        return { overlay, modal, body, footer };
     }
 
     function getDropdownVisibleRect(dropdown) {
@@ -70,29 +100,6 @@ const ModalMobileController = (() => {
         return element.scrollTop - previous;
     }
 
-    function scrollPageBy(delta, options = {}) {
-        if (!Number.isFinite(delta) || Math.abs(delta) < 1) return 0;
-
-        const doc = getDocument(options);
-        const scrollingElement = doc && (doc.scrollingElement || doc.documentElement || doc.body);
-        let consumed = scrollElementBy(scrollingElement, delta);
-        const remaining = delta - consumed;
-
-        if (Math.abs(remaining) < 1) return consumed;
-
-        const win = getWindow(options);
-        if (win && typeof win.scrollBy === 'function') {
-            try {
-                win.scrollBy({ top: remaining, behavior: 'smooth' });
-            } catch (_) {
-                win.scrollBy(0, remaining);
-            }
-            consumed += remaining;
-        }
-
-        return consumed;
-    }
-
     function getOverflow(rect, topLimit, bottomLimit) {
         const overflowBottom = rect.bottom - bottomLimit;
         if (overflowBottom > 0) return overflowBottom;
@@ -103,46 +110,134 @@ const ModalMobileController = (() => {
         return 0;
     }
 
-    function revealDropdown(dropdown, options = {}) {
-        if (!dropdown || typeof dropdown.getBoundingClientRect !== 'function') return;
-        if (dropdown.classList && !dropdown.classList.contains('open')) return;
+    function getBaseBodyPaddingBottom(body, options = {}) {
+        if (!body || !body.dataset) return DEFAULT_BODY_PADDING_BOTTOM;
+        if (body.dataset.basePaddingBottom) {
+            const saved = Number(body.dataset.basePaddingBottom);
+            return Number.isFinite(saved) ? saved : DEFAULT_BODY_PADDING_BOTTOM;
+        }
 
-        const modalBody = typeof dropdown.closest === 'function'
-            ? dropdown.closest('.modal-body')
+        const win = getWindow(options);
+        const style = win && typeof win.getComputedStyle === 'function'
+            ? win.getComputedStyle(body)
             : null;
-        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
-            ? modalBody.getBoundingClientRect()
-            : null;
-        const viewportHeight = getViewportHeight(options);
-        const rect = getDropdownVisibleRect(dropdown);
+        const value = style ? Number.parseFloat(style.paddingBottom) : DEFAULT_BODY_PADDING_BOTTOM;
+        const base = Number.isFinite(value) ? value : DEFAULT_BODY_PADDING_BOTTOM;
 
-        if (!viewportHeight) {
-            if (typeof dropdown.scrollIntoView === 'function') {
-                dropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
+        body.dataset.basePaddingBottom = String(base);
+        return base;
+    }
+
+    function setBodyExtraSpace(body, extraSpace = 0, options = {}) {
+        if (!body || !body.style) return;
+
+        const extra = Math.max(0, Math.ceil(Number(extraSpace) || 0));
+        if (extra <= 0) {
+            body.style.paddingBottom = '';
             return;
         }
 
-        if (modalBody && bodyRect && Number.isFinite(modalBody.scrollTop)) {
-            const bodyBottom = Math.min(viewportHeight - DROPDOWN_BOTTOM_GAP, bodyRect.bottom - DROPDOWN_BOTTOM_GAP);
-            const bodyTop = Math.max(DROPDOWN_TOP_GAP, bodyRect.top + DROPDOWN_TOP_GAP);
-            const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
+        body.style.paddingBottom = `${getBaseBodyPaddingBottom(body, options) + extra}px`;
+    }
 
-            if (bodyDelta) {
-                scrollElementBy(modalBody, bodyDelta);
-            }
+    function getDropdownExtraSpace(dropdown) {
+        if (!dropdown || !dropdown.classList || !dropdown.classList.contains('open')) return 0;
+
+        const list = typeof dropdown.querySelector === 'function'
+            ? dropdown.querySelector('.sd-list')
+            : null;
+        if (!list || typeof list.getBoundingClientRect !== 'function') return 0;
+
+        const rect = list.getBoundingClientRect();
+        const height = Number.isFinite(rect.height)
+            ? rect.height
+            : Number.isFinite(rect.bottom) && Number.isFinite(rect.top)
+                ? rect.bottom - rect.top
+                : 0;
+
+        return Math.max(0, height + BODY_EXTRA_GAP);
+    }
+
+    function updateViewportLayout(options = {}, config = {}) {
+        const { overlay, modal, body } = getModalParts(options);
+        const viewportHeight = getViewportHeight(options);
+        const keyboardInset = getKeyboardInset(options);
+        const hasKeyboard = keyboardInset > 0;
+
+        if (overlay && overlay.style) {
+            overlay.style.paddingBottom = hasKeyboard ? `${keyboardInset}px` : '';
         }
 
-        const updatedRect = getDropdownVisibleRect(dropdown);
-        const pageDelta = getOverflow(
-            updatedRect,
-            DROPDOWN_TOP_GAP,
-            viewportHeight - DROPDOWN_BOTTOM_GAP
-        );
-
-        if (pageDelta) {
-            scrollPageBy(pageDelta, options);
+        if (modal && modal.style) {
+            modal.style.maxHeight = hasKeyboard && viewportHeight
+                ? `${Math.max(240, viewportHeight - MODAL_TOP_GAP)}px`
+                : '';
         }
+
+        setBodyExtraSpace(body, config.extraBodySpace || 0, options);
+    }
+
+    function clearViewportLayout(options = {}) {
+        const { overlay, modal, body } = getModalParts(options);
+
+        if (overlay && overlay.style) overlay.style.paddingBottom = '';
+        if (modal && modal.style) modal.style.maxHeight = '';
+        if (body && body.style) body.style.paddingBottom = '';
+    }
+
+    function getTargetRect(target, config = {}) {
+        return config.includeDropdown
+            ? getDropdownVisibleRect(target)
+            : target.getBoundingClientRect();
+    }
+
+    function revealElement(target, options = {}, config = {}) {
+        if (!target || typeof target.getBoundingClientRect !== 'function') return;
+        if (config.requireOpenDropdown && target.classList && !target.classList.contains('open')) return;
+
+        const { body } = getModalParts(options);
+        const extraBodySpace = config.extraBodySpace != null
+            ? config.extraBodySpace
+            : config.includeDropdown
+                ? getDropdownExtraSpace(target)
+                : 0;
+
+        updateViewportLayout(options, { extraBodySpace });
+
+        const bodyRect = body && typeof body.getBoundingClientRect === 'function'
+            ? body.getBoundingClientRect()
+            : null;
+        const rect = getTargetRect(target, config);
+
+        if (!body || !bodyRect || !Number.isFinite(body.scrollTop)) return;
+
+        const bodyBottom = bodyRect.bottom - DROPDOWN_BOTTOM_GAP;
+        const bodyTop = bodyRect.top + DROPDOWN_TOP_GAP;
+        const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
+
+        if (bodyDelta) {
+            scrollElementBy(body, bodyDelta);
+        }
+    }
+
+    function revealDropdown(dropdown, options = {}) {
+        revealElement(dropdown, options, {
+            includeDropdown: true,
+            requireOpenDropdown: true
+        });
+    }
+
+    function revealPlainField(field, options = {}) {
+        revealElement(field, options);
+    }
+
+    function scheduleReveal(target, options = {}, config = {}) {
+        const defer = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
+
+        [0, 120, 280, 460].forEach(delay => {
+            defer(() => revealElement(target, options, config), delay);
+        });
     }
 
     function scheduleDropdownReveal(options = {}) {
@@ -151,9 +246,35 @@ const ModalMobileController = (() => {
 
         revealDropdown(dropdown, options);
 
-        const defer = options.setTimeout ||
-            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-        defer(() => revealDropdown(getOpenDropdown(options), options), 90);
+        scheduleReveal(dropdown, options, {
+            includeDropdown: true,
+            requireOpenDropdown: true
+        });
+    }
+
+    function schedulePlainFieldReveal(field, options = {}) {
+        if (!field) return;
+        scheduleReveal(field, options);
+    }
+
+    function bindPlainFieldReveal(options = {}) {
+        const doc = getDocument(options);
+
+        PLAIN_FIELD_IDS.forEach(id => {
+            const field = doc.getElementById(id);
+            if (!field || typeof field.addEventListener !== 'function') return;
+
+            const reveal = () => {
+                if (typeof options.setLastViewportHeight === 'function') {
+                    options.setLastViewportHeight(getViewportHeight(options));
+                }
+                schedulePlainFieldReveal(field, options);
+            };
+
+            field.addEventListener('focus', reveal);
+            field.addEventListener('click', reveal);
+            field.addEventListener('input', () => schedulePlainFieldReveal(field, options));
+        });
     }
 
     function getActivePlainField(options = {}) {
@@ -342,9 +463,15 @@ const ModalMobileController = (() => {
 
         if (prevHeight > 0) {
             if (isModalOpen(options)) {
+                updateViewportLayout(options);
                 const active = getActivePlainField(options);
                 if (shouldBlurForViewportChange(active, delta)) blur(active);
-                scheduleDropdownReveal(options);
+                const dropdown = getOpenDropdown(options);
+                if (dropdown) {
+                    scheduleDropdownReveal(options);
+                } else if (active) {
+                    revealPlainField(active, options);
+                }
             }
 
             if (options.isFilterOpen && options.isFilterOpen()) {
@@ -398,6 +525,8 @@ const ModalMobileController = (() => {
                 options.setKeyboardWatchTimer(null);
             }
         }
+
+        clearViewportLayout(options);
     }
 
     function blurPickerOnReturn(options = {}) {
@@ -424,9 +553,14 @@ const ModalMobileController = (() => {
 
     return {
         getViewportHeight,
+        getKeyboardInset,
         getOpenDropdown,
         getActivePlainField,
+        updateViewportLayout,
+        clearViewportLayout,
         revealDropdown,
+        revealPlainField,
+        bindPlainFieldReveal,
         bindNonStickyNativePicker,
         pushHistoryState,
         ensureInteractionState,

@@ -82,29 +82,6 @@ const ModalInteractions = (() => {
         return element.scrollTop - previous;
     }
 
-    function scrollPageBy(delta, options = {}) {
-        if (!Number.isFinite(delta) || Math.abs(delta) < 1) return 0;
-
-        const doc = getDocument(options);
-        const scrollingElement = doc && (doc.scrollingElement || doc.documentElement || doc.body);
-        let consumed = scrollElementBy(scrollingElement, delta);
-        const remaining = delta - consumed;
-
-        if (Math.abs(remaining) < 1) return consumed;
-
-        const win = getWindow(options);
-        if (win && typeof win.scrollBy === 'function') {
-            try {
-                win.scrollBy({ top: remaining, behavior: 'smooth' });
-            } catch (_) {
-                win.scrollBy(0, remaining);
-            }
-            consumed += remaining;
-        }
-
-        return consumed;
-    }
-
     function getOverflow(rect, topLimit, bottomLimit) {
         const overflowBottom = rect.bottom - bottomLimit;
         if (overflowBottom > 0) return overflowBottom;
@@ -118,6 +95,11 @@ const ModalInteractions = (() => {
     function revealDropdown(container, options = {}) {
         if (!container || typeof container.getBoundingClientRect !== 'function') return;
         if (container.classList && !container.classList.contains('open')) return;
+
+        if (typeof options.revealDropdown === 'function') {
+            options.revealDropdown(container);
+            return;
+        }
 
         const modalBody = typeof container.closest === 'function'
             ? container.closest('.modal-body')
@@ -153,16 +135,6 @@ const ModalInteractions = (() => {
             }
         }
 
-        const updatedRect = getDropdownVisibleRect(container);
-        const pageDelta = getOverflow(
-            updatedRect,
-            DROPDOWN_TOP_GAP,
-            viewportHeight - DROPDOWN_BOTTOM_GAP
-        );
-
-        if (pageDelta) {
-            scrollPageBy(pageDelta, options);
-        }
     }
 
     function scheduleDropdownReveal(container, options = {}) {
@@ -237,6 +209,7 @@ const ModalInteractions = (() => {
             input.value = ModalView.formatDropdownItem(selectedItem);
 
             releaseInteractionAfterClose(options, wasOpen);
+            call(options.updateModalViewportLayout);
         };
 
         const selectItem = (item) => {
@@ -436,6 +409,7 @@ const ModalInteractions = (() => {
             input.value = '';
 
             releaseInteractionAfterClose(options, wasOpen);
+            call(options.updateModalViewportLayout);
         };
 
         input.addEventListener('mousedown', e => {

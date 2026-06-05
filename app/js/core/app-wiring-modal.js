@@ -84,6 +84,7 @@ const AppWiringModal = (() => {
                     el,
                     modalMobileOptions()
                 ),
+                bindPlainFieldReveal: () => deps.ModalMobileController.bindPlainFieldReveal(modalMobileOptions()),
                 handleModalViewportChange: () => deps.ModalMobileController.handleViewportChange(modalMobileOptions()),
                 handlePopstate: () => app.handlePopstate(),
                 toInputDate: date => deps.AppUI.toInputDate(date),
@@ -97,6 +98,13 @@ const AppWiringModal = (() => {
                 document: deps.document,
                 window: deps.window,
                 setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                revealDropdown: dropdown => deps.ModalMobileController.revealDropdown(
+                    dropdown,
+                    modalMobileOptions()
+                ),
+                updateModalViewportLayout: () => deps.ModalMobileController.updateViewportLayout(
+                    modalMobileOptions()
+                ),
                 ensureInteractionState: () => deps.ModalMobileController.ensureInteractionState(modalMobileOptions()),
                 releaseInteractionState: () => deps.ModalMobileController.releaseInteractionState(modalMobileOptions()),
                 isInteractionActive: () => app._modalInteractionActive,

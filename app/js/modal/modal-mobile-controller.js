@@ -33,6 +33,75 @@ const ModalMobileController = (() => {
         return doc.querySelector('#edit-modal .searchable-dropdown.open');
     }
 
+    function getDropdownVisibleRect(dropdown) {
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const list = typeof dropdown.querySelector === 'function'
+            ? dropdown.querySelector('.sd-list')
+            : null;
+
+        if (!list || typeof list.getBoundingClientRect !== 'function') {
+            return dropdownRect;
+        }
+
+        const listRect = list.getBoundingClientRect();
+
+        return {
+            top: Math.min(dropdownRect.top, listRect.top),
+            bottom: Math.max(dropdownRect.bottom, listRect.bottom)
+        };
+    }
+
+    function revealDropdown(dropdown, options = {}) {
+        if (!dropdown || typeof dropdown.getBoundingClientRect !== 'function') return;
+
+        const modalBody = typeof dropdown.closest === 'function'
+            ? dropdown.closest('.modal-body')
+            : null;
+        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
+            ? modalBody.getBoundingClientRect()
+            : null;
+        const viewportHeight = getViewportHeight(options);
+        const rect = getDropdownVisibleRect(dropdown);
+        const margin = 14;
+
+        if (!viewportHeight) {
+            if (typeof dropdown.scrollIntoView === 'function') {
+                dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        const visibleBottom = bodyRect
+            ? Math.min(viewportHeight - margin, bodyRect.bottom - margin)
+            : viewportHeight - margin;
+        const visibleTop = bodyRect
+            ? Math.max(margin, bodyRect.top + margin)
+            : margin;
+        const overflowBottom = rect.bottom - visibleBottom;
+        const overflowTop = visibleTop - rect.top;
+
+        if (modalBody && Number.isFinite(modalBody.scrollTop)) {
+            if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
+            else if (overflowTop > 0) modalBody.scrollTop -= overflowTop;
+            return;
+        }
+
+        if ((overflowBottom > 0 || overflowTop > 0) && typeof dropdown.scrollIntoView === 'function') {
+            dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function scheduleDropdownReveal(options = {}) {
+        const dropdown = getOpenDropdown(options);
+        if (!dropdown) return;
+
+        revealDropdown(dropdown, options);
+
+        const defer = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
+        defer(() => revealDropdown(getOpenDropdown(options), options), 90);
+    }
+
     function getActivePlainField(options = {}) {
         const doc = getDocument(options);
         const modal = doc.getElementById('edit-modal');
@@ -221,6 +290,7 @@ const ModalMobileController = (() => {
             if (isModalOpen(options)) {
                 const active = getActivePlainField(options);
                 if (shouldBlurForViewportChange(active, delta)) blur(active);
+                scheduleDropdownReveal(options);
             }
 
             if (options.isFilterOpen && options.isFilterOpen()) {
@@ -302,6 +372,7 @@ const ModalMobileController = (() => {
         getViewportHeight,
         getOpenDropdown,
         getActivePlainField,
+        revealDropdown,
         bindNonStickyNativePicker,
         pushHistoryState,
         ensureInteractionState,

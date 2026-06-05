@@ -873,8 +873,34 @@ const SettingsController = (() => {
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
     }
 
+    function getExportDropdownVisibleRect(dropdown) {
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const list = typeof dropdown.querySelector === 'function'
+            ? dropdown.querySelector('.sd-list')
+            : null;
+
+        if (!list || typeof list.getBoundingClientRect !== 'function') {
+            return dropdownRect;
+        }
+
+        const listRect = list.getBoundingClientRect();
+
+        return {
+            top: Math.min(dropdownRect.top, listRect.top),
+            bottom: Math.max(dropdownRect.bottom, listRect.bottom)
+        };
+    }
+
+    function centerExportDropdown(dropdown) {
+        if (dropdown && dropdown.classList && !dropdown.classList.contains('open')) return;
+        if (dropdown && typeof dropdown.scrollIntoView === 'function') {
+            dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
     function revealExportDropdown(dropdown, options = {}) {
         if (!dropdown || typeof dropdown.getBoundingClientRect !== 'function') return;
+        if (dropdown.classList && !dropdown.classList.contains('open')) return;
 
         const modalBody = typeof dropdown.closest === 'function'
             ? dropdown.closest('.modal-body')
@@ -888,18 +914,25 @@ const SettingsController = (() => {
                 : doc && doc.documentElement
                     ? doc.documentElement.clientHeight
                     : 0;
-        const rect = dropdown.getBoundingClientRect();
+        const rect = getExportDropdownVisibleRect(dropdown);
+        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
+            ? modalBody.getBoundingClientRect()
+            : null;
         const margin = 14;
 
         if (!viewportHeight) {
-            if (typeof dropdown.scrollIntoView === 'function') {
-                dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            centerExportDropdown(dropdown);
             return;
         }
 
-        const overflowBottom = rect.bottom - (viewportHeight - margin);
-        const overflowTop = margin - rect.top;
+        const visibleBottom = bodyRect
+            ? Math.min(viewportHeight - margin, bodyRect.bottom - margin)
+            : viewportHeight - margin;
+        const visibleTop = bodyRect
+            ? Math.max(margin, bodyRect.top + margin)
+            : margin;
+        const overflowBottom = rect.bottom - visibleBottom;
+        const overflowTop = visibleTop - rect.top;
 
         if (modalBody && Number.isFinite(modalBody.scrollTop)) {
             if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
@@ -912,11 +945,15 @@ const SettingsController = (() => {
         }
     }
 
-    function scheduleExportDropdownReveal(dropdown, options = {}) {
+    function scheduleExportDropdownReveal(dropdown, options = {}, config = {}) {
         const defer = getDefer(options);
         [0, 120, 280, 460].forEach(delay => {
             defer(() => revealExportDropdown(dropdown, options), delay);
         });
+
+        if (config.centerFallback) {
+            defer(() => centerExportDropdown(dropdown), 300);
+        }
     }
 
     function ensureExportFormatInteraction(modal, options = {}) {
@@ -1133,7 +1170,7 @@ const SettingsController = (() => {
             input.value = '';
             if (typeof input.focus === 'function') input.focus();
             filterExportFormatDropdown(dropdown);
-            scheduleExportDropdownReveal(dropdown, options);
+            scheduleExportDropdownReveal(dropdown, options, { centerFallback: true });
         }
     }
 
@@ -1244,6 +1281,18 @@ const SettingsController = (() => {
 
             syncExportModalFromDraft(options);
         });
+
+        const win = getWindowLike(options);
+        if (win && typeof win.addEventListener === 'function') {
+            const handleViewportResize = () => {
+                scheduleExportDropdownReveal(getExportFormatDropdown(modal), options);
+            };
+
+            win.addEventListener('resize', handleViewportResize, { passive: true });
+            if (win.visualViewport && typeof win.visualViewport.addEventListener === 'function') {
+                win.visualViewport.addEventListener('resize', handleViewportResize, { passive: true });
+            }
+        }
     }
 
     function render(options = {}) {

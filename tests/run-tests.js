@@ -3113,6 +3113,91 @@ test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () =
     assert(html.includes('data-id="bar"'));
 });
 
+test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', () => {
+    const timeouts = [];
+    const scrollCalls = [];
+    const classes = new Set();
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {},
+        blur() {}
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        getBoundingClientRect() {
+            return { top: 368, bottom: 548 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 0,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 620 };
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
+        },
+        scrollIntoView(options) {
+            scrollCalls.push(options);
+        }
+    };
+    const documentLike = {
+        documentElement: { clientHeight: 640 },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        window: { innerHeight: 640, visualViewport: { height: 360 } },
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+    input.listeners.mousedown({ preventDefault() {} });
+
+    assert.equal(input.readOnly, false);
+    assert(timeouts.some(item => item.ms === 300));
+    timeouts.find(item => item.ms === 0).callback();
+    assert.equal(modalBody.scrollTop, 202);
+    timeouts.find(item => item.ms === 300).callback();
+    assert.equal(scrollCalls.length, 1);
+});
+
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
     const { ModalView } = loadUiViews();
     const spese = [
@@ -3333,10 +3418,29 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     }
 
     const sdInput = makeElement('sd-input', { inModal: true, inDropdown: true });
+    const modalBody = {
+        scrollTop: 0,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 620 };
+        }
+    };
+    const dropdownList = {
+        getBoundingClientRect() {
+            return { top: 368, bottom: 548 };
+        }
+    };
     const dropdown = {
         classList: classList('dropdown', ['open']),
         querySelector(selector) {
-            return selector === '.sd-input' ? sdInput : null;
+            if (selector === '.sd-input') return sdInput;
+            if (selector === '.sd-list') return dropdownList;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
         }
     };
     const modal = { contains: el => !!(el && el.inModal) };
@@ -3436,10 +3540,18 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
     assert.equal(lastViewportHeight, 450);
 
+    modalBody.scrollTop = 0;
+    activeElement = sdInput;
+    lastViewportHeight = 650;
+    win.visualViewport.height = 360;
+    ModalMobileController.handleViewportChange(options);
+    assert.equal(modalBody.scrollTop, 202);
+
     modalOpen = false;
     filterOpen = true;
     activeElement = searchInput;
     lastViewportHeight = 300;
+    win.visualViewport.height = 450;
     ModalMobileController.handleViewportChange(options);
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'search-input'));
 
@@ -3469,6 +3581,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert.equal(timerId, null);
     assert.deepEqual(clearedIntervals, [1]);
 
+    timeouts.length = 0;
     activeElement = editData;
     ModalMobileController.bindNonStickyNativePicker(editData, options);
     let pointerPrevented = false;

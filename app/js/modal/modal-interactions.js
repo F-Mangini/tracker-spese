@@ -34,9 +34,41 @@ const ModalInteractions = (() => {
         return null;
     }
 
+    function getDocument(options = {}) {
+        if (options.document) return options.document;
+        if (typeof document !== 'undefined') return document;
+        return null;
+    }
+
     function getDefer(options = {}) {
         return options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
+    }
+
+    function getDropdownVisibleRect(container) {
+        const containerRect = container.getBoundingClientRect();
+        const list = typeof container.querySelector === 'function'
+            ? container.querySelector('.sd-list')
+            : null;
+        const isOpen = container.classList && container.classList.contains('open');
+
+        if (!isOpen || !list || typeof list.getBoundingClientRect !== 'function') {
+            return containerRect;
+        }
+
+        const listRect = list.getBoundingClientRect();
+
+        return {
+            top: Math.min(containerRect.top, listRect.top),
+            bottom: Math.max(containerRect.bottom, listRect.bottom)
+        };
+    }
+
+    function centerDropdown(container) {
+        if (container && container.classList && !container.classList.contains('open')) return;
+        if (container && typeof container.scrollIntoView === 'function') {
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 
     function revealDropdown(container, options = {}) {
@@ -46,7 +78,7 @@ const ModalInteractions = (() => {
             ? container.closest('.modal-body')
             : null;
         const win = getWindow(options);
-        const doc = typeof document !== 'undefined' ? document : null;
+        const doc = getDocument(options);
         const viewportHeight = win && win.visualViewport && Number.isFinite(win.visualViewport.height)
             ? win.visualViewport.height
             : win && Number.isFinite(win.innerHeight)
@@ -54,18 +86,25 @@ const ModalInteractions = (() => {
                 : doc && doc.documentElement
                     ? doc.documentElement.clientHeight
                     : 0;
-        const rect = container.getBoundingClientRect();
+        const rect = getDropdownVisibleRect(container);
+        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
+            ? modalBody.getBoundingClientRect()
+            : null;
         const margin = 14;
 
         if (!viewportHeight) {
-            if (typeof container.scrollIntoView === 'function') {
-                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            centerDropdown(container);
             return;
         }
 
-        const overflowBottom = rect.bottom - (viewportHeight - margin);
-        const overflowTop = margin - rect.top;
+        const visibleBottom = bodyRect
+            ? Math.min(viewportHeight - margin, bodyRect.bottom - margin)
+            : viewportHeight - margin;
+        const visibleTop = bodyRect
+            ? Math.max(margin, bodyRect.top + margin)
+            : margin;
+        const overflowBottom = rect.bottom - visibleBottom;
+        const overflowTop = visibleTop - rect.top;
 
         if (modalBody && Number.isFinite(modalBody.scrollTop)) {
             if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
@@ -78,11 +117,15 @@ const ModalInteractions = (() => {
         }
     }
 
-    function scheduleDropdownReveal(container, options = {}) {
+    function scheduleDropdownReveal(container, options = {}, config = {}) {
         const defer = getDefer(options);
         [0, 120, 280, 460].forEach(delay => {
             defer(() => revealDropdown(container, options), delay);
         });
+
+        if (config.centerFallback) {
+            defer(() => centerDropdown(container), 300);
+        }
     }
 
     function ensureInteraction(options, wasClosed) {
@@ -182,7 +225,7 @@ const ModalInteractions = (() => {
                 input.value = '';
                 input.focus();
 
-                scheduleDropdownReveal(container, options);
+                scheduleDropdownReveal(container, options, { centerFallback: true });
             }
         });
 
@@ -363,7 +406,7 @@ const ModalInteractions = (() => {
                 input.readOnly = false;
                 input.value = '';
                 input.focus();
-                scheduleDropdownReveal(container, options);
+                scheduleDropdownReveal(container, options, { centerFallback: true });
             }
         });
 

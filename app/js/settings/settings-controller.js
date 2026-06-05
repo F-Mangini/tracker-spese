@@ -150,6 +150,69 @@ const SettingsController = (() => {
             .filter(Boolean);
     }
 
+    function normalizeSelectionIds(ids) {
+        if (
+            SettingsActions &&
+            typeof SettingsActions.normalizeIdList === 'function'
+        ) {
+            return SettingsActions.normalizeIdList(ids);
+        }
+
+        if (ids instanceof Set) return Array.from(ids).filter(Boolean);
+        if (Array.isArray(ids)) return ids.filter(Boolean);
+        return [];
+    }
+
+    function getExistingSelectionIds(ids, options = {}) {
+        const existingIds = new Set(getAllExpenseIds(options));
+        return normalizeSelectionIds(ids).filter(id => existingIds.has(id));
+    }
+
+    function areSameSelection(left = [], right = []) {
+        const leftIds = Array.from(new Set(normalizeSelectionIds(left))).sort();
+        const rightIds = Array.from(new Set(normalizeSelectionIds(right))).sort();
+
+        return leftIds.length === rightIds.length &&
+            leftIds.every((id, index) => id === rightIds[index]);
+    }
+
+    function getLastExportFilteredIds(prefs, options = {}) {
+        const lastExport = prefs && prefs.lastExport;
+        if (!lastExport || !lastExport.filters) return [];
+
+        if (typeof options.getFilteredIdsForExportFilters === 'function') {
+            return getExistingSelectionIds(
+                options.getFilteredIdsForExportFilters(lastExport.filters, lastExport.selectedIds),
+                options
+            );
+        }
+
+        return [];
+    }
+
+    function getExportMemoryState(options = {}, prefs = getExportPreferences(options)) {
+        const lastExport = prefs.lastExport;
+        const currentIds = getExistingSelectionIds(getCurrentSelectedIds(options), options);
+        const lastSelectionIds = lastExport
+            ? getExistingSelectionIds(lastExport.selectedIds, options)
+            : [];
+        const lastFilterIds = lastExport
+            ? getLastExportFilteredIds(prefs, options)
+            : [];
+        const hasLastExport = !!lastExport;
+
+        return {
+            hasLastExport,
+            currentIds,
+            lastSelectionIds,
+            lastFilterIds,
+            lastSelectionActive: hasLastExport && areSameSelection(currentIds, lastSelectionIds),
+            lastFiltersActive: hasLastExport && areSameSelection(currentIds, lastFilterIds),
+            lastSelectionCount: lastSelectionIds.length,
+            lastFiltersCount: lastFilterIds.length
+        };
+    }
+
     function getCurrentFilterSnapshot(options = {}) {
         const filters = typeof options.getCurrentFilters === 'function'
             ? options.getCurrentFilters()
@@ -159,12 +222,15 @@ const SettingsController = (() => {
     }
 
     function getExportModalModel(options = {}) {
+        const prefs = getExportPreferences(options);
+
         return {
-            preferences: getExportPreferences(options),
+            preferences: prefs,
             selectedCount: getSelectedSpese(options).length,
             filterCount: typeof options.countActiveFilters === 'function'
                 ? options.countActiveFilters()
-                : 0
+                : 0,
+            memory: getExportMemoryState(options, prefs)
         };
     }
 
@@ -187,6 +253,69 @@ const SettingsController = (() => {
                 ? `${filterLabel}<span class="filter-badge">${filterCount}</span>`
                 : filterLabel;
         }
+    }
+
+    function clearExportMemoryBase(modal) {
+        if (!modal || !modal.dataset) return;
+        delete modal.dataset.exportToggleBaseSelection;
+    }
+
+    function readExportMemoryBase(modal) {
+        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseSelection) {
+            return null;
+        }
+
+        try {
+            return normalizeSelectionIds(JSON.parse(modal.dataset.exportToggleBaseSelection));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writeExportMemoryBase(modal, selectedIds) {
+        if (!modal || !modal.dataset) return;
+        modal.dataset.exportToggleBaseSelection = JSON.stringify(normalizeSelectionIds(selectedIds));
+    }
+
+    function applyExportSelection(selectedIds, options = {}) {
+        if (typeof options.beginExportSelection !== 'function') return;
+
+        options.beginExportSelection({
+            selectedIds: normalizeSelectionIds(selectedIds),
+            selectFilteredWhenEmpty: false
+        });
+    }
+
+    function toggleExportMemorySelection(kind, options = {}) {
+        const modal = getExportModal(options);
+        const prefs = getExportPreferences(options);
+        const memory = getExportMemoryState(options, prefs);
+        const selectingLastFilters = kind === 'filters';
+        const isActive = selectingLastFilters
+            ? memory.lastFiltersActive
+            : memory.lastSelectionActive;
+        const targetIds = selectingLastFilters
+            ? memory.lastFilterIds
+            : memory.lastSelectionIds;
+
+        if (!memory.hasLastExport) return;
+
+        if (isActive) {
+            const baseIds = readExportMemoryBase(modal);
+            if (baseIds) {
+                applyExportSelection(baseIds, options);
+            }
+            clearExportMemoryBase(modal);
+            renderExportModal(options);
+            return;
+        }
+
+        if (!readExportMemoryBase(modal)) {
+            writeExportMemoryBase(modal, memory.currentIds);
+        }
+
+        applyExportSelection(targetIds, options);
+        renderExportModal(options);
     }
 
     function initializeExportModalSelection(options = {}) {
@@ -251,6 +380,7 @@ const SettingsController = (() => {
         if (!modal) return;
 
         initializeExportModalSelection(options);
+        clearExportMemoryBase(modal);
         renderExportModal(options);
 
         const wasOpen = !modal.classList.contains('hidden');
@@ -267,6 +397,7 @@ const SettingsController = (() => {
 
         const wasOpen = !modal.classList.contains('hidden');
         modal.classList.add('hidden');
+        clearExportMemoryBase(modal);
 
         if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
@@ -710,6 +841,15 @@ const SettingsController = (() => {
         if (dropdown && dropdown.classList && typeof dropdown.classList.remove === 'function') {
             dropdown.classList.remove('open');
         }
+
+        const input = dropdown && typeof dropdown.querySelector === 'function'
+            ? dropdown.querySelector('.sd-input')
+            : null;
+        if (input) {
+            input.readOnly = true;
+            const selected = dropdown.querySelector('.sd-item.selected');
+            input.value = selected ? selected.textContent.trim() : input.value;
+        }
     }
 
     function toggleExportFormatDropdown(modal, open) {
@@ -724,12 +864,90 @@ const SettingsController = (() => {
         if (typeof dropdown.classList[method] === 'function') {
             dropdown.classList[method]('open');
         }
+
+        if (shouldOpen) {
+            filterExportFormatDropdown(dropdown);
+        }
+    }
+
+    function getExportContentDraft(modal) {
+        const dataField = modal.querySelector('#export-include-data');
+        const settingsField = modal.querySelector('#export-include-settings');
+        const personalizzazioniField = modal.querySelector('#export-include-personalizzazioni');
+
+        return {
+            includeData: !dataField || dataField.checked,
+            includeSettings: !settingsField || settingsField.checked,
+            includePersonalizzazioni: !!(personalizzazioniField && personalizzazioniField.checked)
+        };
+    }
+
+    function readPreCsvContentDraft(modal) {
+        if (!modal || !modal.dataset || !modal.dataset.exportPreCsvContents) return null;
+
+        try {
+            const draft = JSON.parse(modal.dataset.exportPreCsvContents);
+            return draft && typeof draft === 'object' && !Array.isArray(draft)
+                ? draft
+                : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function saveFormatDraft(modal, value, options = {}) {
+        const currentPrefs = getExportPreferences(options);
+        const field = modal.querySelector('#export-format');
+        const previousFormat = field ? (field.value || field.dataset.value || currentPrefs.format) : currentPrefs.format;
+        const enteringCsv = value === 'csv' && previousFormat !== 'csv';
+        const leavingCsv = value !== 'csv' && previousFormat === 'csv';
+        let contentDraft = getExportContentDraft(modal);
+
+        if (enteringCsv && modal.dataset) {
+            modal.dataset.exportPreCsvContents = JSON.stringify(contentDraft);
+        }
+
+        if (leavingCsv) {
+            contentDraft = readPreCsvContentDraft(modal) || {
+                includeData: currentPrefs.includeData,
+                includeSettings: currentPrefs.includeSettings,
+                includePersonalizzazioni: currentPrefs.includePersonalizzazioni
+            };
+        }
+
+        return saveExportPreferences(options, {
+            ...currentPrefs,
+            ...contentDraft,
+            format: value
+        });
+    }
+
+    function filterExportFormatDropdown(dropdown, query = '') {
+        if (!dropdown || typeof dropdown.querySelectorAll !== 'function') return;
+
+        const normalizedQuery = String(query || '').trim().toLowerCase();
+        const items = Array.from(dropdown.querySelectorAll('.sd-item'));
+        let highlighted = false;
+
+        items.forEach(item => {
+            const label = String(item.textContent || '').trim().toLowerCase();
+            const matches = !normalizedQuery || label.includes(normalizedQuery);
+            item.classList.toggle('hidden', !matches);
+            item.classList.toggle('highlighted', false);
+
+            if (matches && !highlighted) {
+                item.classList.toggle('highlighted', true);
+                highlighted = true;
+            }
+        });
     }
 
     function selectExportFormat(modal, value, options = {}) {
         const field = modal.querySelector('#export-format');
         const input = modal.querySelector('#export-format-dropdown .sd-input');
         const item = modal.querySelector(`#export-format-dropdown .sd-item[data-format="${value}"]`);
+
+        saveFormatDraft(modal, value, options);
 
         if (field) field.value = value;
         if (input) {
@@ -738,14 +956,14 @@ const SettingsController = (() => {
         }
 
         closeExportFormatDropdown(modal);
-        syncExportModalFromDraft(options);
+        renderExportModal(options);
     }
 
     function handleExportFormatKeydown(event, modal, options = {}) {
         const dropdown = closest(event.target, '#export-format-dropdown');
         if (!dropdown) return;
 
-        const items = Array.from(dropdown.querySelectorAll('.sd-item'));
+        const items = Array.from(dropdown.querySelectorAll('.sd-item:not(.hidden)'));
         if (items.length === 0) return;
 
         const currentIndex = Math.max(
@@ -775,6 +993,33 @@ const SettingsController = (() => {
         } else if (event.key === 'Escape') {
             event.preventDefault();
             closeExportFormatDropdown(modal);
+        }
+    }
+
+    function handleExportFormatMousedown(event, modal) {
+        if (closest(event.target, '#export-format-dropdown .sd-item')) return;
+
+        const dropdown = closest(event.target, '#export-format-dropdown');
+        if (!dropdown) return;
+
+        const input = typeof dropdown.querySelector === 'function'
+            ? dropdown.querySelector('.sd-input')
+            : null;
+        if (!input) return;
+
+        if (!dropdown.classList.contains('open')) {
+            event.preventDefault();
+            if (typeof input.focus === 'function') input.focus();
+            toggleExportFormatDropdown(modal, true);
+            return;
+        }
+
+        if (input.readOnly) {
+            event.preventDefault();
+            input.readOnly = false;
+            input.value = '';
+            if (typeof input.focus === 'function') input.focus();
+            filterExportFormatDropdown(dropdown);
         }
     }
 
@@ -827,12 +1072,21 @@ const SettingsController = (() => {
             }
 
             if (closest(event.target, '#export-format-dropdown')) {
-                toggleExportFormatDropdown(modal);
                 return;
             }
 
             if (event.target.id === 'btn-export-filters') {
                 openExportFilters(options);
+                return;
+            }
+
+            if (event.target.id === 'export-toggle-last-selection') {
+                toggleExportMemorySelection('selection', options);
+                return;
+            }
+
+            if (event.target.id === 'export-toggle-last-filters') {
+                toggleExportMemorySelection('filters', options);
                 return;
             }
 
@@ -844,6 +1098,10 @@ const SettingsController = (() => {
             closeExportFormatDropdown(modal);
         });
 
+        modal.addEventListener('mousedown', event => {
+            handleExportFormatMousedown(event, modal);
+        });
+
         modal.addEventListener('focusin', event => {
             if (closest(event.target, '#export-format-dropdown')) {
                 toggleExportFormatDropdown(modal, true);
@@ -852,6 +1110,17 @@ const SettingsController = (() => {
 
         modal.addEventListener('keydown', event => {
             handleExportFormatKeydown(event, modal, options);
+        });
+
+        modal.addEventListener('input', event => {
+            const input = closest(event.target, '#export-format-dropdown .sd-input');
+            if (!input) return;
+
+            const dropdown = closest(input, '#export-format-dropdown');
+            if (!dropdown) return;
+
+            toggleExportFormatDropdown(modal, true);
+            filterExportFormatDropdown(dropdown, input.value);
         });
 
         modal.addEventListener('change', event => {

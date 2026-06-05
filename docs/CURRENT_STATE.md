@@ -64,7 +64,7 @@ Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccat
 
 La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.
 
-L'export Default genera un backup JSON completo. L'export Custom salva preferenze locali dedicate per formato, contenuti e ultimo export riuscito: al primo uso seleziona automaticamente tutte le spese, poi ripristina le spese esportate e i filtri attivi al momento dell'ultimo export custom effettivamente completato. JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
+L'export Default genera un backup JSON completo. L'export Custom salva preferenze locali dedicate per formato, contenuti e ultimo export riuscito: al primo uso seleziona automaticamente tutte le spese, poi ripristina le spese esportate e i filtri attivi al momento dell'ultimo export custom effettivamente completato. Nella finestra dedicata i toggle `Ultima Selezione` e `Ultimi Filtri` permettono di riapplicare rispettivamente gli id esportati o il risultato dei filtri salvati nell'ultimo export riuscito; lo stato dei toggle e derivato dalla selezione corrente e non salva bozze. Se `Dati` e disattivato il conteggio mostra 0 spese selezionate. JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari e forza temporaneamente la checklist ai soli dati; tornando da CSV a JSON vengono ripristinati i contenuti selezionati prima del passaggio a CSV. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
 
 ## Funzioni Implementate
 
@@ -151,7 +151,7 @@ La pagina impostazioni include:
 - cancellazione completa con conferma.
 - opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
 
-La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. All'apertura seleziona automaticamente tutte le spese se non esiste ancora un export custom riuscito; dagli ingressi successivi ripristina la selezione e i filtri usati nell'ultimo export custom completato. Il pulsante `Filtra 🔍` chiude la finestra e porta alla timeline in modalita selezione; quando ci sono filtri attivi mostra il badge rosso con il conteggio.
+La finestra export custom entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. All'apertura seleziona automaticamente tutte le spese se non esiste ancora un export custom riuscito; dagli ingressi successivi ripristina la selezione e i filtri usati nell'ultimo export custom completato. I toggle `Ultima Selezione` e `Ultimi Filtri` riapplicano l'ultima selezione esportata o tutte le spese corrispondenti agli ultimi filtri salvati; se i due insiemi coincidono possono risultare attivi insieme, altrimenti l'uno esclude l'altro. Il pulsante `Filtra 🔍` chiude la finestra e porta alla timeline in modalita selezione; quando ci sono filtri attivi mostra il badge rosso con il conteggio.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 

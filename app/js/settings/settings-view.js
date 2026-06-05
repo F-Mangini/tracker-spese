@@ -163,7 +163,7 @@ const SettingsView = (() => {
         return `
             <input type="hidden" id="export-format" value="${AppUI.escapeHtml(selected.value || 'json')}">
             <div class="searchable-dropdown export-format-dropdown" id="export-format-dropdown">
-                <textarea rows="1" class="sd-input" readonly data-value="${AppUI.escapeHtml(selected.value || '')}">${AppUI.escapeHtml(selected.label || '')}</textarea>
+                <textarea rows="1" class="sd-input" autocomplete="nope" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" enterkeyhint="done" readonly data-value="${AppUI.escapeHtml(selected.value || '')}">${AppUI.escapeHtml(selected.label || '')}</textarea>
                 <span class="sd-arrow">▼</span>
                 <div class="sd-list">
                     ${formats.map(format => `
@@ -242,11 +242,16 @@ const SettingsView = (() => {
     function renderExportModal(model = {}) {
         const prefs = SettingsActions.normalizeExportPreferences(model.preferences || {});
         const formats = SettingsActions.getExportFormats();
-        const selectedCount = Number(model.selectedCount || 0);
+        const rawSelectedCount = Number(model.selectedCount || 0);
+        const selectedCount = prefs.includeData ? rawSelectedCount : 0;
         const selectedLabel = selectedCount === 1
             ? '1 spesa selezionata'
             : `${selectedCount} spese selezionate`;
         const csvMode = prefs.format === 'csv';
+        const memory = model.memory || {};
+        const lastSelectionClass = memory.lastSelectionActive ? ' active' : '';
+        const lastFiltersClass = memory.lastFiltersActive ? ' active' : '';
+        const memoryDisabled = memory.hasLastExport ? '' : ' disabled';
 
         return `
             <div class="export-config-grid">
@@ -276,6 +281,24 @@ const SettingsView = (() => {
 
             <div class="export-selection-summary">
                 <strong>${AppUI.escapeHtml(selectedLabel)}</strong>
+                <div class="export-memory-toggles" role="group">
+                    <button
+                        type="button"
+                        id="export-toggle-last-selection"
+                        class="export-memory-toggle${lastSelectionClass}"
+                        aria-pressed="${memory.lastSelectionActive ? 'true' : 'false'}"${memoryDisabled}
+                    >
+                        Ultima Selezione
+                    </button>
+                    <button
+                        type="button"
+                        id="export-toggle-last-filters"
+                        class="export-memory-toggle${lastFiltersClass}"
+                        aria-pressed="${memory.lastFiltersActive ? 'true' : 'false'}"${memoryDisabled}
+                    >
+                        Ultimi Filtri
+                    </button>
+                </div>
             </div>
         `;
     }

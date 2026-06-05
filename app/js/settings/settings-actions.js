@@ -612,6 +612,7 @@ const SettingsActions = (() => {
         detectImportFormat,
         getExportChoices,
         getExportFormats,
+        normalizeIdList,
         normalizeFilterSnapshot,
         createExportFilterSnapshot,
         normalizeExportPreferences,

@@ -1362,6 +1362,11 @@ body.expense-input-active #input-bar {
     min-height: 0;
 }
 
+.modal-body.field-scroll-locked {
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+}
+
 .modal-footer {
     padding: 12px 20px 20px;
     display: flex;

@@ -3724,11 +3724,21 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
     const timeouts = [];
     let lastViewportHeight = 0;
     let pageScroll = 0;
+    let activeElement = null;
+    const bodyClasses = new Set();
     const noteField = {
         id: 'edit-nota',
+        tagName: 'TEXTAREA',
+        type: 'text',
         listeners: {},
         addEventListener(event, handler) {
             this.listeners[event] = handler;
+        },
+        matches(selector) {
+            return selector === 'input, textarea, select';
+        },
+        closest() {
+            return null;
         },
         getBoundingClientRect() {
             return { top: 330, bottom: 410 };
@@ -3738,18 +3748,36 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
         scrollTop: 0,
         dataset: {},
         style: {},
+        classList: {
+            add(cls) { bodyClasses.add(cls); },
+            remove(cls) { bodyClasses.delete(cls); },
+            contains(cls) { return bodyClasses.has(cls); }
+        },
         getBoundingClientRect() {
             return { top: 80, bottom: 360 };
+        }
+    };
+    const footer = {
+        getBoundingClientRect() {
+            return { top: 360, bottom: 420, height: 60 };
         }
     };
     const overlay = { style: {} };
     const modal = {
         style: {},
+        contains(el) {
+            return el === noteField;
+        },
         querySelector(selector) {
-            return selector === '.modal-body' ? modalBody : null;
+            if (selector === '.modal-body') return modalBody;
+            if (selector === '.modal-footer') return footer;
+            return null;
         }
     };
     const doc = {
+        get activeElement() {
+            return activeElement;
+        },
         getElementById(id) {
             if (id === 'modal-overlay') return overlay;
             if (id === 'edit-modal') return modal;
@@ -3767,6 +3795,7 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
     const options = {
         document: doc,
         window: win,
+        isModalOpen: () => true,
         setTimeout(callback, ms) {
             timeouts.push({ callback, ms });
         },
@@ -3776,17 +3805,25 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
     };
 
     ModalMobileController.bindPlainFieldReveal(options);
+    activeElement = noteField;
     noteField.listeners.focus();
 
     assert.equal(lastViewportHeight, 360);
     assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
+    assert(bodyClasses.has('field-scroll-locked'));
 
     timeouts[0].callback();
 
     assert.equal(overlay.style.paddingBottom, '280px');
-    assert.equal(modal.style.maxHeight, '352px');
+    assert.equal(modal.style.maxHeight, '292px');
     assert.equal(modalBody.scrollTop, 56);
     assert.equal(pageScroll, 0);
+
+    activeElement = null;
+    noteField.listeners.blur();
+    timeouts[timeouts.length - 1].callback();
+
+    assert(!bodyClasses.has('field-scroll-locked'));
 });
 
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {

@@ -3840,8 +3840,7 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(!exportModal.includes('file in chiaro'));
     assert(!exportModal.includes('JSON puo includere'));
     assert(exportModal.includes('3 spese selezionate'));
-    assert(!exportModal.includes('sd-item selected'));
-    assert(exportModal.includes('data-current="true"'));
+    assert(exportModal.includes('sd-item selected'));
     assert(exportModal.includes('export-toggle-last-selection'));
     assert(exportModal.includes('export-toggle-last-filters'));
     assert(exportModal.includes('disabled'));
@@ -4800,7 +4799,6 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
     });
 
     assert.deepEqual(timelineOpenCalls, [
-        ['begin-selection', { selectedIds: ['c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
     assert(timelineBody.innerHTML.includes('1 spesa selezionata'));

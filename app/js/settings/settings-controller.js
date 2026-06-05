@@ -318,24 +318,26 @@ const SettingsController = (() => {
         renderExportModal(options);
     }
 
-    function initializeExportModalSelection(options = {}) {
+    function initializeExportModalSelection(options = {}, config = {}) {
         const prefs = getExportPreferences(options);
         const lastExport = prefs.lastExport;
         const lastSelectedIds = lastExport && Array.isArray(lastExport.selectedIds)
             ? lastExport.selectedIds
             : [];
-        const selectedIds = lastExport
+        const selectedIds = config.keepCurrentSelection
+            ? getCurrentSelectedIds(options)
+            : lastExport
             ? lastSelectedIds
             : getAllExpenseIds(options);
 
-        if (lastExport && lastExport.filters && typeof options.applyExportFilters === 'function') {
+        if (!config.keepCurrentSelection && lastExport && lastExport.filters && typeof options.applyExportFilters === 'function') {
             options.applyExportFilters(lastExport.filters, selectedIds);
         }
 
         if (typeof options.beginExportSelection === 'function') {
             options.beginExportSelection({
                 selectedIds,
-                selectFilteredWhenEmpty: !lastExport && selectedIds.length === 0
+                selectFilteredWhenEmpty: !config.keepCurrentSelection && !lastExport && selectedIds.length === 0
             });
         }
 
@@ -375,11 +377,11 @@ const SettingsController = (() => {
         return !!(modal && !modal.classList.contains('hidden'));
     }
 
-    function openExportModal(options = {}) {
+    function openExportModal(options = {}, config = {}) {
         const modal = getExportModal(options);
         if (!modal) return;
 
-        initializeExportModalSelection(options);
+        initializeExportModalSelection(options, config);
         clearExportMemoryBase(modal);
         renderExportModal(options);
 
@@ -847,7 +849,10 @@ const SettingsController = (() => {
             : null;
         if (input) {
             input.readOnly = true;
-            const selected = dropdown.querySelector('.sd-item.selected');
+            const field = modal.querySelector('#export-format');
+            const currentValue = field ? field.value : input.dataset.value;
+            const items = Array.from(dropdown.querySelectorAll('.sd-item'));
+            const selected = items.find(item => item.dataset.format === currentValue);
             input.value = selected ? selected.textContent.trim() : input.value;
         }
     }
@@ -935,7 +940,7 @@ const SettingsController = (() => {
             item.classList.toggle('hidden', !matches);
             item.classList.toggle('highlighted', false);
 
-            if (matches && !highlighted) {
+            if (normalizedQuery && matches && !highlighted) {
                 item.classList.toggle('highlighted', true);
                 highlighted = true;
             }
@@ -965,11 +970,14 @@ const SettingsController = (() => {
 
         const items = Array.from(dropdown.querySelectorAll('.sd-item:not(.hidden)'));
         if (items.length === 0) return;
+        const input = dropdown.querySelector('.sd-input');
+        const currentValue = input && input.dataset ? input.dataset.value : '';
 
-        const currentIndex = Math.max(
-            0,
-            items.findIndex(item => item.classList.contains('highlighted') || item.classList.contains('selected'))
-        );
+        let currentIndex = items.findIndex(item => item.classList.contains('highlighted'));
+        if (currentIndex < 0) {
+            currentIndex = items.findIndex(item => item.dataset.format === currentValue);
+        }
+        currentIndex = Math.max(0, currentIndex);
         const setHighlight = index => {
             items.forEach((item, itemIndex) => {
                 item.classList.toggle('highlighted', itemIndex === index);
@@ -987,7 +995,7 @@ const SettingsController = (() => {
         } else if (event.key === 'Enter') {
             event.preventDefault();
             const highlighted = dropdown.querySelector('.sd-item.highlighted') ||
-                dropdown.querySelector('.sd-item.selected') ||
+                items.find(item => item.dataset.format === currentValue) ||
                 items[0];
             selectExportFormat(modal, highlighted.dataset.format, options);
         } else if (event.key === 'Escape') {

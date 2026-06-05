@@ -403,6 +403,11 @@ const TimelineSelectionController = (() => {
             return false;
         }
 
+        if (typeof options.openCustomExportModal === 'function') {
+            options.openCustomExportModal();
+            return true;
+        }
+
         (options.showChoices || noop)(
             `Esportare ${selected.length} spese selezionate?`,
             getExportChoices(options)

@@ -450,6 +450,13 @@ const AppWiring = (() => {
                     URL: deps.URL,
                     Blob: deps.Blob
                 }),
+                openCustomExportModal: () => {
+                    const options = settingsOptions();
+                    deps.SettingsController.bindExportModal(options);
+                    deps.SettingsController.openExportModal(options, {
+                        keepCurrentSelection: true
+                    });
+                },
                 navigatorLike: deps.window.navigator,
                 showToast: (message, type) => app.showToast(message, type),
                 showChoices: (message, choices) => deps.ConfirmController.showChoices({

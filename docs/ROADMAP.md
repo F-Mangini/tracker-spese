@@ -25,7 +25,7 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
-- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, apertura export custom dalla selezione, eliminazione bulk con snapshot e back button dedicato.
 
 Completato il 2026-06-03:
 
@@ -86,7 +86,7 @@ Ancora da affrontare:
 - Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
 - Rivalutare dove spiegare che JSON/CSV/raw sono file in chiaro se l'app verra condivisa oltre l'uso personale del maintainer, evitando disclaimer ripetuti nei flussi quotidiani.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
-- Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
+- Completato primo export rapido per spese selezionate: la modalita selezione timeline apre la finestra Export Custom conservando la selezione corrente.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
 - Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export custom riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
@@ -159,9 +159,9 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export custom/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: formati TSV/tabella Markdown.
-- Modalita selezione riusata dall'export custom: primo ingresso seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito e la finestra permette di tornare a ultima selezione o ultimi filtri.
+- Modalita selezione riusata dall'export custom: primo ingresso da impostazioni seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito, mentre l'apertura dalla timeline conserva la selezione corrente e la finestra permette di tornare a ultima selezione o ultimi filtri.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

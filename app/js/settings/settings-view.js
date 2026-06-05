@@ -167,7 +167,7 @@ const SettingsView = (() => {
                 <span class="sd-arrow">▼</span>
                 <div class="sd-list">
                     ${formats.map(format => `
-                        <div class="sd-item ${selected.value === format.value ? 'selected' : ''}" data-format="${AppUI.escapeHtml(format.value)}">
+                        <div class="sd-item" data-format="${AppUI.escapeHtml(format.value)}" data-current="${selected.value === format.value ? 'true' : 'false'}">
                             <span>${AppUI.escapeHtml(format.label)}</span>
                         </div>
                     `).join('')}

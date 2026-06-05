@@ -2358,6 +2358,7 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
         refreshAfterDataChange: () => calls.push('refresh'),
         dateStamp: () => '2026-06-01',
         download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        openCustomExportModal: () => calls.push('custom-export'),
         navigatorLike: {
             clipboard: {
                 writeText(text) {
@@ -2423,6 +2424,7 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert(calls.some(call => Array.isArray(call) && call[0] === 'clipboard' && call[1] === 'csv'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'export-csv' && call[1].join(',') === 'a,b,c'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'download' && call[1] === 'spese_selezionate_2026-06-01.csv'));
+    assert(calls.includes('custom-export'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'delete-many' && call[1].join(',') === 'a,b,c'));
     assert(calls.includes('refresh'));
 });
@@ -3838,6 +3840,8 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(!exportModal.includes('file in chiaro'));
     assert(!exportModal.includes('JSON puo includere'));
     assert(exportModal.includes('3 spese selezionate'));
+    assert(!exportModal.includes('sd-item selected'));
+    assert(exportModal.includes('data-current="true"'));
     assert(exportModal.includes('export-toggle-last-selection'));
     assert(exportModal.includes('export-toggle-last-filters'));
     assert(exportModal.includes('disabled'));
@@ -4760,6 +4764,46 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
     ]);
     assert(filterBtn.innerHTML.includes('filter-badge'));
     assert(filterBtn.innerHTML.includes('5'));
+
+    const timelineModalClasses = new Set(['hidden']);
+    const timelineBody = { innerHTML: '' };
+    const timelineModal = {
+        dataset: {},
+        classList: {
+            contains: cls => timelineModalClasses.has(cls),
+            add: cls => timelineModalClasses.add(cls),
+            remove: cls => timelineModalClasses.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return timelineBody;
+            return null;
+        }
+    };
+    const timelineOpenCalls = [];
+    SettingsController.openExportModal({
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? timelineModal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' }), expense({ id: 'c' })],
+        getTimelineSelectedIds: () => new Set(['c']),
+        getSelectedSpese: () => [expense({ id: 'c' })],
+        countActiveFilters: () => 0,
+        applyExportFilters: (filters, selectedIds) => timelineOpenCalls.push(['apply-filters', filters, selectedIds]),
+        beginExportSelection: config => timelineOpenCalls.push(['begin-selection', config]),
+        pushUiState: state => timelineOpenCalls.push(['push', state])
+    }, {
+        keepCurrentSelection: true
+    });
+
+    assert.deepEqual(timelineOpenCalls, [
+        ['begin-selection', { selectedIds: ['c'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+    assert(timelineBody.innerHTML.includes('1 spesa selezionata'));
 });
 
 test('Controller impostazioni gestisce dropdown formato e ripristino contenuti dopo CSV', () => {
@@ -4886,6 +4930,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     });
     assert(classes.has('open'));
     assert.equal(input.readOnly, true);
+    assert(!jsonItem.classList.contains('highlighted'));
 
     mouseDownHandler({
         target: input,

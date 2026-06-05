@@ -605,6 +605,13 @@ const AppWiring = (() => {
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
                 getCurrentFilters: () => app.filters,
                 applyExportFilters: applyFilterSnapshot,
+                getFilteredIdsForExportFilters: (filters, selectedIds = []) => deps.ExpenseFilters
+                    .apply(deps.ExpenseStore.getSpese(), filters, {
+                        selectedIds,
+                        selectedOnlyIds: selectedIds
+                    })
+                    .map(spesa => spesa && spesa.id)
+                    .filter(Boolean),
                 getSelectedSpese: () => deps.TimelineSelectionController.getSelectedSpese(
                     timelineSelectionOptions()
                 ),

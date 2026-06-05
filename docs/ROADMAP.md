@@ -47,7 +47,7 @@ Completato su `codex/ux-export`:
 
 - Import ed export riuniti nella stessa card impostazioni.
 - Export Default con JSON completo e conferma semplice.
-- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, toggle `Ultima Selezione` / `Ultimi Filtri`, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
 - JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
 
 ## Repository e Canali
@@ -89,7 +89,7 @@ Ancora da affrontare:
 - Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
-- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti, filtri/selezione e ripristino dell'ultimo export custom riuscito.
+- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export custom riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
 - Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
@@ -161,7 +161,7 @@ Da riprendere solo quando servira:
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
 - Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: formati TSV/tabella Markdown.
-- Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
+- Modalita selezione riusata dall'export custom: primo ingresso seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito e la finestra permette di tornare a ultima selezione o ultimi filtri.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

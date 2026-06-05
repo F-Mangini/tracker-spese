@@ -3838,7 +3838,33 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(!exportModal.includes('file in chiaro'));
     assert(!exportModal.includes('JSON puo includere'));
     assert(exportModal.includes('3 spese selezionate'));
+    assert(exportModal.includes('export-toggle-last-selection'));
+    assert(exportModal.includes('export-toggle-last-filters'));
+    assert(exportModal.includes('disabled'));
     assert(exportModal.includes('Personalizzazioni'));
+
+    const noDataExportModal = SettingsView.renderExportModal({
+        preferences: {
+            format: 'json',
+            includeData: false,
+            includeSettings: true,
+            includePersonalizzazioni: false
+        },
+        selectedCount: 3
+    });
+    assert(noDataExportModal.includes('0 spese selezionate'));
+
+    const activeExportModal = SettingsView.renderExportModal({
+        preferences: { format: 'json' },
+        selectedCount: 2,
+        memory: {
+            hasLastExport: true,
+            lastSelectionActive: true,
+            lastFiltersActive: true
+        }
+    });
+    assert(activeExportModal.includes('aria-pressed="true"'));
+    assert(!activeExportModal.includes('disabled'));
 });
 
 test('Azioni impostazioni isolano formati, scelte e download', () => {
@@ -4734,6 +4760,268 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
     ]);
     assert(filterBtn.innerHTML.includes('filter-badge'));
     assert(filterBtn.innerHTML.includes('5'));
+});
+
+test('Controller impostazioni gestisce dropdown formato e ripristino contenuti dopo CSV', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const classes = new Set();
+    const calls = [];
+    let clickHandler = null;
+    let mouseDownHandler = null;
+    let inputHandler = null;
+
+    function classList(initial = []) {
+        const set = new Set(initial);
+        return {
+            add(cls) { set.add(cls); },
+            remove(cls) { set.delete(cls); },
+            contains(cls) { return set.has(cls); },
+            toggle(cls, value) {
+                const shouldAdd = value == null ? !set.has(cls) : !!value;
+                if (shouldAdd) set.add(cls);
+                else set.delete(cls);
+            }
+        };
+    }
+
+    const field = { value: 'json' };
+    const input = {
+        value: 'JSON',
+        readOnly: true,
+        dataset: { value: 'json' },
+        focus: () => calls.push('focus'),
+        closest(selector) {
+            if (selector === '#export-format-dropdown .sd-input') return input;
+            if (selector === '#export-format-dropdown .sd-item') return null;
+            if (selector === '#export-format-dropdown') return dropdown;
+            return null;
+        }
+    };
+    const jsonItem = {
+        textContent: 'JSON',
+        dataset: { format: 'json' },
+        classList: classList(['selected']),
+        closest(selector) {
+            if (selector === '#export-format-dropdown .sd-item') return jsonItem;
+            if (selector === '#export-format-dropdown') return dropdown;
+            return null;
+        }
+    };
+    const csvItem = {
+        textContent: 'CSV',
+        dataset: { format: 'csv' },
+        classList: classList(),
+        closest(selector) {
+            if (selector === '#export-format-dropdown .sd-item') return csvItem;
+            if (selector === '#export-format-dropdown') return dropdown;
+            return null;
+        }
+    };
+    const dropdown = {
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-item.selected') return jsonItem;
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '.sd-item' || selector === '.sd-item:not(.hidden)') {
+                return [jsonItem, csvItem];
+            }
+            return [];
+        }
+    };
+    const fields = {
+        '#export-format': field,
+        '#export-format-dropdown': dropdown,
+        '#export-format-dropdown .sd-input': input,
+        '#export-format-dropdown .sd-item[data-format="json"]': jsonItem,
+        '#export-format-dropdown .sd-item[data-format="csv"]': csvItem,
+        '#export-include-data': { checked: false },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: true },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+            if (event === 'mousedown') mouseDownHandler = handler;
+            if (event === 'input') inputHandler = handler;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getTimelineSelectedIds: () => [],
+        getSelectedSpese: () => [],
+        getSpese: () => [],
+        countActiveFilters: () => 0
+    };
+
+    SettingsController.bindExportModal(options);
+
+    mouseDownHandler({
+        target: input,
+        preventDefault: () => calls.push('prevent-first')
+    });
+    assert(classes.has('open'));
+    assert.equal(input.readOnly, true);
+
+    mouseDownHandler({
+        target: input,
+        preventDefault: () => calls.push('prevent-second')
+    });
+    assert.equal(input.readOnly, false);
+    assert.equal(input.value, '');
+
+    input.value = 'cs';
+    inputHandler({ target: input });
+    assert(csvItem.classList.contains('highlighted'));
+    assert(jsonItem.classList.contains('hidden'));
+
+    clickHandler({ target: csvItem });
+    let prefs = SettingsActions.readExportPreferences(localStorage, storage);
+    assert.equal(prefs.format, 'csv');
+    assert.equal(prefs.includeData, true);
+    assert.equal(prefs.includeSettings, false);
+    assert.equal(prefs.includePersonalizzazioni, false);
+    assert.equal(modal.dataset.exportPreCsvContents, '{"includeData":false,"includeSettings":true,"includePersonalizzazioni":true}');
+
+    field.value = 'csv';
+    fields['#export-include-data'].checked = true;
+    fields['#export-include-settings'].checked = false;
+    fields['#export-include-personalizzazioni'].checked = false;
+
+    clickHandler({ target: jsonItem });
+    prefs = SettingsActions.readExportPreferences(localStorage, storage);
+    assert.equal(prefs.format, 'json');
+    assert.equal(prefs.includeData, false);
+    assert.equal(prefs.includeSettings, true);
+    assert.equal(prefs.includePersonalizzazioni, true);
+});
+
+test('Controller impostazioni gestisce toggle memoria export custom', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane' }),
+        expense({ id: 'b', descrizione: 'Latte' }),
+        expense({ id: 'c', descrizione: 'Pane integrale' }),
+        expense({ id: 'manual', descrizione: 'Corrente' })
+    ];
+    const calls = [];
+    let currentIds = ['manual'];
+    let clickHandler = null;
+    const body = { innerHTML: '' };
+    const fields = {
+        '#export-modal-body': body,
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: false },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => currentIds,
+        getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
+        getFilteredIdsForExportFilters: () => ['a', 'c'],
+        beginExportSelection(config) {
+            currentIds = config.selectedIds.slice();
+            calls.push(['begin-selection', config]);
+        },
+        countActiveFilters: () => 0
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a', 'b'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    SettingsController.bindExportModal(options);
+
+    clickHandler({ target: { id: 'export-toggle-last-selection' } });
+    assert.deepEqual(currentIds, ['a', 'b']);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+    assert(body.innerHTML.includes('export-toggle-last-selection'));
+    assert(body.innerHTML.includes('export-memory-toggle active'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentIds, ['manual']);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['manual'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a', 'c'],
+            filters: { query: 'pane' }
+        }
+    });
+    clickHandler({ target: { id: 'export-toggle-last-selection' } });
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.equal(
+        (body.innerHTML.match(/aria-pressed="true"/g) || []).length,
+        2
+    );
 });
 
 test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {

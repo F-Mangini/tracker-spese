@@ -3188,14 +3188,30 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
     });
 
     input.listeners.mousedown({ preventDefault() {} });
+    timeouts.length = 0;
     input.listeners.mousedown({ preventDefault() {} });
 
     assert.equal(input.readOnly, false);
-    assert(timeouts.some(item => item.ms === 300));
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
     timeouts.find(item => item.ms === 0).callback();
-    assert.equal(modalBody.scrollTop, 202);
-    timeouts.find(item => item.ms === 300).callback();
-    assert.equal(scrollCalls.length, 1);
+    assert.equal(modalBody.scrollTop, 194);
+    assert.equal(scrollCalls.length, 0);
+
+    timeouts.length = 0;
+    modalBody.scrollTop = 0;
+    input.listeners.mousedown({ preventDefault() { throw new Error('non deve bloccare il tap editabile'); } });
+
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
+    timeouts.find(item => item.ms === 0).callback();
+    assert.equal(modalBody.scrollTop, 194);
+
+    timeouts.length = 0;
+    modalBody.scrollTop = 0;
+    input.listeners.click();
+
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
+    timeouts.find(item => item.ms === 0).callback();
+    assert.equal(modalBody.scrollTop, 194);
 });
 
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
@@ -3545,7 +3561,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     lastViewportHeight = 650;
     win.visualViewport.height = 360;
     ModalMobileController.handleViewportChange(options);
-    assert.equal(modalBody.scrollTop, 202);
+    assert.equal(modalBody.scrollTop, 194);
 
     modalOpen = false;
     filterOpen = true;
@@ -3621,6 +3637,59 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
     assert.equal(typeof docListeners.pointerdown, 'function');
     assert.equal(typeof winListeners.focus, 'function');
+});
+
+test('Controller mobile modale scorre prima la finestra e poi la pagina', () => {
+    const { ModalMobileController } = loadUiViews();
+    let pageScroll = 0;
+    const modalBody = {
+        scrollTop: 80,
+        scrollHeight: 500,
+        clientHeight: 400,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 620 };
+        }
+    };
+    const offset = () => (modalBody.scrollTop - 80) + pageScroll;
+    const list = {
+        getBoundingClientRect() {
+            return { top: 368 - offset(), bottom: 548 - offset() };
+        }
+    };
+    const dropdown = {
+        classList: {
+            contains(cls) {
+                return cls === 'open';
+            }
+        },
+        querySelector(selector) {
+            return selector === '.sd-list' ? list : null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320 - offset(), bottom: 364 - offset() };
+        }
+    };
+    const doc = {
+        documentElement: { clientHeight: 640 }
+    };
+    const win = {
+        innerHeight: 640,
+        visualViewport: { height: 360 },
+        scrollBy(arg, y) {
+            pageScroll += typeof arg === 'object' ? arg.top : y;
+        }
+    };
+
+    ModalMobileController.revealDropdown(dropdown, {
+        document: doc,
+        window: win
+    });
+
+    assert.equal(modalBody.scrollTop, 100);
+    assert.equal(pageScroll, 174);
 });
 
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {

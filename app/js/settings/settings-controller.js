@@ -3,6 +3,9 @@
    ============================================ */
 
 const SettingsController = (() => {
+    const EXPORT_DROPDOWN_TOP_GAP = 8;
+    const EXPORT_DROPDOWN_BOTTOM_GAP = 6;
+
     function normalizeOptions(optionsOrStorage = {}) {
         return optionsOrStorage.storage
             ? optionsOrStorage
@@ -891,11 +894,53 @@ const SettingsController = (() => {
         };
     }
 
-    function centerExportDropdown(dropdown) {
-        if (dropdown && dropdown.classList && !dropdown.classList.contains('open')) return;
-        if (dropdown && typeof dropdown.scrollIntoView === 'function') {
-            dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function scrollElementBy(element, delta) {
+        if (!element || !Number.isFinite(element.scrollTop) || !Number.isFinite(delta) || Math.abs(delta) < 1) {
+            return 0;
         }
+
+        const previous = element.scrollTop;
+        if (Number.isFinite(element.scrollHeight) && Number.isFinite(element.clientHeight)) {
+            const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
+            element.scrollTop = Math.min(maxScroll, Math.max(0, previous + delta));
+        } else {
+            element.scrollTop = previous + delta;
+        }
+
+        return element.scrollTop - previous;
+    }
+
+    function scrollPageBy(delta, options = {}) {
+        if (!Number.isFinite(delta) || Math.abs(delta) < 1) return 0;
+
+        const doc = options.document || (typeof document === 'undefined' ? null : document);
+        const scrollingElement = doc && (doc.scrollingElement || doc.documentElement || doc.body);
+        let consumed = scrollElementBy(scrollingElement, delta);
+        const remaining = delta - consumed;
+
+        if (Math.abs(remaining) < 1) return consumed;
+
+        const win = getWindowLike(options);
+        if (win && typeof win.scrollBy === 'function') {
+            try {
+                win.scrollBy({ top: remaining, behavior: 'smooth' });
+            } catch (_) {
+                win.scrollBy(0, remaining);
+            }
+            consumed += remaining;
+        }
+
+        return consumed;
+    }
+
+    function getOverflow(rect, topLimit, bottomLimit) {
+        const overflowBottom = rect.bottom - bottomLimit;
+        if (overflowBottom > 0) return overflowBottom;
+
+        const overflowTop = topLimit - rect.top;
+        if (overflowTop > 0) return -overflowTop;
+
+        return 0;
     }
 
     function revealExportDropdown(dropdown, options = {}) {
@@ -918,42 +963,41 @@ const SettingsController = (() => {
         const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
             ? modalBody.getBoundingClientRect()
             : null;
-        const margin = 14;
 
         if (!viewportHeight) {
-            centerExportDropdown(dropdown);
+            if (typeof dropdown.scrollIntoView === 'function') {
+                dropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
             return;
         }
 
-        const visibleBottom = bodyRect
-            ? Math.min(viewportHeight - margin, bodyRect.bottom - margin)
-            : viewportHeight - margin;
-        const visibleTop = bodyRect
-            ? Math.max(margin, bodyRect.top + margin)
-            : margin;
-        const overflowBottom = rect.bottom - visibleBottom;
-        const overflowTop = visibleTop - rect.top;
+        if (modalBody && bodyRect && Number.isFinite(modalBody.scrollTop)) {
+            const bodyBottom = Math.min(viewportHeight - EXPORT_DROPDOWN_BOTTOM_GAP, bodyRect.bottom - EXPORT_DROPDOWN_BOTTOM_GAP);
+            const bodyTop = Math.max(EXPORT_DROPDOWN_TOP_GAP, bodyRect.top + EXPORT_DROPDOWN_TOP_GAP);
+            const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
 
-        if (modalBody && Number.isFinite(modalBody.scrollTop)) {
-            if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
-            else if (overflowTop > 0) modalBody.scrollTop -= overflowTop;
-            return;
+            if (bodyDelta) {
+                scrollElementBy(modalBody, bodyDelta);
+            }
         }
 
-        if ((overflowBottom > 0 || overflowTop > 0) && typeof dropdown.scrollIntoView === 'function') {
-            dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const updatedRect = getExportDropdownVisibleRect(dropdown);
+        const pageDelta = getOverflow(
+            updatedRect,
+            EXPORT_DROPDOWN_TOP_GAP,
+            viewportHeight - EXPORT_DROPDOWN_BOTTOM_GAP
+        );
+
+        if (pageDelta) {
+            scrollPageBy(pageDelta, options);
         }
     }
 
-    function scheduleExportDropdownReveal(dropdown, options = {}, config = {}) {
+    function scheduleExportDropdownReveal(dropdown, options = {}) {
         const defer = getDefer(options);
         [0, 120, 280, 460].forEach(delay => {
             defer(() => revealExportDropdown(dropdown, options), delay);
         });
-
-        if (config.centerFallback) {
-            defer(() => centerExportDropdown(dropdown), 300);
-        }
     }
 
     function ensureExportFormatInteraction(modal, options = {}) {
@@ -1170,7 +1214,9 @@ const SettingsController = (() => {
             input.value = '';
             if (typeof input.focus === 'function') input.focus();
             filterExportFormatDropdown(dropdown);
-            scheduleExportDropdownReveal(dropdown, options, { centerFallback: true });
+            scheduleExportDropdownReveal(dropdown, options);
+        } else {
+            scheduleExportDropdownReveal(dropdown, options);
         }
     }
 
@@ -1223,6 +1269,13 @@ const SettingsController = (() => {
             }
 
             if (closest(event.target, '#export-format-dropdown')) {
+                const dropdown = closest(event.target, '#export-format-dropdown');
+                const input = dropdown && typeof dropdown.querySelector === 'function'
+                    ? dropdown.querySelector('.sd-input')
+                    : null;
+                if (input && !input.readOnly) {
+                    scheduleExportDropdownReveal(dropdown, options);
+                }
                 return;
             }
 

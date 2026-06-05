@@ -4,6 +4,8 @@
 
 const ModalInteractions = (() => {
     const DEFAULT_MODAL_SELECTOR = '#edit-modal';
+    const DROPDOWN_TOP_GAP = 8;
+    const DROPDOWN_BOTTOM_GAP = 6;
 
     function call(fn, ...args) {
         return typeof fn === 'function' ? fn(...args) : undefined;
@@ -64,15 +66,58 @@ const ModalInteractions = (() => {
         };
     }
 
-    function centerDropdown(container) {
-        if (container && container.classList && !container.classList.contains('open')) return;
-        if (container && typeof container.scrollIntoView === 'function') {
-            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function scrollElementBy(element, delta) {
+        if (!element || !Number.isFinite(element.scrollTop) || !Number.isFinite(delta) || Math.abs(delta) < 1) {
+            return 0;
         }
+
+        const previous = element.scrollTop;
+        if (Number.isFinite(element.scrollHeight) && Number.isFinite(element.clientHeight)) {
+            const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
+            element.scrollTop = Math.min(maxScroll, Math.max(0, previous + delta));
+        } else {
+            element.scrollTop = previous + delta;
+        }
+
+        return element.scrollTop - previous;
+    }
+
+    function scrollPageBy(delta, options = {}) {
+        if (!Number.isFinite(delta) || Math.abs(delta) < 1) return 0;
+
+        const doc = getDocument(options);
+        const scrollingElement = doc && (doc.scrollingElement || doc.documentElement || doc.body);
+        let consumed = scrollElementBy(scrollingElement, delta);
+        const remaining = delta - consumed;
+
+        if (Math.abs(remaining) < 1) return consumed;
+
+        const win = getWindow(options);
+        if (win && typeof win.scrollBy === 'function') {
+            try {
+                win.scrollBy({ top: remaining, behavior: 'smooth' });
+            } catch (_) {
+                win.scrollBy(0, remaining);
+            }
+            consumed += remaining;
+        }
+
+        return consumed;
+    }
+
+    function getOverflow(rect, topLimit, bottomLimit) {
+        const overflowBottom = rect.bottom - bottomLimit;
+        if (overflowBottom > 0) return overflowBottom;
+
+        const overflowTop = topLimit - rect.top;
+        if (overflowTop > 0) return -overflowTop;
+
+        return 0;
     }
 
     function revealDropdown(container, options = {}) {
         if (!container || typeof container.getBoundingClientRect !== 'function') return;
+        if (container.classList && !container.classList.contains('open')) return;
 
         const modalBody = typeof container.closest === 'function'
             ? container.closest('.modal-body')
@@ -90,42 +135,41 @@ const ModalInteractions = (() => {
         const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
             ? modalBody.getBoundingClientRect()
             : null;
-        const margin = 14;
 
         if (!viewportHeight) {
-            centerDropdown(container);
+            if (typeof container.scrollIntoView === 'function') {
+                container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
             return;
         }
 
-        const visibleBottom = bodyRect
-            ? Math.min(viewportHeight - margin, bodyRect.bottom - margin)
-            : viewportHeight - margin;
-        const visibleTop = bodyRect
-            ? Math.max(margin, bodyRect.top + margin)
-            : margin;
-        const overflowBottom = rect.bottom - visibleBottom;
-        const overflowTop = visibleTop - rect.top;
+        if (modalBody && bodyRect && Number.isFinite(modalBody.scrollTop)) {
+            const bodyBottom = Math.min(viewportHeight - DROPDOWN_BOTTOM_GAP, bodyRect.bottom - DROPDOWN_BOTTOM_GAP);
+            const bodyTop = Math.max(DROPDOWN_TOP_GAP, bodyRect.top + DROPDOWN_TOP_GAP);
+            const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
 
-        if (modalBody && Number.isFinite(modalBody.scrollTop)) {
-            if (overflowBottom > 0) modalBody.scrollTop += overflowBottom;
-            else if (overflowTop > 0) modalBody.scrollTop -= overflowTop;
-            return;
+            if (bodyDelta) {
+                scrollElementBy(modalBody, bodyDelta);
+            }
         }
 
-        if ((overflowBottom > 0 || overflowTop > 0) && typeof container.scrollIntoView === 'function') {
-            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const updatedRect = getDropdownVisibleRect(container);
+        const pageDelta = getOverflow(
+            updatedRect,
+            DROPDOWN_TOP_GAP,
+            viewportHeight - DROPDOWN_BOTTOM_GAP
+        );
+
+        if (pageDelta) {
+            scrollPageBy(pageDelta, options);
         }
     }
 
-    function scheduleDropdownReveal(container, options = {}, config = {}) {
+    function scheduleDropdownReveal(container, options = {}) {
         const defer = getDefer(options);
         [0, 120, 280, 460].forEach(delay => {
             defer(() => revealDropdown(container, options), delay);
         });
-
-        if (config.centerFallback) {
-            defer(() => centerDropdown(container), 300);
-        }
     }
 
     function ensureInteraction(options, wasClosed) {
@@ -225,7 +269,15 @@ const ModalInteractions = (() => {
                 input.value = '';
                 input.focus();
 
-                scheduleDropdownReveal(container, options, { centerFallback: true });
+                scheduleDropdownReveal(container, options);
+            } else {
+                scheduleDropdownReveal(container, options);
+            }
+        });
+
+        input.addEventListener('click', () => {
+            if (container.classList.contains('open') && isEditable) {
+                scheduleDropdownReveal(container, options);
             }
         });
 
@@ -406,7 +458,15 @@ const ModalInteractions = (() => {
                 input.readOnly = false;
                 input.value = '';
                 input.focus();
-                scheduleDropdownReveal(container, options, { centerFallback: true });
+                scheduleDropdownReveal(container, options);
+            } else {
+                scheduleDropdownReveal(container, options);
+            }
+        });
+
+        input.addEventListener('click', () => {
+            if (container.classList.contains('open') && isEditable) {
+                scheduleDropdownReveal(container, options);
             }
         });
 

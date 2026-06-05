@@ -105,6 +105,9 @@ const AppWiringModal = (() => {
                 updateModalViewportLayout: () => deps.ModalMobileController.updateViewportLayout(
                     modalMobileOptions()
                 ),
+                restoreModalRevealScroll: () => deps.ModalMobileController.restoreRevealScroll(
+                    modalMobileOptions()
+                ),
                 ensureInteractionState: () => deps.ModalMobileController.ensureInteractionState(modalMobileOptions()),
                 releaseInteractionState: () => deps.ModalMobileController.releaseInteractionState(modalMobileOptions()),
                 isInteractionActive: () => app._modalInteractionActive,

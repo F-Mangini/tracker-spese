@@ -3823,7 +3823,104 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
     noteField.listeners.blur();
     timeouts[timeouts.length - 1].callback();
 
+    assert.equal(modalBody.scrollTop, 0);
     assert(!bodyClasses.has('field-scroll-locked'));
+});
+
+test('Controller mobile modale include la label e ripristina lo scroll alla deselezione', () => {
+    const { ModalMobileController } = loadUiViews();
+    const timeouts = [];
+    let activeElement = null;
+    const bodyClasses = new Set();
+    const group = {
+        getBoundingClientRect() {
+            return { top: 58, bottom: 136 };
+        }
+    };
+    const field = {
+        id: 'edit-descrizione',
+        tagName: 'TEXTAREA',
+        type: 'text',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        matches(selector) {
+            return selector === 'input, textarea, select';
+        },
+        closest(selector) {
+            return selector === '.form-group' ? group : null;
+        },
+        getBoundingClientRect() {
+            return { top: 90, bottom: 130 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 120,
+        dataset: {},
+        style: {},
+        classList: {
+            add(cls) { bodyClasses.add(cls); },
+            remove(cls) { bodyClasses.delete(cls); },
+            contains(cls) { return bodyClasses.has(cls); }
+        },
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const modal = {
+        style: {},
+        contains(el) {
+            return el === field;
+        },
+        querySelector(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        }
+    };
+    const doc = {
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            if (id === 'modal-overlay') return { style: {} };
+            if (id === 'edit-modal') return modal;
+            if (id === 'edit-descrizione') return field;
+            return null;
+        }
+    };
+    const options = {
+        document: doc,
+        window: {
+            innerHeight: 640,
+            visualViewport: { height: 640, offsetTop: 0 }
+        },
+        isModalOpen: () => true,
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    };
+
+    ModalMobileController.bindPlainFieldReveal(options);
+    activeElement = field;
+    field.listeners.focus();
+
+    timeouts[0].callback();
+
+    assert.equal(modalBody.scrollTop, 90);
+    assert(bodyClasses.has('field-scroll-locked'));
+
+    activeElement = null;
+    field.listeners.blur();
+    timeouts[timeouts.length - 1].callback();
+
+    assert.equal(modalBody.scrollTop, 120);
+    assert(!bodyClasses.has('field-scroll-locked'));
+
+    timeouts[1].callback();
+    timeouts[2].callback();
+    timeouts[3].callback();
+
+    assert.equal(modalBody.scrollTop, 120);
 });
 
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {
@@ -5816,6 +5913,7 @@ test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiri
             handleViewportChange: () => calls.push('viewport-change'),
             ensureInteractionState: () => calls.push('ensure-interaction'),
             releaseInteractionState: () => calls.push('release-interaction'),
+            restoreRevealScroll: () => calls.push('restore-reveal-scroll'),
             getOpenDropdown: () => null
         },
         ExpenseStore: { getSpese: () => [] },

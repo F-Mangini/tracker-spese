@@ -103,7 +103,7 @@ La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e not
 
 Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 
-I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela. Quando un campo testuale o un dropdown ricercabile interagisce con la tastiera, header e footer della modale restano fermi sopra la tastiera e scorre solo il corpo interno della modale; per le tendine viene aggiunto spazio interno temporaneo sotto al contenuto, senza scrollare la pagina sottostante. Mentre un campo della modale e selezionato, lo scroll manuale del corpo finestra e bloccato e restano attivi solo gli aggiustamenti automatici necessari a rendere visibile il campo.
+I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela. Quando un campo testuale o un dropdown ricercabile interagisce con la tastiera, header e footer della modale restano fermi sopra la tastiera e scorre solo il corpo interno della modale; per le tendine viene aggiunto spazio interno temporaneo sotto al contenuto, senza scrollare la pagina sottostante. Mentre un campo della modale e selezionato, lo scroll manuale del corpo finestra e bloccato e restano attivi solo gli aggiustamenti automatici necessari a rendere visibili label, campo e possibile tendina; quando il campo viene deselezionato, lo scroll automatico viene ripristinato alla posizione precedente alla selezione.
 
 ### Navigazione e Mobile
 

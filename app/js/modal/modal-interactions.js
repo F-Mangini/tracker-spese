@@ -210,6 +210,7 @@ const ModalInteractions = (() => {
 
             releaseInteractionAfterClose(options, wasOpen);
             call(options.updateModalViewportLayout);
+            call(options.restoreModalRevealScroll);
         };
 
         const selectItem = (item) => {
@@ -410,6 +411,7 @@ const ModalInteractions = (() => {
 
             releaseInteractionAfterClose(options, wasOpen);
             call(options.updateModalViewportLayout);
+            call(options.restoreModalRevealScroll);
         };
 
         input.addEventListener('mousedown', e => {

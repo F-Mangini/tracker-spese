@@ -11,6 +11,7 @@ const ModalMobileController = (() => {
     const PLAIN_FIELD_IDS = ['edit-importo', 'edit-descrizione', 'edit-nota'];
     const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
     const FIELD_SCROLL_LOCK_CLASS = 'field-scroll-locked';
+    const REVEAL_SCROLL_KEY = 'fieldRevealScrollTop';
 
     function noop() { }
 
@@ -97,6 +98,21 @@ const ModalMobileController = (() => {
         return {
             top: Math.min(dropdownRect.top, listRect.top),
             bottom: Math.max(dropdownRect.bottom, listRect.bottom)
+        };
+    }
+
+    function getLabelAwareRect(target, rect) {
+        const group = target && typeof target.closest === 'function'
+            ? target.closest('.form-group')
+            : null;
+        if (!group || typeof group.getBoundingClientRect !== 'function') return rect;
+
+        const groupRect = group.getBoundingClientRect();
+        if (!groupRect || !Number.isFinite(groupRect.top)) return rect;
+
+        return {
+            top: Math.min(rect.top, groupRect.top),
+            bottom: rect.bottom
         };
     }
 
@@ -197,6 +213,37 @@ const ModalMobileController = (() => {
         setBodyScrollLock(body, shouldLockBodyScroll(options));
     }
 
+    function captureRevealScroll(options = {}) {
+        const { body } = getModalParts(options);
+        if (!body || !body.dataset || !Number.isFinite(body.scrollTop)) return;
+        if (body.dataset[REVEAL_SCROLL_KEY] !== undefined) return;
+
+        body.dataset[REVEAL_SCROLL_KEY] = String(body.scrollTop);
+    }
+
+    function clearRevealScroll(body) {
+        if (body && body.dataset) {
+            delete body.dataset[REVEAL_SCROLL_KEY];
+        }
+    }
+
+    function restoreRevealScroll(options = {}) {
+        const { body } = getModalParts(options);
+        if (!body || !body.dataset) {
+            updateBodyScrollLock(options);
+            return;
+        }
+
+        const saved = Number(body.dataset[REVEAL_SCROLL_KEY]);
+        clearRevealScroll(body);
+
+        if (Number.isFinite(saved) && Number.isFinite(body.scrollTop)) {
+            body.scrollTop = Math.max(0, saved);
+        }
+
+        updateBodyScrollLock(options);
+    }
+
     function getDropdownExtraSpace(dropdown) {
         if (!dropdown || !dropdown.classList || !dropdown.classList.contains('open')) return 0;
 
@@ -243,17 +290,28 @@ const ModalMobileController = (() => {
         if (modal && modal.style) modal.style.maxHeight = '';
         if (body && body.style) body.style.paddingBottom = '';
         setBodyScrollLock(body, false);
+        clearRevealScroll(body);
     }
 
     function getTargetRect(target, config = {}) {
-        return config.includeDropdown
+        const rect = config.includeDropdown
             ? getDropdownVisibleRect(target)
             : target.getBoundingClientRect();
+
+        return config.includeLabel === false
+            ? rect
+            : getLabelAwareRect(target, rect);
+    }
+
+    function isActiveTarget(target, options = {}) {
+        const doc = getDocument(options);
+        return !!(doc && doc.activeElement === target);
     }
 
     function revealElement(target, options = {}, config = {}) {
         if (!target || typeof target.getBoundingClientRect !== 'function') return;
         if (config.requireOpenDropdown && target.classList && !target.classList.contains('open')) return;
+        if (config.requireActiveField && !isActiveTarget(target, options)) return;
 
         const { body } = getModalParts(options);
         const extraBodySpace = config.extraBodySpace != null
@@ -262,6 +320,7 @@ const ModalMobileController = (() => {
                 ? getDropdownExtraSpace(target)
                 : 0;
 
+        captureRevealScroll(options);
         updateViewportLayout(options, { extraBodySpace });
 
         const bodyRect = body && typeof body.getBoundingClientRect === 'function'
@@ -314,7 +373,7 @@ const ModalMobileController = (() => {
 
     function schedulePlainFieldReveal(field, options = {}) {
         if (!field) return;
-        scheduleReveal(field, options);
+        scheduleReveal(field, options, { requireActiveField: true });
     }
 
     function bindPlainFieldReveal(options = {}) {
@@ -334,7 +393,7 @@ const ModalMobileController = (() => {
             const release = () => {
                 const defer = options.setTimeout ||
                     (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-                defer(() => updateBodyScrollLock(options), 0);
+                defer(() => restoreRevealScroll(options), 0);
             };
 
             field.addEventListener('focus', reveal);
@@ -384,6 +443,8 @@ const ModalMobileController = (() => {
 
             if (doc.activeElement === el) blur(el);
 
+            revealPlainField(el, options);
+
             try {
                 el.classList.add('picker-open');
                 updateBodyScrollLock(options);
@@ -391,7 +452,7 @@ const ModalMobileController = (() => {
             } catch (_) {
                 openedProgrammatically = false;
                 el.classList.remove('picker-open');
-                updateBodyScrollLock(options);
+                restoreRevealScroll(options);
                 try { el.focus(); } catch (__) { }
                 return;
             }
@@ -407,21 +468,21 @@ const ModalMobileController = (() => {
         const closeVisuals = e => {
             if (e.target !== el) {
                 el.classList.remove('picker-open');
-                updateBodyScrollLock(options);
+                restoreRevealScroll(options);
             }
         };
 
         doc.addEventListener('pointerdown', closeVisuals, { passive: true });
         win.addEventListener('focus', () => {
             el.classList.remove('picker-open');
-            updateBodyScrollLock(options);
+            restoreRevealScroll(options);
         });
 
         el.addEventListener('focus', () => {
             if (!openedProgrammatically) {
                 blur(el);
                 el.classList.remove('picker-open');
-                updateBodyScrollLock(options);
+                restoreRevealScroll(options);
                 return;
             }
 
@@ -432,11 +493,11 @@ const ModalMobileController = (() => {
         });
 
         el.addEventListener('change', () => {
-            defer(() => updateBodyScrollLock(options), 0);
+            defer(() => restoreRevealScroll(options), 0);
         });
 
         el.addEventListener('blur', () => {
-            defer(() => updateBodyScrollLock(options), 0);
+            defer(() => restoreRevealScroll(options), 0);
         });
 
         el.addEventListener('keydown', e => {
@@ -447,12 +508,13 @@ const ModalMobileController = (() => {
                 clearSelection();
 
                 try {
+                    revealPlainField(el, options);
                     el.classList.add('picker-open');
                     updateBodyScrollLock(options);
                     el.showPicker();
                 } catch (_) {
                     el.classList.remove('picker-open');
-                    updateBodyScrollLock(options);
+                    restoreRevealScroll(options);
                 }
 
                 defer(() => {
@@ -460,7 +522,7 @@ const ModalMobileController = (() => {
                 }, 0);
             } else if (e.key === 'Escape') {
                 el.classList.remove('picker-open');
-                updateBodyScrollLock(options);
+                restoreRevealScroll(options);
                 blur(el);
             }
         });
@@ -520,7 +582,7 @@ const ModalMobileController = (() => {
             const el = doc.getElementById(id);
             if (el) el.classList.remove('picker-open');
         });
-        updateBodyScrollLock(options);
+        restoreRevealScroll(options);
 
         const sel = win.getSelection ? win.getSelection() : null;
         if (sel && sel.rangeCount > 0) {
@@ -648,6 +710,7 @@ const ModalMobileController = (() => {
         getActivePlainField,
         updateViewportLayout,
         clearViewportLayout,
+        restoreRevealScroll,
         revealDropdown,
         revealPlainField,
         bindPlainFieldReveal,

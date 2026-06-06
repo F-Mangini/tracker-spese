@@ -5217,7 +5217,6 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     const calls = [];
     let clickHandler = null;
     let mouseDownHandler = null;
-    let pointerDownHandler = null;
     let inputHandler = null;
     let activeElement = null;
 
@@ -5275,19 +5274,13 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         scrollTop: 0,
         dataset: {},
         style: {},
-        get scrollHeight() {
-            const extraPadding = Number.parseFloat(this.style.paddingBottom || '0') || 0;
-            return 460 + extraPadding;
-        },
-        clientHeight: 320,
         getBoundingClientRect() {
             return { top: 80, bottom: 360 };
         }
     };
-    const exportOffset = () => exportBody.scrollTop;
     const dropdownList = {
         getBoundingClientRect() {
-            return { top: 368 - exportOffset(), bottom: 488 - exportOffset(), height: 120 };
+            return { top: 368, bottom: 488, height: 120 };
         }
     };
     const dropdown = {
@@ -5312,7 +5305,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
             return selector === '.modal-body' ? exportBody : null;
         },
         getBoundingClientRect() {
-            return { top: 320 - exportOffset(), bottom: 364 - exportOffset() };
+            return { top: 320, bottom: 364 };
         }
     };
     const fields = {
@@ -5348,7 +5341,6 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         addEventListener(event, handler) {
             if (event === 'click') clickHandler = handler;
             if (event === 'mousedown') mouseDownHandler = handler;
-            if (event === 'pointerdown') pointerDownHandler = handler;
             if (event === 'input') inputHandler = handler;
         }
     };
@@ -5369,14 +5361,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         countActiveFilters: () => 0,
         pushUiState: state => calls.push(['push', state]),
         consumeUiState: () => calls.push('consume'),
-        setTimeout: callback => callback(),
-        window: {
-            innerHeight: 640,
-            visualViewport: { height: 360, offsetTop: 0 },
-            scrollBy() {
-                throw new Error('La pagina sotto la finestra export non deve scrollare');
-            }
-        }
+        setTimeout: callback => callback()
     };
 
     SettingsController.bindExportModal(options);
@@ -5390,15 +5375,15 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert(!jsonItem.classList.contains('highlighted'));
     assert.deepEqual(calls.slice(-2), ['focus', ['push', { panel: 'export-format' }]]);
     assert.equal(SettingsController.isExportFormatDropdownOpen(options), true);
-    assert.equal(modal.style.paddingBottom, '280px');
-    assert.equal(exportPanel.style.maxHeight, '352px');
-    assert.equal(exportBody.style.paddingBottom, '148px');
-    assert.equal(exportBody.scrollTop, 134);
+    assert.equal(modal.style.paddingBottom, undefined);
+    assert.equal(exportPanel.style.maxHeight, undefined);
+    assert.equal(exportBody.style.paddingBottom, undefined);
+    assert.equal(exportBody.scrollTop, 0);
 
     SettingsController.clearExportModalInteraction(options, true);
     assert.equal(classes.has('open'), false);
     assert.equal(modal.dataset.exportFormatInteraction, undefined);
-    assert.equal(exportBody.style.paddingBottom, '');
+    assert.equal(exportBody.style.paddingBottom, undefined);
     assert(!calls.includes('consume'));
 
     mouseDownHandler({
@@ -5413,16 +5398,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     });
     assert.equal(input.readOnly, false);
     assert.equal(input.value, '');
-
-    let exportPointerPrevented = false;
-    pointerDownHandler({
-        target: input,
-        preventDefault() {
-            exportPointerPrevented = true;
-        }
-    });
-
-    assert.equal(exportPointerPrevented, true);
+    assert.equal(exportBody.scrollTop, 0);
 
     input.value = 'cs';
     inputHandler({ target: input });

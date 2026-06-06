@@ -3,13 +3,6 @@
    ============================================ */
 
 const SettingsController = (() => {
-    const EXPORT_DROPDOWN_TOP_GAP = 8;
-    const EXPORT_DROPDOWN_BOTTOM_GAP = 6;
-    const EXPORT_MODAL_TOP_GAP = 8;
-    const EXPORT_BODY_EXTRA_GAP = 12;
-    const EXPORT_BODY_DEFAULT_PADDING_BOTTOM = 16;
-    const EXPORT_KEYBOARD_TRANSITION_THRESHOLD = 100;
-
     function normalizeOptions(optionsOrStorage = {}) {
         return optionsOrStorage.storage
             ? optionsOrStorage
@@ -401,7 +394,6 @@ const SettingsController = (() => {
 
         const wasOpen = !modal.classList.contains('hidden');
         modal.classList.remove('hidden');
-        updateExportModalViewport(modal, options);
 
         if (!wasOpen && typeof options.pushUiState === 'function') {
             options.pushUiState({ panel: 'export-modal' });
@@ -415,7 +407,6 @@ const SettingsController = (() => {
         const wasOpen = !modal.classList.contains('hidden');
         modal.classList.add('hidden');
         clearExportMemoryBase(modal);
-        clearExportModalViewport(options);
 
         if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
@@ -871,269 +862,6 @@ const SettingsController = (() => {
             : null;
     }
 
-    function getWindowLike(options = {}) {
-        if (options.window) return options.window;
-        if (typeof window !== 'undefined') return window;
-        return null;
-    }
-
-    function getDocumentLike(options = {}) {
-        if (options.document) return options.document;
-        if (typeof document !== 'undefined') return document;
-        return null;
-    }
-
-    function getDefer(options = {}) {
-        return options.setTimeout ||
-            (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
-    }
-
-    function getKeyboardInset(options = {}) {
-        const win = getWindowLike(options);
-        const vv = win && win.visualViewport;
-
-        if (!win || !vv || !Number.isFinite(vv.height)) return 0;
-
-        const offsetTop = Number.isFinite(vv.offsetTop) ? vv.offsetTop : 0;
-        const inset = win.innerHeight - (offsetTop + vv.height);
-
-        return Math.max(0, Math.round(inset));
-    }
-
-    function getViewportHeight(options = {}) {
-        const win = getWindowLike(options);
-        const doc = getDocumentLike(options);
-
-        return win && win.visualViewport && Number.isFinite(win.visualViewport.height)
-            ? win.visualViewport.height
-            : win && Number.isFinite(win.innerHeight)
-                ? win.innerHeight
-                : doc && doc.documentElement
-                    ? doc.documentElement.clientHeight
-                    : 0;
-    }
-
-    function isActiveElement(el, options = {}) {
-        const doc = getDocumentLike(options);
-        return !!(doc && doc.activeElement === el);
-    }
-
-    function getExportModalParts(options = {}) {
-        const overlay = getExportModal(options);
-        const modal = overlay && typeof overlay.querySelector === 'function'
-            ? overlay.querySelector('#export-modal')
-            : null;
-        const body = modal && typeof modal.querySelector === 'function'
-            ? modal.querySelector('#export-modal-body')
-            : null;
-
-        return { overlay, modal, body };
-    }
-
-    function getExportDropdownVisibleRect(dropdown) {
-        const dropdownRect = dropdown.getBoundingClientRect();
-        const list = typeof dropdown.querySelector === 'function'
-            ? dropdown.querySelector('.sd-list')
-            : null;
-
-        if (!list || typeof list.getBoundingClientRect !== 'function') {
-            return dropdownRect;
-        }
-
-        const listRect = list.getBoundingClientRect();
-
-        return {
-            top: Math.min(dropdownRect.top, listRect.top),
-            bottom: Math.max(dropdownRect.bottom, listRect.bottom)
-        };
-    }
-
-    function scrollElementBy(element, delta) {
-        if (!element || !Number.isFinite(element.scrollTop) || !Number.isFinite(delta) || Math.abs(delta) < 1) {
-            return 0;
-        }
-
-        const previous = element.scrollTop;
-        if (Number.isFinite(element.scrollHeight) && Number.isFinite(element.clientHeight)) {
-            const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-            element.scrollTop = Math.min(maxScroll, Math.max(0, previous + delta));
-        } else {
-            element.scrollTop = previous + delta;
-        }
-
-        return element.scrollTop - previous;
-    }
-
-    function restoreElementScrollPosition(element, scrollTop) {
-        if (element && Number.isFinite(element.scrollTop) && Number.isFinite(scrollTop)) {
-            element.scrollTop = Math.max(0, scrollTop);
-        }
-    }
-
-    function preserveExportActiveFieldScroll(input, options = {}, event = null) {
-        if (!input || !isActiveElement(input, options) || getKeyboardInset(options) <= 0) return false;
-
-        const { body } = getExportModalParts(options);
-        if (!body || !Number.isFinite(body.scrollTop)) return false;
-
-        if (event && typeof event.preventDefault === 'function' && event.cancelable !== false) {
-            event.preventDefault();
-        }
-
-        const savedScrollTop = body.scrollTop;
-        const defer = getDefer(options);
-        const restore = () => restoreElementScrollPosition(body, savedScrollTop);
-
-        restore();
-        [0, 16, 60, 120].forEach(delay => defer(restore, delay));
-
-        const win = getWindowLike(options);
-        if (win && typeof win.requestAnimationFrame === 'function') {
-            win.requestAnimationFrame(() => {
-                restore();
-                win.requestAnimationFrame(restore);
-            });
-        }
-
-        return true;
-    }
-
-    function getOverflow(rect, topLimit, bottomLimit) {
-        const overflowBottom = rect.bottom - bottomLimit;
-        if (overflowBottom > 0) return overflowBottom;
-
-        const overflowTop = topLimit - rect.top;
-        if (overflowTop > 0) return -overflowTop;
-
-        return 0;
-    }
-
-    function getBaseExportBodyPaddingBottom(body, options = {}) {
-        if (!body || !body.dataset) return EXPORT_BODY_DEFAULT_PADDING_BOTTOM;
-        if (body.dataset.basePaddingBottom) {
-            const saved = Number(body.dataset.basePaddingBottom);
-            return Number.isFinite(saved) ? saved : EXPORT_BODY_DEFAULT_PADDING_BOTTOM;
-        }
-
-        const win = getWindowLike(options);
-        const style = win && typeof win.getComputedStyle === 'function'
-            ? win.getComputedStyle(body)
-            : null;
-        const value = style ? Number.parseFloat(style.paddingBottom) : EXPORT_BODY_DEFAULT_PADDING_BOTTOM;
-        const base = Number.isFinite(value) ? value : EXPORT_BODY_DEFAULT_PADDING_BOTTOM;
-
-        body.dataset.basePaddingBottom = String(base);
-        return base;
-    }
-
-    function setExportBodyExtraSpace(body, extraSpace = 0, options = {}) {
-        if (!body || !body.style) return;
-
-        const extra = Math.max(0, Math.ceil(Number(extraSpace) || 0));
-        if (extra <= 0) {
-            body.style.paddingBottom = '';
-            return;
-        }
-
-        body.style.paddingBottom = `${getBaseExportBodyPaddingBottom(body, options) + extra}px`;
-    }
-
-    function getExportDropdownExtraSpace(dropdown) {
-        if (!dropdown || !dropdown.classList || !dropdown.classList.contains('open')) return 0;
-
-        const list = typeof dropdown.querySelector === 'function'
-            ? dropdown.querySelector('.sd-list')
-            : null;
-        if (!list || typeof list.getBoundingClientRect !== 'function') return 0;
-
-        const rect = list.getBoundingClientRect();
-        const height = Number.isFinite(rect.height)
-            ? rect.height
-            : Number.isFinite(rect.bottom) && Number.isFinite(rect.top)
-                ? rect.bottom - rect.top
-                : 0;
-
-        return Math.max(0, height + EXPORT_BODY_EXTRA_GAP);
-    }
-
-    function updateExportModalViewport(_modal, options = {}, config = {}) {
-        const { overlay, modal: modalEl, body } = getExportModalParts(options);
-        const viewportHeight = getViewportHeight(options);
-        const keyboardInset = getKeyboardInset(options);
-        const hasKeyboard = keyboardInset > 0;
-
-        if (overlay && overlay.style) {
-            overlay.style.paddingBottom = hasKeyboard ? `${keyboardInset}px` : '';
-        }
-
-        if (modalEl && modalEl.style) {
-            modalEl.style.maxHeight = hasKeyboard && viewportHeight
-                ? `${Math.max(240, viewportHeight - EXPORT_MODAL_TOP_GAP)}px`
-                : '';
-        }
-
-        setExportBodyExtraSpace(body, config.extraBodySpace || 0, options);
-    }
-
-    function clearExportModalViewport(options = {}) {
-        const { overlay, modal, body } = getExportModalParts(options);
-
-        if (overlay && overlay.style) overlay.style.paddingBottom = '';
-        if (modal && modal.style) modal.style.maxHeight = '';
-        if (body && body.style) body.style.paddingBottom = '';
-    }
-
-    function revealExportDropdown(dropdown, options = {}) {
-        if (!dropdown || typeof dropdown.getBoundingClientRect !== 'function') return;
-        if (dropdown.classList && !dropdown.classList.contains('open')) return;
-
-        const modalBody = typeof dropdown.closest === 'function'
-            ? dropdown.closest('.modal-body')
-            : null;
-        const win = getWindowLike(options);
-        const doc = options.document || (typeof document === 'undefined' ? null : document);
-        const viewportHeight = win && win.visualViewport && Number.isFinite(win.visualViewport.height)
-            ? win.visualViewport.height
-            : win && Number.isFinite(win.innerHeight)
-                ? win.innerHeight
-                : doc && doc.documentElement
-                    ? doc.documentElement.clientHeight
-                    : 0;
-
-        updateExportModalViewport(null, options, {
-            extraBodySpace: getExportDropdownExtraSpace(dropdown)
-        });
-
-        const rect = getExportDropdownVisibleRect(dropdown);
-        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
-            ? modalBody.getBoundingClientRect()
-            : null;
-
-        if (!viewportHeight) {
-            if (typeof dropdown.scrollIntoView === 'function') {
-                dropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-            return;
-        }
-
-        if (modalBody && bodyRect && Number.isFinite(modalBody.scrollTop)) {
-            const bodyBottom = bodyRect.bottom - EXPORT_DROPDOWN_BOTTOM_GAP;
-            const bodyTop = bodyRect.top + EXPORT_DROPDOWN_TOP_GAP;
-            const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
-
-            if (bodyDelta) {
-                scrollElementBy(modalBody, bodyDelta);
-            }
-        }
-    }
-
-    function scheduleExportDropdownReveal(dropdown, options = {}) {
-        const defer = getDefer(options);
-        [0, 120, 280, 460].forEach(delay => {
-            defer(() => revealExportDropdown(dropdown, options), delay);
-        });
-    }
-
     function ensureExportFormatInteraction(modal, options = {}) {
         if (!modal || !modal.dataset || modal.dataset.exportFormatInteraction === 'true') return;
 
@@ -1172,7 +900,6 @@ const SettingsController = (() => {
         }
 
         if (wasOpen) releaseExportFormatInteraction(modal, options, config);
-        updateExportModalViewport(modal, options);
     }
 
     function toggleExportFormatDropdown(modal, open, options = {}) {
@@ -1192,7 +919,6 @@ const SettingsController = (() => {
         if (shouldOpen) {
             if (!wasOpen) ensureExportFormatInteraction(modal, options);
             filterExportFormatDropdown(dropdown);
-            scheduleExportDropdownReveal(dropdown, options);
         } else if (wasOpen) {
             releaseExportFormatInteraction(modal, options);
         }
@@ -1336,8 +1062,6 @@ const SettingsController = (() => {
             : null;
         if (!input) return;
 
-        if (!input.readOnly && preserveExportActiveFieldScroll(input, options, event)) return;
-
         if (!dropdown.classList.contains('open')) {
             event.preventDefault();
             if (typeof input.focus === 'function') input.focus();
@@ -1351,10 +1075,6 @@ const SettingsController = (() => {
             input.value = '';
             if (typeof input.focus === 'function') input.focus();
             filterExportFormatDropdown(dropdown);
-            scheduleExportDropdownReveal(dropdown, options);
-        } else {
-            if (isActiveElement(input, options)) return;
-            scheduleExportDropdownReveal(dropdown, options);
         }
     }
 
@@ -1407,14 +1127,6 @@ const SettingsController = (() => {
             }
 
             if (closest(event.target, '#export-format-dropdown')) {
-                const dropdown = closest(event.target, '#export-format-dropdown');
-                const input = dropdown && typeof dropdown.querySelector === 'function'
-                    ? dropdown.querySelector('.sd-input')
-                    : null;
-                if (input && !input.readOnly) {
-                    if (preserveExportActiveFieldScroll(input, options, event)) return;
-                    scheduleExportDropdownReveal(dropdown, options);
-                }
                 return;
             }
 
@@ -1445,11 +1157,6 @@ const SettingsController = (() => {
             handleExportFormatMousedown(event, modal, options);
         });
 
-        modal.addEventListener('pointerdown', event => {
-            const input = closest(event.target, '#export-format-dropdown .sd-input');
-            if (input) preserveExportActiveFieldScroll(input, options, event);
-        });
-
         modal.addEventListener('focusin', event => {
             if (closest(event.target, '#export-format-dropdown')) {
                 toggleExportFormatDropdown(modal, true, options);
@@ -1469,7 +1176,6 @@ const SettingsController = (() => {
 
             toggleExportFormatDropdown(modal, true, options);
             filterExportFormatDropdown(dropdown, input.value);
-            scheduleExportDropdownReveal(dropdown, options);
         });
 
         modal.addEventListener('change', event => {
@@ -1479,32 +1185,6 @@ const SettingsController = (() => {
             syncExportModalFromDraft(options);
         });
 
-        const win = getWindowLike(options);
-        if (win && typeof win.addEventListener === 'function') {
-            const handleViewportResize = () => {
-                const currentHeight = getViewportHeight(options);
-                const previousHeight = Number(modal.dataset.exportViewportHeight || currentHeight);
-                const delta = previousHeight > 0 ? currentHeight - previousHeight : 0;
-
-                modal.dataset.exportViewportHeight = String(currentHeight);
-
-                if (Math.abs(delta) <= EXPORT_KEYBOARD_TRANSITION_THRESHOLD) return;
-
-                updateExportModalViewport(modal, options, {
-                    extraBodySpace: getExportDropdownExtraSpace(getExportFormatDropdown(modal))
-                });
-
-                if (delta < 0) {
-                    scheduleExportDropdownReveal(getExportFormatDropdown(modal), options);
-                }
-            };
-
-            modal.dataset.exportViewportHeight = String(getViewportHeight(options));
-            win.addEventListener('resize', handleViewportResize, { passive: true });
-            if (win.visualViewport && typeof win.visualViewport.addEventListener === 'function') {
-                win.visualViewport.addEventListener('resize', handleViewportResize, { passive: true });
-            }
-        }
     }
 
     function render(options = {}) {

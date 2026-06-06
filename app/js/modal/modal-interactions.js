@@ -175,6 +175,9 @@ const ModalInteractions = (() => {
         const list = container.querySelector('.sd-list');
         let highlightIdx = -1;
         let isEditable = false;
+        let ignoreNextBlurClose = false;
+        let handledMouseDown = false;
+        let suppressNextFocusReveal = false;
 
         const findItem = id => items.find(item => item.id === id);
         const getSelectedItem = () => findItem(input.dataset.value) || items[0] || {};
@@ -232,39 +235,78 @@ const ModalInteractions = (() => {
             scheduleDropdownReveal(container, options);
         };
 
+        const ignoreInternalBlurOnce = () => {
+            const defer = getDefer(options);
+            ignoreNextBlurClose = true;
+            handledMouseDown = true;
+            defer(() => {
+                ignoreNextBlurClose = false;
+                handledMouseDown = false;
+            }, 0);
+        };
+
+        const suppressFocusRevealOnce = () => {
+            const defer = getDefer(options);
+            suppressNextFocusReveal = true;
+            defer(() => {
+                suppressNextFocusReveal = false;
+            }, 0);
+        };
+
+        const focusWithoutReveal = () => {
+            suppressFocusRevealOnce();
+            input.focus();
+        };
+
         const closeAfterBlur = () => {
             const defer = getDefer(options);
+            const ignoreBlur = ignoreNextBlurClose;
+            ignoreNextBlurClose = false;
             defer(() => {
+                if (ignoreBlur) return;
                 if (activeDocument && activeDocument.activeElement === input) return;
                 close();
             }, 0);
         };
 
         input.addEventListener('mousedown', e => {
+            ignoreInternalBlurOnce();
+
             if (!container.classList.contains('open')) {
                 e.preventDefault();
-                input.focus();
+                focusWithoutReveal();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                input.focus();
+                focusWithoutReveal();
 
                 scheduleDropdownReveal(container, options);
             } else {
+                suppressFocusRevealOnce();
                 scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('click', () => {
+            if (handledMouseDown) {
+                handledMouseDown = false;
+                return;
+            }
+
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
+            if (suppressNextFocusReveal) {
+                suppressNextFocusReveal = false;
+                return;
+            }
+
             if (!container.classList.contains('open')) {
                 open();
             } else {
@@ -333,6 +375,9 @@ const ModalInteractions = (() => {
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
         let isEditable = false;
+        let ignoreNextBlurClose = false;
+        let handledMouseDown = false;
+        let suppressNextFocusReveal = false;
 
         const getCurrentTags = () => {
             const tags = call(options.getTags);
@@ -424,13 +469,41 @@ const ModalInteractions = (() => {
 
         const closeAfterBlur = () => {
             const defer = getDefer(options);
+            const ignoreBlur = ignoreNextBlurClose;
+            ignoreNextBlurClose = false;
             defer(() => {
+                if (ignoreBlur) return;
                 if (activeDocument && activeDocument.activeElement === input) return;
                 close();
             }, 0);
         };
 
+        const ignoreInternalBlurOnce = () => {
+            const defer = getDefer(options);
+            ignoreNextBlurClose = true;
+            handledMouseDown = true;
+            defer(() => {
+                ignoreNextBlurClose = false;
+                handledMouseDown = false;
+            }, 0);
+        };
+
+        const suppressFocusRevealOnce = () => {
+            const defer = getDefer(options);
+            suppressNextFocusReveal = true;
+            defer(() => {
+                suppressNextFocusReveal = false;
+            }, 0);
+        };
+
+        const focusWithoutReveal = () => {
+            suppressFocusRevealOnce();
+            input.focus();
+        };
+
         input.addEventListener('mousedown', e => {
+            ignoreInternalBlurOnce();
+
             const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
 
             if (!container.classList.contains('open')) {
@@ -442,27 +515,38 @@ const ModalInteractions = (() => {
                     input.value = '';
                 }
 
-                input.focus();
+                focusWithoutReveal();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                input.focus();
+                focusWithoutReveal();
                 scheduleDropdownReveal(container, options);
             } else {
+                suppressFocusRevealOnce();
                 scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('click', () => {
+            if (handledMouseDown) {
+                handledMouseDown = false;
+                return;
+            }
+
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
+            if (suppressNextFocusReveal) {
+                suppressNextFocusReveal = false;
+                return;
+            }
+
             if (!container.classList.contains('open')) open();
             else scheduleDropdownReveal(container, options);
         });

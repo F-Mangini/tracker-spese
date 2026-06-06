@@ -3125,7 +3125,9 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
         addEventListener(event, handler) {
             this.listeners[event] = handler;
         },
-        focus() {},
+        focus() {
+            if (this.listeners.focus) this.listeners.focus();
+        },
         blur() {}
     };
     const list = {
@@ -3172,6 +3174,11 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
         }
     };
     const { ModalInteractions } = loadUiViews({ document: documentLike });
+    const runZeroTimers = () => {
+        timeouts
+            .filter(item => item.ms === 0)
+            .forEach(item => item.callback());
+    };
 
     ModalInteractions.createSearchableDropdown({
         containerId: 'sd-categoria',
@@ -3188,21 +3195,26 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
     });
 
     input.listeners.mousedown({ preventDefault() {} });
+    runZeroTimers();
     timeouts.length = 0;
+    modalBody.scrollTop = 0;
     input.listeners.mousedown({ preventDefault() {} });
 
     assert.equal(input.readOnly, false);
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
-    timeouts.find(item => item.ms === 0).callback();
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 0, 0, 120, 280, 460]);
+    runZeroTimers();
     assert.equal(modalBody.scrollTop, 194);
     assert.equal(scrollCalls.length, 0);
 
     timeouts.length = 0;
     modalBody.scrollTop = 0;
-    input.listeners.mousedown({ preventDefault() { throw new Error('non deve bloccare il tap editabile'); } });
+    let editablePrevented = false;
+    input.listeners.mousedown({ preventDefault() { editablePrevented = true; } });
+    input.listeners.focus();
 
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
-    timeouts.find(item => item.ms === 0).callback();
+    assert.equal(editablePrevented, false);
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 0, 0, 120, 280, 460]);
+    runZeroTimers();
     assert.equal(modalBody.scrollTop, 194);
 
     timeouts.length = 0;
@@ -3210,7 +3222,7 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
     input.listeners.click();
 
     assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
-    timeouts.find(item => item.ms === 0).callback();
+    runZeroTimers();
     assert.equal(modalBody.scrollTop, 194);
 });
 
@@ -3318,6 +3330,7 @@ test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi',
     assert(classes.has('open'));
     assert.equal(restoreCalls.length, 0);
 
+    timeouts[0].callback();
     activeElement = null;
     input.listeners.blur();
     timeouts[timeouts.length - 1].callback();

@@ -4076,6 +4076,15 @@ test('Controller mobile modale ripristina lo scroll da tastiera nei dropdown', (
     assert.equal(modalBody.dataset.keyboardRevealScrollTop, String(beforeKeyboardScroll));
     assert(modalBody.scrollTop > beforeKeyboardScroll);
 
+    const scrollWithKeyboardOpen = modalBody.scrollTop;
+    timeouts.length = 0;
+    lastViewportHeight = 360;
+    win.visualViewport.height = 360;
+    ModalMobileController.handleViewportChange(options);
+
+    assert.equal(modalBody.scrollTop, scrollWithKeyboardOpen);
+    assert.deepEqual(timeouts.map(item => item.ms), []);
+
     timeouts.length = 0;
     lastViewportHeight = 360;
     win.visualViewport.height = 640;

@@ -8,6 +8,7 @@ const SettingsController = (() => {
     const EXPORT_MODAL_TOP_GAP = 8;
     const EXPORT_BODY_EXTRA_GAP = 12;
     const EXPORT_BODY_DEFAULT_PADDING_BOTTOM = 16;
+    const EXPORT_KEYBOARD_TRANSITION_THRESHOLD = 100;
 
     function normalizeOptions(optionsOrStorage = {}) {
         return optionsOrStorage.storage
@@ -876,6 +877,12 @@ const SettingsController = (() => {
         return null;
     }
 
+    function getDocumentLike(options = {}) {
+        if (options.document) return options.document;
+        if (typeof document !== 'undefined') return document;
+        return null;
+    }
+
     function getDefer(options = {}) {
         return options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
@@ -891,6 +898,24 @@ const SettingsController = (() => {
         const inset = win.innerHeight - (offsetTop + vv.height);
 
         return Math.max(0, Math.round(inset));
+    }
+
+    function getViewportHeight(options = {}) {
+        const win = getWindowLike(options);
+        const doc = getDocumentLike(options);
+
+        return win && win.visualViewport && Number.isFinite(win.visualViewport.height)
+            ? win.visualViewport.height
+            : win && Number.isFinite(win.innerHeight)
+                ? win.innerHeight
+                : doc && doc.documentElement
+                    ? doc.documentElement.clientHeight
+                    : 0;
+    }
+
+    function isActiveElement(el, options = {}) {
+        const doc = getDocumentLike(options);
+        return !!(doc && doc.activeElement === el);
     }
 
     function getExportModalParts(options = {}) {
@@ -999,17 +1024,7 @@ const SettingsController = (() => {
 
     function updateExportModalViewport(_modal, options = {}, config = {}) {
         const { overlay, modal: modalEl, body } = getExportModalParts(options);
-        const viewportHeight = (() => {
-            const win = getWindowLike(options);
-            const doc = options.document || (typeof document === 'undefined' ? null : document);
-            return win && win.visualViewport && Number.isFinite(win.visualViewport.height)
-                ? win.visualViewport.height
-                : win && Number.isFinite(win.innerHeight)
-                    ? win.innerHeight
-                    : doc && doc.documentElement
-                        ? doc.documentElement.clientHeight
-                        : 0;
-        })();
+        const viewportHeight = getViewportHeight(options);
         const keyboardInset = getKeyboardInset(options);
         const hasKeyboard = keyboardInset > 0;
 
@@ -1302,6 +1317,7 @@ const SettingsController = (() => {
             filterExportFormatDropdown(dropdown);
             scheduleExportDropdownReveal(dropdown, options);
         } else {
+            if (isActiveElement(input, options)) return;
             scheduleExportDropdownReveal(dropdown, options);
         }
     }
@@ -1360,6 +1376,7 @@ const SettingsController = (() => {
                     ? dropdown.querySelector('.sd-input')
                     : null;
                 if (input && !input.readOnly) {
+                    if (isActiveElement(input, options)) return;
                     scheduleExportDropdownReveal(dropdown, options);
                 }
                 return;
@@ -1424,12 +1441,24 @@ const SettingsController = (() => {
         const win = getWindowLike(options);
         if (win && typeof win.addEventListener === 'function') {
             const handleViewportResize = () => {
+                const currentHeight = getViewportHeight(options);
+                const previousHeight = Number(modal.dataset.exportViewportHeight || currentHeight);
+                const delta = previousHeight > 0 ? currentHeight - previousHeight : 0;
+
+                modal.dataset.exportViewportHeight = String(currentHeight);
+
+                if (Math.abs(delta) <= EXPORT_KEYBOARD_TRANSITION_THRESHOLD) return;
+
                 updateExportModalViewport(modal, options, {
                     extraBodySpace: getExportDropdownExtraSpace(getExportFormatDropdown(modal))
                 });
-                scheduleExportDropdownReveal(getExportFormatDropdown(modal), options);
+
+                if (delta < 0) {
+                    scheduleExportDropdownReveal(getExportFormatDropdown(modal), options);
+                }
             };
 
+            modal.dataset.exportViewportHeight = String(getViewportHeight(options));
             win.addEventListener('resize', handleViewportResize, { passive: true });
             if (win.visualViewport && typeof win.visualViewport.addEventListener === 'function') {
                 win.visualViewport.addEventListener('resize', handleViewportResize, { passive: true });

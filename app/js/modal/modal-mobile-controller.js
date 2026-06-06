@@ -13,6 +13,7 @@ const ModalMobileController = (() => {
     const FIELD_SCROLL_LOCK_CLASS = 'field-scroll-locked';
     const REVEAL_SCROLL_KEY = 'fieldRevealScrollTop';
     const KEYBOARD_REVEAL_SCROLL_KEY = 'keyboardRevealScrollTop';
+    const KEYBOARD_TRANSITION_THRESHOLD = 100;
 
     function noop() { }
 
@@ -654,19 +655,27 @@ const ModalMobileController = (() => {
 
         if (prevHeight > 0) {
             if (isModalOpen(options)) {
-                const keyboardClosing = delta > 100;
-                updateViewportLayout(options);
+                const keyboardOpening = delta < -KEYBOARD_TRANSITION_THRESHOLD;
+                const keyboardClosing = delta > KEYBOARD_TRANSITION_THRESHOLD;
                 const active = getActivePlainField(options);
-                if (shouldBlurForViewportChange(active, delta)) {
-                    blur(active);
-                    updateViewportLayout(options);
-                }
                 const dropdown = getOpenDropdown(options);
-                if (dropdown) {
-                    if (keyboardClosing) restoreKeyboardRevealScroll(options);
-                    else scheduleDropdownReveal(options);
-                } else if (active) {
-                    revealPlainField(active, options);
+
+                if (keyboardOpening || keyboardClosing) {
+                    updateViewportLayout(options);
+
+                    if (keyboardClosing && shouldBlurForViewportChange(active, delta)) {
+                        blur(active);
+                        updateViewportLayout(options);
+                    }
+
+                    if (dropdown) {
+                        if (keyboardClosing) restoreKeyboardRevealScroll(options);
+                        else scheduleDropdownReveal(options);
+                    } else if (active && keyboardOpening) {
+                        revealPlainField(active, options);
+                    }
+                } else {
+                    updateBodyScrollLock(options);
                 }
             }
 

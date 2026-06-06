@@ -3459,6 +3459,113 @@ test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
     assert.equal(modalBody.scrollTop, scrollBeforeActiveTap);
 });
 
+test('Interazioni dropdown modale ignorano blur quando si tocca la tendina', () => {
+    const timeouts = [];
+    const classes = new Set();
+    const restoreCalls = [];
+    const containerListeners = {};
+    let activeElement = null;
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {
+            activeElement = input;
+        }
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        getBoundingClientRect() {
+            return { top: 368, bottom: 548 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 120,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        addEventListener(event, handler) {
+            containerListeners[event] = handler;
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
+        }
+    };
+    const documentLike = {
+        documentElement: { clientHeight: 640 },
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+    const runZeroTimers = () => {
+        const pending = timeouts.splice(0);
+        pending
+            .filter(item => item.ms === 0)
+            .forEach(item => item.callback());
+    };
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        window: { innerHeight: 640, visualViewport: { height: 360, offsetTop: 0 } },
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        },
+        restoreModalRevealScroll: () => restoreCalls.push('restore')
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+    assert(classes.has('open'));
+
+    timeouts.length = 0;
+    containerListeners.pointerdown({ target: list });
+    activeElement = null;
+    input.listeners.blur();
+    runZeroTimers();
+
+    assert(classes.has('open'));
+    assert.equal(restoreCalls.length, 0);
+
+    activeElement = null;
+    input.listeners.blur();
+    runZeroTimers();
+
+    assert(!classes.has('open'));
+    assert.equal(restoreCalls.length, 1);
+});
+
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
     const { ModalView } = loadUiViews();
     const spese = [
@@ -4239,6 +4346,145 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
 
     assert.equal(modalBody.scrollTop, 0);
     assert(!bodyClasses.has('field-scroll-locked'));
+});
+
+test('Controller mobile modale blocca lo scroll esterno con tastiera aperta', () => {
+    const { ModalMobileController } = loadUiViews();
+    const timeouts = [];
+    const docListeners = {};
+    let activeElement = null;
+    const bodyClasses = new Set();
+    const noteField = {
+        id: 'edit-nota',
+        tagName: 'TEXTAREA',
+        type: 'text',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        matches(selector) {
+            return selector === 'input, textarea, select';
+        },
+        closest() {
+            return null;
+        },
+        getBoundingClientRect() {
+            return { top: 330, bottom: 410 };
+        }
+    };
+    const bodyChild = {};
+    const modalBody = {
+        scrollTop: 0,
+        dataset: {},
+        style: {},
+        classList: {
+            add(cls) { bodyClasses.add(cls); },
+            remove(cls) { bodyClasses.delete(cls); },
+            contains(cls) { return bodyClasses.has(cls); }
+        },
+        contains(el) {
+            return el === bodyChild;
+        },
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const footer = {};
+    const modal = {
+        dataset: {},
+        style: {},
+        contains(el) {
+            return el === noteField || el === modalBody || el === bodyChild || el === footer;
+        },
+        querySelector(selector) {
+            if (selector === '.modal-body') return modalBody;
+            if (selector === '.modal-footer') return footer;
+            return null;
+        }
+    };
+    const doc = {
+        get activeElement() {
+            return activeElement;
+        },
+        addEventListener(event, handler, options) {
+            docListeners[event] = { handler, options };
+        },
+        getElementById(id) {
+            if (id === 'modal-overlay') return { style: {} };
+            if (id === 'edit-modal') return modal;
+            if (id === 'edit-nota') return noteField;
+            return null;
+        },
+        querySelector() {
+            return null;
+        }
+    };
+    const options = {
+        document: doc,
+        window: {
+            innerHeight: 640,
+            visualViewport: { height: 360, offsetTop: 0 }
+        },
+        isModalOpen: () => true,
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    };
+
+    ModalMobileController.bindPlainFieldReveal(options);
+    activeElement = noteField;
+    noteField.listeners.focus();
+
+    assert.equal(docListeners.touchmove.options.passive, false);
+    assert(bodyClasses.has('field-scroll-locked'));
+
+    let footerPrevented = false;
+    docListeners.touchmove.handler({
+        target: footer,
+        cancelable: true,
+        preventDefault() {
+            footerPrevented = true;
+        }
+    });
+
+    assert(footerPrevented);
+
+    let bodyPrevented = false;
+    docListeners.touchmove.handler({
+        target: bodyChild,
+        cancelable: true,
+        preventDefault() {
+            bodyPrevented = true;
+        }
+    });
+
+    assert.equal(bodyPrevented, false);
+
+    activeElement = null;
+
+    let transientPrevented = false;
+    docListeners.touchmove.handler({
+        target: footer,
+        cancelable: true,
+        preventDefault() {
+            transientPrevented = true;
+        }
+    });
+
+    assert(transientPrevented);
+
+    bodyClasses.delete('field-scroll-locked');
+
+    let inactivePrevented = false;
+    docListeners.touchmove.handler({
+        target: footer,
+        cancelable: true,
+        preventDefault() {
+            inactivePrevented = true;
+        }
+    });
+
+    assert.equal(inactivePrevented, false);
 });
 
 test('Controller mobile modale include la label e ripristina lo scroll alla deselezione', () => {

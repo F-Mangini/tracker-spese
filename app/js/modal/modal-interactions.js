@@ -187,6 +187,7 @@ const ModalInteractions = (() => {
         let ignoreNextBlurClose = false;
         let handledMouseDown = false;
         let suppressNextFocusReveal = false;
+        let preparedPointerDown = false;
 
         const findItem = id => items.find(item => item.id === id);
         const getSelectedItem = () => findItem(input.dataset.value) || items[0] || {};
@@ -251,6 +252,7 @@ const ModalInteractions = (() => {
             defer(() => {
                 ignoreNextBlurClose = false;
                 handledMouseDown = false;
+                preparedPointerDown = false;
             }, 0);
         };
 
@@ -278,8 +280,28 @@ const ModalInteractions = (() => {
             }, 0);
         };
 
-        input.addEventListener('mousedown', e => {
+        const prepareInternalPointer = e => {
+            preparedPointerDown = true;
             ignoreInternalBlurOnce();
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+            }
+        };
+
+        const prepareDropdownPointer = e => {
+            if (e.target === input) return;
+            if (preparedPointerDown) return;
+            preparedPointerDown = true;
+            ignoreInternalBlurOnce();
+        };
+
+        if (typeof container.addEventListener === 'function') {
+            container.addEventListener('pointerdown', prepareDropdownPointer);
+            container.addEventListener('mousedown', prepareDropdownPointer);
+        }
+
+        input.addEventListener('mousedown', e => {
+            if (!preparedPointerDown) ignoreInternalBlurOnce();
 
             if (!container.classList.contains('open')) {
                 e.preventDefault();
@@ -303,11 +325,7 @@ const ModalInteractions = (() => {
             }
         });
 
-        input.addEventListener('pointerdown', e => {
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-            }
-        });
+        input.addEventListener('pointerdown', prepareInternalPointer);
 
         input.addEventListener('click', e => {
             if (handledMouseDown) {
@@ -402,6 +420,7 @@ const ModalInteractions = (() => {
         let ignoreNextBlurClose = false;
         let handledMouseDown = false;
         let suppressNextFocusReveal = false;
+        let preparedPointerDown = false;
 
         const getCurrentTags = () => {
             const tags = call(options.getTags);
@@ -509,6 +528,7 @@ const ModalInteractions = (() => {
             defer(() => {
                 ignoreNextBlurClose = false;
                 handledMouseDown = false;
+                preparedPointerDown = false;
             }, 0);
         };
 
@@ -525,8 +545,28 @@ const ModalInteractions = (() => {
             input.focus();
         };
 
-        input.addEventListener('mousedown', e => {
+        const prepareInternalPointer = e => {
+            preparedPointerDown = true;
             ignoreInternalBlurOnce();
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+            }
+        };
+
+        const prepareDropdownPointer = e => {
+            if (e.target === input) return;
+            if (preparedPointerDown) return;
+            preparedPointerDown = true;
+            ignoreInternalBlurOnce();
+        };
+
+        if (typeof container.addEventListener === 'function') {
+            container.addEventListener('pointerdown', prepareDropdownPointer);
+            container.addEventListener('mousedown', prepareDropdownPointer);
+        }
+
+        input.addEventListener('mousedown', e => {
+            if (!preparedPointerDown) ignoreInternalBlurOnce();
 
             const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
 
@@ -558,11 +598,7 @@ const ModalInteractions = (() => {
             }
         });
 
-        input.addEventListener('pointerdown', e => {
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-            }
-        });
+        input.addEventListener('pointerdown', prepareInternalPointer);
 
         input.addEventListener('click', e => {
             if (handledMouseDown) {

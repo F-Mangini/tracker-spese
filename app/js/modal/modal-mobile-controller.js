@@ -13,6 +13,7 @@ const ModalMobileController = (() => {
     const FIELD_SCROLL_LOCK_CLASS = 'field-scroll-locked';
     const REVEAL_SCROLL_KEY = 'fieldRevealScrollTop';
     const KEYBOARD_REVEAL_SCROLL_KEY = 'keyboardRevealScrollTop';
+    const DOCUMENT_SCROLL_GUARD_KEY = 'documentScrollGuardBound';
     const KEYBOARD_TRANSITION_THRESHOLD = 100;
 
     function noop() { }
@@ -211,6 +212,71 @@ const ModalMobileController = (() => {
             body.classList.add(FIELD_SCROLL_LOCK_CLASS);
         } else {
             body.classList.remove(FIELD_SCROLL_LOCK_CLASS);
+        }
+    }
+
+    function isBodyScrollLocked(body) {
+        return !!(body &&
+            body.classList &&
+            typeof body.classList.contains === 'function' &&
+            body.classList.contains(FIELD_SCROLL_LOCK_CLASS));
+    }
+
+    function isInsideElement(element, target) {
+        if (!element || !target) return false;
+        if (typeof element.contains === 'function') return element.contains(target);
+        if (typeof target.closest !== 'function') return false;
+
+        const selector = element.id
+            ? `#${element.id}`
+            : element.classList && typeof element.classList.contains === 'function' && element.classList.contains('modal-body')
+                ? '.modal-body'
+                : null;
+
+        return selector ? target.closest(selector) === element : false;
+    }
+
+    function shouldBlockOuterScroll(event, options = {}) {
+        if (!event || !isModalOpen(options) || !isKeyboardOpen(options)) return false;
+
+        const doc = getDocument(options);
+        const { modal, body } = getModalParts(options);
+        if (!modal || !body) return false;
+
+        const active = doc.activeElement;
+        const dropdown = getOpenDropdown(options);
+        const hasModalInteraction = !!dropdown ||
+            isBodyScrollLocked(body) ||
+            !!(active && typeof modal.contains === 'function' && modal.contains(active) && isEditableModalField(active));
+
+        if (!hasModalInteraction) return false;
+        if (isInsideElement(body, event.target)) return false;
+
+        return true;
+    }
+
+    function bindDocumentScrollGuard(options = {}) {
+        const doc = getDocument(options);
+        const { modal } = getModalParts(options);
+
+        if (!doc || typeof doc.addEventListener !== 'function' || !modal) return;
+        if (modal.dataset && modal.dataset[DOCUMENT_SCROLL_GUARD_KEY] === 'true') return;
+        if (!modal.dataset && modal[DOCUMENT_SCROLL_GUARD_KEY]) return;
+
+        const blockOuterScroll = event => {
+            if (!shouldBlockOuterScroll(event, options)) return;
+            if (event.cancelable !== false && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+        };
+
+        doc.addEventListener('touchmove', blockOuterScroll, { passive: false });
+        doc.addEventListener('wheel', blockOuterScroll, { passive: false });
+
+        if (modal.dataset) {
+            modal.dataset[DOCUMENT_SCROLL_GUARD_KEY] = 'true';
+        } else {
+            modal[DOCUMENT_SCROLL_GUARD_KEY] = true;
         }
     }
 
@@ -453,6 +519,7 @@ const ModalMobileController = (() => {
 
     function bindPlainFieldReveal(options = {}) {
         const doc = getDocument(options);
+        bindDocumentScrollGuard(options);
 
         PLAIN_FIELD_IDS.forEach(id => {
             const field = doc.getElementById(id);

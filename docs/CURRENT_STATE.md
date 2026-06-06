@@ -18,7 +18,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Inserimento e spese | `domain/parser.js`, `domain/expense-actions.js`, `input/expense-submit-controller.js`, `input/expense-input-controller.js`, `input/input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
 | Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `timeline/timeline-selection-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/filter-controller.js` | Rendering timeline, selezione multipla volatile, modello filtrato, pannello filtri, slider, badge e ricerca. |
 | Statistiche | `domain/stats.js`, `stats/stats-view.js`, `stats/stats-charts.js`, `stats/stats-controller.js` | Periodi, aggregazioni, template statistiche e configurazione Chart.js. |
-| Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, focus/picker mobile, viewport/tastiera e lifecycle modale. |
+| Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, picker mobile, focus/blur e lifecycle modale. |
 | Navigazione e stack UI | `navigation/navigation-controller.js`, `navigation/ui-stack.js`, `navigation/history-controller.js`, `navigation/ui-stack-effects.js`, `navigation/ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
 | Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
 | Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
@@ -103,7 +103,7 @@ La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e not
 
 Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 
-I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela. Quando un campo testuale o un dropdown ricercabile interagisce con la tastiera, header e footer della modale restano fermi sopra la tastiera e scorre solo il corpo interno della modale; per le tendine viene aggiunto spazio interno temporaneo sotto al contenuto, senza scrollare la pagina sottostante. Mentre un campo della modale e selezionato, lo scroll manuale del corpo finestra e bloccato e restano attivi solo gli aggiustamenti automatici necessari a rendere visibili label, campo e possibile tendina; quando il campo viene deselezionato, lo scroll automatico viene ripristinato alla posizione precedente alla selezione.
+I workaround mobile rimasti per la modale riguardano picker nativi, cleanup della selezione, blur su ritorno/chiusura tastiera e stack history delle interazioni interne. Gli auto-scroll e gli allineamenti automatici di campi, label, tendine, header e footer nella finestra `Modifica spesa` sono stati rimossi per riprogettarli da zero.
 
 ### Navigazione e Mobile
 

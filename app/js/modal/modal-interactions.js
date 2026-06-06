@@ -4,8 +4,6 @@
 
 const ModalInteractions = (() => {
     const DEFAULT_MODAL_SELECTOR = '#edit-modal';
-    const DROPDOWN_TOP_GAP = 8;
-    const DROPDOWN_BOTTOM_GAP = 6;
 
     function call(fn, ...args) {
         return typeof fn === 'function' ? fn(...args) : undefined;
@@ -30,12 +28,6 @@ const ModalInteractions = (() => {
         return !!document.querySelector(`${modalSelector} .searchable-dropdown.open`);
     }
 
-    function getWindow(options = {}) {
-        if (options.window) return options.window;
-        if (typeof window !== 'undefined') return window;
-        return null;
-    }
-
     function getDocument(options = {}) {
         if (options.document) return options.document;
         if (typeof document !== 'undefined') return document;
@@ -45,112 +37,6 @@ const ModalInteractions = (() => {
     function getDefer(options = {}) {
         return options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
-    }
-
-    function isActiveInput(doc, input) {
-        return !!(doc && doc.activeElement === input);
-    }
-
-    function preserveActiveFieldScroll(input, event, options = {}) {
-        return typeof options.preserveActiveFieldScroll === 'function' &&
-            !!options.preserveActiveFieldScroll(input, event);
-    }
-
-    function getDropdownVisibleRect(container) {
-        const containerRect = container.getBoundingClientRect();
-        const list = typeof container.querySelector === 'function'
-            ? container.querySelector('.sd-list')
-            : null;
-        const isOpen = container.classList && container.classList.contains('open');
-
-        if (!isOpen || !list || typeof list.getBoundingClientRect !== 'function') {
-            return containerRect;
-        }
-
-        const listRect = list.getBoundingClientRect();
-
-        return {
-            top: Math.min(containerRect.top, listRect.top),
-            bottom: Math.max(containerRect.bottom, listRect.bottom)
-        };
-    }
-
-    function scrollElementBy(element, delta) {
-        if (!element || !Number.isFinite(element.scrollTop) || !Number.isFinite(delta) || Math.abs(delta) < 1) {
-            return 0;
-        }
-
-        const previous = element.scrollTop;
-        if (Number.isFinite(element.scrollHeight) && Number.isFinite(element.clientHeight)) {
-            const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-            element.scrollTop = Math.min(maxScroll, Math.max(0, previous + delta));
-        } else {
-            element.scrollTop = previous + delta;
-        }
-
-        return element.scrollTop - previous;
-    }
-
-    function getOverflow(rect, topLimit, bottomLimit) {
-        const overflowBottom = rect.bottom - bottomLimit;
-        if (overflowBottom > 0) return overflowBottom;
-
-        const overflowTop = topLimit - rect.top;
-        if (overflowTop > 0) return -overflowTop;
-
-        return 0;
-    }
-
-    function revealDropdown(container, options = {}) {
-        if (!container || typeof container.getBoundingClientRect !== 'function') return;
-        if (container.classList && !container.classList.contains('open')) return;
-
-        if (typeof options.revealDropdown === 'function') {
-            options.revealDropdown(container);
-            return;
-        }
-
-        const modalBody = typeof container.closest === 'function'
-            ? container.closest('.modal-body')
-            : null;
-        const win = getWindow(options);
-        const doc = getDocument(options);
-        const viewportHeight = win && win.visualViewport && Number.isFinite(win.visualViewport.height)
-            ? win.visualViewport.height
-            : win && Number.isFinite(win.innerHeight)
-                ? win.innerHeight
-                : doc && doc.documentElement
-                    ? doc.documentElement.clientHeight
-                    : 0;
-        const rect = getDropdownVisibleRect(container);
-        const bodyRect = modalBody && typeof modalBody.getBoundingClientRect === 'function'
-            ? modalBody.getBoundingClientRect()
-            : null;
-
-        if (!viewportHeight) {
-            if (typeof container.scrollIntoView === 'function') {
-                container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-            return;
-        }
-
-        if (modalBody && bodyRect && Number.isFinite(modalBody.scrollTop)) {
-            const bodyBottom = Math.min(viewportHeight - DROPDOWN_BOTTOM_GAP, bodyRect.bottom - DROPDOWN_BOTTOM_GAP);
-            const bodyTop = Math.max(DROPDOWN_TOP_GAP, bodyRect.top + DROPDOWN_TOP_GAP);
-            const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
-
-            if (bodyDelta) {
-                scrollElementBy(modalBody, bodyDelta);
-            }
-        }
-
-    }
-
-    function scheduleDropdownReveal(container, options = {}) {
-        const defer = getDefer(options);
-        [0, 120, 280, 460].forEach(delay => {
-            defer(() => revealDropdown(container, options), delay);
-        });
     }
 
     function ensureInteraction(options, wasClosed) {
@@ -186,8 +72,7 @@ const ModalInteractions = (() => {
         let isEditable = false;
         let ignoreNextBlurClose = false;
         let handledMouseDown = false;
-        let suppressNextFocusReveal = false;
-        let preparedPointerDown = false;
+        let suppressNextFocusOpen = false;
 
         const findItem = id => items.find(item => item.id === id);
         const getSelectedItem = () => findItem(input.dataset.value) || items[0] || {};
@@ -223,8 +108,6 @@ const ModalInteractions = (() => {
             input.value = ModalView.formatDropdownItem(selectedItem);
 
             releaseInteractionAfterClose(options, wasOpen);
-            call(options.updateModalViewportLayout);
-            call(options.restoreModalRevealScroll);
         };
 
         const selectItem = (item) => {
@@ -242,7 +125,6 @@ const ModalInteractions = (() => {
 
             ensureInteraction(options, wasClosed);
             renderList();
-            scheduleDropdownReveal(container, options);
         };
 
         const ignoreInternalBlurOnce = () => {
@@ -252,20 +134,19 @@ const ModalInteractions = (() => {
             defer(() => {
                 ignoreNextBlurClose = false;
                 handledMouseDown = false;
-                preparedPointerDown = false;
             }, 0);
         };
 
-        const suppressFocusRevealOnce = () => {
+        const suppressFocusOpenOnce = () => {
             const defer = getDefer(options);
-            suppressNextFocusReveal = true;
+            suppressNextFocusOpen = true;
             defer(() => {
-                suppressNextFocusReveal = false;
+                suppressNextFocusOpen = false;
             }, 0);
         };
 
-        const focusWithoutReveal = () => {
-            suppressFocusRevealOnce();
+        const focusWithoutOpening = () => {
+            suppressFocusOpenOnce();
             input.focus();
         };
 
@@ -280,79 +161,38 @@ const ModalInteractions = (() => {
             }, 0);
         };
 
-        const prepareInternalPointer = e => {
-            preparedPointerDown = true;
-            ignoreInternalBlurOnce();
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-            }
-        };
-
-        const prepareDropdownPointer = e => {
-            if (e.target === input) return;
-            if (preparedPointerDown) return;
-            preparedPointerDown = true;
-            ignoreInternalBlurOnce();
-        };
-
-        if (typeof container.addEventListener === 'function') {
-            container.addEventListener('pointerdown', prepareDropdownPointer);
-            container.addEventListener('mousedown', prepareDropdownPointer);
-        }
-
         input.addEventListener('mousedown', e => {
-            if (!preparedPointerDown) ignoreInternalBlurOnce();
+            ignoreInternalBlurOnce();
 
             if (!container.classList.contains('open')) {
                 e.preventDefault();
-                focusWithoutReveal();
+                focusWithoutOpening();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                focusWithoutReveal();
-
-                scheduleDropdownReveal(container, options);
+                focusWithoutOpening();
             } else {
-                suppressFocusRevealOnce();
-                if (isActiveInput(activeDocument, input)) {
-                    preserveActiveFieldScroll(input, e, options);
-                    return;
-                }
-                scheduleDropdownReveal(container, options);
+                suppressFocusOpenOnce();
             }
         });
-
-        input.addEventListener('pointerdown', prepareInternalPointer);
 
         input.addEventListener('click', e => {
             if (handledMouseDown) {
                 handledMouseDown = false;
-                return;
-            }
-
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-                return;
-            }
-
-            if (container.classList.contains('open') && isEditable) {
-                scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
-            if (suppressNextFocusReveal) {
-                suppressNextFocusReveal = false;
+            if (suppressNextFocusOpen) {
+                suppressNextFocusOpen = false;
                 return;
             }
 
             if (!container.classList.contains('open')) {
                 open();
-            } else {
-                scheduleDropdownReveal(container, options);
             }
         });
 
@@ -361,7 +201,6 @@ const ModalInteractions = (() => {
                 open();
             }
             renderList(input.value);
-            scheduleDropdownReveal(container, options);
         });
 
         input.addEventListener('blur', closeAfterBlur);
@@ -419,8 +258,7 @@ const ModalInteractions = (() => {
         let isEditable = false;
         let ignoreNextBlurClose = false;
         let handledMouseDown = false;
-        let suppressNextFocusReveal = false;
-        let preparedPointerDown = false;
+        let suppressNextFocusOpen = false;
 
         const getCurrentTags = () => {
             const tags = call(options.getTags);
@@ -494,7 +332,6 @@ const ModalInteractions = (() => {
 
             ensureInteraction(options, wasClosed);
             renderList();
-            scheduleDropdownReveal(container, options);
         };
 
         const close = () => {
@@ -506,8 +343,6 @@ const ModalInteractions = (() => {
             input.value = '';
 
             releaseInteractionAfterClose(options, wasOpen);
-            call(options.updateModalViewportLayout);
-            call(options.restoreModalRevealScroll);
         };
 
         const closeAfterBlur = () => {
@@ -528,45 +363,24 @@ const ModalInteractions = (() => {
             defer(() => {
                 ignoreNextBlurClose = false;
                 handledMouseDown = false;
-                preparedPointerDown = false;
             }, 0);
         };
 
-        const suppressFocusRevealOnce = () => {
+        const suppressFocusOpenOnce = () => {
             const defer = getDefer(options);
-            suppressNextFocusReveal = true;
+            suppressNextFocusOpen = true;
             defer(() => {
-                suppressNextFocusReveal = false;
+                suppressNextFocusOpen = false;
             }, 0);
         };
 
-        const focusWithoutReveal = () => {
-            suppressFocusRevealOnce();
+        const focusWithoutOpening = () => {
+            suppressFocusOpenOnce();
             input.focus();
         };
 
-        const prepareInternalPointer = e => {
-            preparedPointerDown = true;
-            ignoreInternalBlurOnce();
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-            }
-        };
-
-        const prepareDropdownPointer = e => {
-            if (e.target === input) return;
-            if (preparedPointerDown) return;
-            preparedPointerDown = true;
-            ignoreInternalBlurOnce();
-        };
-
-        if (typeof container.addEventListener === 'function') {
-            container.addEventListener('pointerdown', prepareDropdownPointer);
-            container.addEventListener('mousedown', prepareDropdownPointer);
-        }
-
         input.addEventListener('mousedown', e => {
-            if (!preparedPointerDown) ignoreInternalBlurOnce();
+            ignoreInternalBlurOnce();
 
             const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
 
@@ -579,56 +393,36 @@ const ModalInteractions = (() => {
                     input.value = '';
                 }
 
-                focusWithoutReveal();
+                focusWithoutOpening();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                focusWithoutReveal();
-                scheduleDropdownReveal(container, options);
+                focusWithoutOpening();
             } else {
-                suppressFocusRevealOnce();
-                if (isActiveInput(activeDocument, input)) {
-                    preserveActiveFieldScroll(input, e, options);
-                    return;
-                }
-                scheduleDropdownReveal(container, options);
+                suppressFocusOpenOnce();
             }
         });
-
-        input.addEventListener('pointerdown', prepareInternalPointer);
 
         input.addEventListener('click', e => {
             if (handledMouseDown) {
                 handledMouseDown = false;
-                return;
-            }
-
-            if (isActiveInput(activeDocument, input)) {
-                preserveActiveFieldScroll(input, e, options);
-                return;
-            }
-
-            if (container.classList.contains('open') && isEditable) {
-                scheduleDropdownReveal(container, options);
             }
         });
 
         input.addEventListener('focus', () => {
-            if (suppressNextFocusReveal) {
-                suppressNextFocusReveal = false;
+            if (suppressNextFocusOpen) {
+                suppressNextFocusOpen = false;
                 return;
             }
 
             if (!container.classList.contains('open')) open();
-            else scheduleDropdownReveal(container, options);
         });
 
         input.addEventListener('input', () => {
             renderList(input.value);
-            scheduleDropdownReveal(container, options);
         });
         input.addEventListener('blur', closeAfterBlur);
 

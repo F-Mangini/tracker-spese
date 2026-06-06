@@ -3113,10 +3113,10 @@ test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () =
     assert(html.includes('data-id="bar"'));
 });
 
-test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', () => {
+test('Interazioni dropdown modale aprono e filtrano senza auto scroll', () => {
     const timeouts = [];
-    const scrollCalls = [];
     const classes = new Set();
+    let activeElement = null;
     const input = {
         dataset: {},
         readOnly: true,
@@ -3126,23 +3126,17 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
             this.listeners[event] = handler;
         },
         focus() {
+            activeElement = input;
             if (this.listeners.focus) this.listeners.focus();
         },
-        blur() {}
+        blur() {
+            activeElement = null;
+        }
     };
     const list = {
         innerHTML: '',
         querySelectorAll() {
             return [];
-        },
-        getBoundingClientRect() {
-            return { top: 368, bottom: 548 };
-        }
-    };
-    const modalBody = {
-        scrollTop: 0,
-        getBoundingClientRect() {
-            return { top: 80, bottom: 620 };
         }
     };
     const container = {
@@ -3156,29 +3150,17 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
             if (selector === '.sd-input') return input;
             if (selector === '.sd-list') return list;
             return null;
-        },
-        closest(selector) {
-            return selector === '.modal-body' ? modalBody : null;
-        },
-        getBoundingClientRect() {
-            return { top: 320, bottom: 364 };
-        },
-        scrollIntoView(options) {
-            scrollCalls.push(options);
         }
     };
     const documentLike = {
-        documentElement: { clientHeight: 640 },
+        get activeElement() {
+            return activeElement;
+        },
         getElementById(id) {
             return id === 'sd-categoria' ? container : null;
         }
     };
     const { ModalInteractions } = loadUiViews({ document: documentLike });
-    const runZeroTimers = () => {
-        timeouts
-            .filter(item => item.ms === 0)
-            .forEach(item => item.callback());
-    };
 
     ModalInteractions.createSearchableDropdown({
         containerId: 'sd-categoria',
@@ -3188,48 +3170,32 @@ test('Interazioni dropdown modale mantengono scroll quando parte la tastiera', (
         ],
         currentValue: 'bar',
         document: documentLike,
-        window: { innerHeight: 640, visualViewport: { height: 360 } },
         setTimeout(callback, ms) {
             timeouts.push({ callback, ms });
         }
     });
 
     input.listeners.mousedown({ preventDefault() {} });
-    runZeroTimers();
+
+    assert(classes.has('open'));
+    assert(!timeouts.some(item => item.ms > 0));
+
     timeouts.length = 0;
-    modalBody.scrollTop = 0;
     input.listeners.mousedown({ preventDefault() {} });
 
     assert.equal(input.readOnly, false);
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 0, 0, 120, 280, 460]);
-    runZeroTimers();
-    assert.equal(modalBody.scrollTop, 194);
-    assert.equal(scrollCalls.length, 0);
+    assert(!timeouts.some(item => item.ms > 0));
 
-    timeouts.length = 0;
-    modalBody.scrollTop = 0;
-    let editablePrevented = false;
-    input.listeners.mousedown({ preventDefault() { editablePrevented = true; } });
-    input.listeners.focus();
+    input.value = 'ca';
+    input.listeners.input();
 
-    assert.equal(editablePrevented, false);
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 0, 0, 120, 280, 460]);
-    runZeroTimers();
-    assert.equal(modalBody.scrollTop, 194);
-
-    timeouts.length = 0;
-    modalBody.scrollTop = 0;
-    input.listeners.click();
-
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
-    runZeroTimers();
-    assert.equal(modalBody.scrollTop, 194);
+    assert(list.innerHTML.includes('Casa'));
+    assert(!timeouts.some(item => item.ms > 0));
 });
 
 test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi', () => {
     const timeouts = [];
     const classes = new Set();
-    const restoreCalls = [];
     let activeElement = null;
     const input = {
         dataset: {},
@@ -3303,8 +3269,7 @@ test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi',
         window: { innerHeight: 640, visualViewport: { height: 360 } },
         setTimeout(callback, ms) {
             timeouts.push({ callback, ms });
-        },
-        restoreModalRevealScroll: () => restoreCalls.push('restore')
+        }
     });
 
     input.listeners.mousedown({ preventDefault() {} });
@@ -3321,14 +3286,12 @@ test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi',
 
     assert(classes.has('open'));
     assert.equal(input.readOnly, false);
-    assert.equal(restoreCalls.length, 0);
 
     timeouts.length = 0;
     input.listeners.mousedown({ preventDefault() {} });
     input.listeners.click();
 
     assert(classes.has('open'));
-    assert.equal(restoreCalls.length, 0);
 
     timeouts[0].callback();
     activeElement = null;
@@ -3337,13 +3300,11 @@ test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi',
 
     assert(!classes.has('open'));
     assert.equal(input.readOnly, true);
-    assert.equal(restoreCalls.length, 1);
 });
 
-test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
+test('Interazioni dropdown modale non riposizionano input gia attivo', () => {
     const timeouts = [];
     const classes = new Set();
-    const preserveCalls = [];
     let activeElement = null;
     const input = {
         dataset: {},
@@ -3419,14 +3380,8 @@ test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
         ],
         currentValue: 'bar',
         document: documentLike,
-        window: { innerHeight: 640, visualViewport: { height: 360, offsetTop: 0 } },
         setTimeout(callback, ms) {
             timeouts.push({ callback, ms });
-        },
-        preserveActiveFieldScroll(field, event) {
-            preserveCalls.push(field);
-            if (event && typeof event.preventDefault === 'function') event.preventDefault();
-            return true;
         }
     });
 
@@ -3438,132 +3393,20 @@ test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
     assert.equal(input.readOnly, false);
     assert.equal(activeElement, input);
 
-    const scrollBeforeActiveTap = modalBody.scrollTop;
     timeouts.length = 0;
     let prevented = false;
-    input.listeners.pointerdown({ preventDefault() { prevented = true; } });
     input.listeners.mousedown({ preventDefault() { prevented = true; } });
     input.listeners.click();
 
-    assert.equal(prevented, true);
-    assert.equal(preserveCalls.length, 2);
+    assert.equal(prevented, false);
     assert.deepEqual(timeouts.map(item => item.ms), [0, 0]);
     assert(!timeouts.some(item => item.ms > 0));
-    assert.equal(modalBody.scrollTop, scrollBeforeActiveTap);
 
     runZeroTimers();
     timeouts.length = 0;
     input.listeners.click();
 
     assert.deepEqual(timeouts.map(item => item.ms), []);
-    assert.equal(modalBody.scrollTop, scrollBeforeActiveTap);
-});
-
-test('Interazioni dropdown modale ignorano blur quando si tocca la tendina', () => {
-    const timeouts = [];
-    const classes = new Set();
-    const restoreCalls = [];
-    const containerListeners = {};
-    let activeElement = null;
-    const input = {
-        dataset: {},
-        readOnly: true,
-        value: '',
-        listeners: {},
-        addEventListener(event, handler) {
-            this.listeners[event] = handler;
-        },
-        focus() {
-            activeElement = input;
-        }
-    };
-    const list = {
-        innerHTML: '',
-        querySelectorAll() {
-            return [];
-        },
-        getBoundingClientRect() {
-            return { top: 368, bottom: 548 };
-        }
-    };
-    const modalBody = {
-        scrollTop: 120,
-        getBoundingClientRect() {
-            return { top: 80, bottom: 360 };
-        }
-    };
-    const container = {
-        innerHTML: '',
-        classList: {
-            add(cls) { classes.add(cls); },
-            remove(cls) { classes.delete(cls); },
-            contains(cls) { return classes.has(cls); }
-        },
-        addEventListener(event, handler) {
-            containerListeners[event] = handler;
-        },
-        querySelector(selector) {
-            if (selector === '.sd-input') return input;
-            if (selector === '.sd-list') return list;
-            return null;
-        },
-        closest(selector) {
-            return selector === '.modal-body' ? modalBody : null;
-        },
-        getBoundingClientRect() {
-            return { top: 320, bottom: 364 };
-        }
-    };
-    const documentLike = {
-        documentElement: { clientHeight: 640 },
-        get activeElement() {
-            return activeElement;
-        },
-        getElementById(id) {
-            return id === 'sd-categoria' ? container : null;
-        }
-    };
-    const { ModalInteractions } = loadUiViews({ document: documentLike });
-    const runZeroTimers = () => {
-        const pending = timeouts.splice(0);
-        pending
-            .filter(item => item.ms === 0)
-            .forEach(item => item.callback());
-    };
-
-    ModalInteractions.createSearchableDropdown({
-        containerId: 'sd-categoria',
-        items: [
-            { id: 'bar', emoji: 'x', nome: 'Bar' },
-            { id: 'casa', emoji: 'y', nome: 'Casa' }
-        ],
-        currentValue: 'bar',
-        document: documentLike,
-        window: { innerHeight: 640, visualViewport: { height: 360, offsetTop: 0 } },
-        setTimeout(callback, ms) {
-            timeouts.push({ callback, ms });
-        },
-        restoreModalRevealScroll: () => restoreCalls.push('restore')
-    });
-
-    input.listeners.mousedown({ preventDefault() {} });
-    assert(classes.has('open'));
-
-    timeouts.length = 0;
-    containerListeners.pointerdown({ target: list });
-    activeElement = null;
-    input.listeners.blur();
-    runZeroTimers();
-
-    assert(classes.has('open'));
-    assert.equal(restoreCalls.length, 0);
-
-    activeElement = null;
-    input.listeners.blur();
-    runZeroTimers();
-
-    assert(!classes.has('open'));
-    assert.equal(restoreCalls.length, 1);
 });
 
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
@@ -3922,7 +3765,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     lastViewportHeight = 650;
     win.visualViewport.height = 360;
     ModalMobileController.handleViewportChange(options);
-    assert.equal(modalBody.scrollTop, 194);
+    assert.equal(modalBody.scrollTop, 0);
 
     modalOpen = false;
     filterOpen = true;
@@ -4000,134 +3843,30 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert.equal(typeof winListeners.focus, 'function');
 });
 
-test('Controller mobile modale scorre solo la finestra aggiungendo spazio interno', () => {
+test('Controller mobile modale non applica auto scroll o layout alla finestra', () => {
     const { ModalMobileController } = loadUiViews();
-    let pageScroll = 0;
+    let activeElement = null;
+    let lastViewportHeight = 640;
     const modalBody = {
-        scrollTop: 80,
+        scrollTop: 120,
         dataset: {},
         style: {},
-        get scrollHeight() {
-            const extraPadding = Number.parseFloat(this.style.paddingBottom || '0') || 0;
-            return 500 + extraPadding;
-        },
-        clientHeight: 400,
         getBoundingClientRect() {
             return { top: 80, bottom: 360 };
         }
     };
-    const offset = () => modalBody.scrollTop - 80;
-    const list = {
-        getBoundingClientRect() {
-            return { top: 368 - offset(), bottom: 548 - offset(), height: 180 };
-        }
-    };
-    const dropdown = {
-        classList: {
-            contains(cls) {
-                return cls === 'open';
-            }
-        },
-        querySelector(selector) {
-            return selector === '.sd-list' ? list : null;
-        },
-        closest(selector) {
-            return selector === '.modal-body' ? modalBody : null;
-        },
-        getBoundingClientRect() {
-            return { top: 320 - offset(), bottom: 364 - offset() };
-        }
-    };
-    const doc = {
-        documentElement: { clientHeight: 640 },
-        getElementById(id) {
-            if (id === 'modal-overlay') return { style: {} };
-            if (id === 'edit-modal') {
-                return {
-                    style: {},
-                    querySelector(selector) {
-                        return selector === '.modal-body' ? modalBody : null;
-                    }
-                };
-            }
-            return null;
-        }
-    };
-    const win = {
-        innerHeight: 640,
-        visualViewport: { height: 360 },
-        scrollBy(arg, y) {
-            pageScroll += typeof arg === 'object' ? arg.top : y;
-        }
-    };
-
-    ModalMobileController.revealDropdown(dropdown, {
-        document: doc,
-        window: win
-    });
-
-    assert.equal(modalBody.style.paddingBottom, '208px');
-    assert.equal(modalBody.scrollTop, 274);
-    assert.equal(pageScroll, 0);
-});
-
-test('Controller mobile modale ripristina lo scroll da tastiera nei dropdown', () => {
-    const { ModalMobileController } = loadUiViews();
-    const timeouts = [];
-    let activeElement = null;
-    let lastViewportHeight = 640;
-    const bodyClasses = new Set();
-    const modalBody = {
-        scrollTop: 80,
-        dataset: {},
-        style: {},
-        scrollHeight: 1000,
-        clientHeight: 300,
-        classList: {
-            add(cls) { bodyClasses.add(cls); },
-            remove(cls) { bodyClasses.delete(cls); },
-            contains(cls) { return bodyClasses.has(cls); }
-        },
-        getBoundingClientRect() {
-            return {
-                top: 80,
-                bottom: win.visualViewport.height < 640 ? 360 : 620
-            };
-        }
-    };
-    const offset = () => modalBody.scrollTop - 80;
-    let dropdownOpen = true;
-    const sdInput = {
+    const field = {
         inModal: true,
-        closest(selector) {
-            return selector === '.searchable-dropdown' && dropdownOpen ? dropdown : null;
-        },
+        tagName: 'TEXTAREA',
+        type: 'text',
         matches(selector) {
             return selector === 'input, textarea, select';
-        }
-    };
-    const list = {
-        getBoundingClientRect() {
-            return {
-                top: 448 - offset(),
-                bottom: 700 - offset(),
-                height: 252
-            };
-        }
-    };
-    const dropdown = {
-        classList: {
-            contains(cls) {
-                return cls === 'open' && dropdownOpen;
-            }
         },
-        querySelector(selector) {
-            if (selector === '.sd-list') return list;
-            if (selector === '.sd-input') return sdInput;
+        closest() {
             return null;
         },
-        getBoundingClientRect() {
-            return { top: 400 - offset(), bottom: 444 - offset() };
+        blur() {
+            activeElement = null;
         }
     };
     const overlay = { style: {} };
@@ -4137,403 +3876,6 @@ test('Controller mobile modale ripristina lo scroll da tastiera nei dropdown', (
             return !!(el && el.inModal);
         },
         querySelector(selector) {
-            if (selector === '.modal-body') return modalBody;
-            if (selector === '.modal-footer') return {
-                getBoundingClientRect() {
-                    return { top: 360, bottom: 420, height: 60 };
-                }
-            };
-            return null;
-        }
-    };
-    const doc = {
-        get activeElement() {
-            return activeElement;
-        },
-        getElementById(id) {
-            if (id === 'modal-overlay') return overlay;
-            if (id === 'edit-modal') return modal;
-            return null;
-        },
-        querySelector(selector) {
-            return selector === '#edit-modal .searchable-dropdown.open' && dropdownOpen ? dropdown : null;
-        }
-    };
-    const win = {
-        innerHeight: 640,
-        visualViewport: { height: 640, offsetTop: 0 }
-    };
-    const options = {
-        document: doc,
-        window: win,
-        isModalOpen: () => true,
-        getLastViewportHeight: () => lastViewportHeight,
-        setLastViewportHeight(value) {
-            lastViewportHeight = value;
-        },
-        setTimeout(callback, ms) {
-            timeouts.push({ callback, ms });
-        }
-    };
-
-    activeElement = sdInput;
-    ModalMobileController.revealDropdown(dropdown, options);
-
-    const beforeKeyboardScroll = modalBody.scrollTop;
-    assert.equal(beforeKeyboardScroll, 166);
-    assert.equal(modalBody.dataset.fieldRevealScrollTop, '80');
-
-    timeouts.length = 0;
-    lastViewportHeight = 640;
-    win.visualViewport.height = 360;
-    ModalMobileController.handleViewportChange(options);
-
-    assert.equal(modalBody.dataset.keyboardRevealScrollTop, String(beforeKeyboardScroll));
-    assert(modalBody.scrollTop > beforeKeyboardScroll);
-
-    const scrollWithKeyboardOpen = modalBody.scrollTop;
-    timeouts.length = 0;
-    lastViewportHeight = 360;
-    win.visualViewport.height = 360;
-    ModalMobileController.handleViewportChange(options);
-
-    assert.equal(modalBody.scrollTop, scrollWithKeyboardOpen);
-    assert.deepEqual(timeouts.map(item => item.ms), []);
-
-    timeouts.length = 0;
-    lastViewportHeight = 360;
-    win.visualViewport.height = 640;
-    ModalMobileController.handleViewportChange(options);
-
-    assert.equal(modalBody.scrollTop, beforeKeyboardScroll);
-    assert.equal(modalBody.dataset.keyboardRevealScrollTop, undefined);
-    assert.deepEqual(timeouts.map(item => item.ms), []);
-    assert(bodyClasses.has('field-scroll-locked'));
-
-    dropdownOpen = false;
-    activeElement = null;
-    ModalMobileController.restoreRevealScroll(options);
-
-    assert.equal(modalBody.scrollTop, 80);
-    assert(!bodyClasses.has('field-scroll-locked'));
-});
-
-test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera', () => {
-    const { ModalMobileController } = loadUiViews();
-    const timeouts = [];
-    let lastViewportHeight = 0;
-    let pageScroll = 0;
-    let activeElement = null;
-    const bodyClasses = new Set();
-    const noteField = {
-        id: 'edit-nota',
-        tagName: 'TEXTAREA',
-        type: 'text',
-        listeners: {},
-        addEventListener(event, handler) {
-            this.listeners[event] = handler;
-        },
-        matches(selector) {
-            return selector === 'input, textarea, select';
-        },
-        closest() {
-            return null;
-        },
-        getBoundingClientRect() {
-            return { top: 330, bottom: 410 };
-        }
-    };
-    const modalBody = {
-        scrollTop: 0,
-        dataset: {},
-        style: {},
-        classList: {
-            add(cls) { bodyClasses.add(cls); },
-            remove(cls) { bodyClasses.delete(cls); },
-            contains(cls) { return bodyClasses.has(cls); }
-        },
-        getBoundingClientRect() {
-            return { top: 80, bottom: 360 };
-        }
-    };
-    const footer = {
-        getBoundingClientRect() {
-            return { top: 360, bottom: 420, height: 60 };
-        }
-    };
-    const overlay = { style: {} };
-    const modal = {
-        style: {},
-        contains(el) {
-            return el === noteField;
-        },
-        querySelector(selector) {
-            if (selector === '.modal-body') return modalBody;
-            if (selector === '.modal-footer') return footer;
-            return null;
-        }
-    };
-    const doc = {
-        get activeElement() {
-            return activeElement;
-        },
-        getElementById(id) {
-            if (id === 'modal-overlay') return overlay;
-            if (id === 'edit-modal') return modal;
-            if (id === 'edit-nota') return noteField;
-            return null;
-        }
-    };
-    const win = {
-        innerHeight: 640,
-        visualViewport: { height: 360, offsetTop: 0 },
-        scrollBy(arg, y) {
-            pageScroll += typeof arg === 'object' ? arg.top : y;
-        }
-    };
-    const options = {
-        document: doc,
-        window: win,
-        isModalOpen: () => true,
-        setTimeout(callback, ms) {
-            timeouts.push({ callback, ms });
-        },
-        setLastViewportHeight(value) {
-            lastViewportHeight = value;
-        }
-    };
-
-    ModalMobileController.bindPlainFieldReveal(options);
-    activeElement = noteField;
-    noteField.listeners.focus();
-
-    assert.equal(lastViewportHeight, 360);
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 120, 280, 460]);
-    assert(bodyClasses.has('field-scroll-locked'));
-
-    timeouts[0].callback();
-
-    assert.equal(overlay.style.paddingBottom, '280px');
-    assert.equal(modal.style.maxHeight, '292px');
-    assert.equal(modalBody.scrollTop, 56);
-    assert.equal(pageScroll, 0);
-
-    timeouts.length = 0;
-    let activePointerPrevented = false;
-    noteField.listeners.pointerdown({
-        preventDefault() {
-            activePointerPrevented = true;
-        }
-    });
-
-    assert.equal(activePointerPrevented, true);
-    assert.deepEqual(timeouts.map(item => item.ms), [0, 16, 60, 120]);
-
-    modalBody.scrollTop = 999;
-    timeouts[0].callback();
-
-    assert.equal(modalBody.scrollTop, 56);
-
-    timeouts.length = 0;
-    noteField.listeners.click();
-
-    assert.deepEqual(timeouts.map(item => item.ms), []);
-    assert.equal(modalBody.scrollTop, 56);
-
-    activeElement = null;
-    noteField.listeners.blur();
-    timeouts[timeouts.length - 1].callback();
-
-    assert.equal(modalBody.scrollTop, 0);
-    assert(!bodyClasses.has('field-scroll-locked'));
-});
-
-test('Controller mobile modale blocca lo scroll esterno con tastiera aperta', () => {
-    const { ModalMobileController } = loadUiViews();
-    const timeouts = [];
-    const docListeners = {};
-    let activeElement = null;
-    const bodyClasses = new Set();
-    const noteField = {
-        id: 'edit-nota',
-        tagName: 'TEXTAREA',
-        type: 'text',
-        listeners: {},
-        addEventListener(event, handler) {
-            this.listeners[event] = handler;
-        },
-        matches(selector) {
-            return selector === 'input, textarea, select';
-        },
-        closest() {
-            return null;
-        },
-        getBoundingClientRect() {
-            return { top: 330, bottom: 410 };
-        }
-    };
-    const bodyChild = {};
-    const modalBody = {
-        scrollTop: 0,
-        dataset: {},
-        style: {},
-        classList: {
-            add(cls) { bodyClasses.add(cls); },
-            remove(cls) { bodyClasses.delete(cls); },
-            contains(cls) { return bodyClasses.has(cls); }
-        },
-        contains(el) {
-            return el === bodyChild;
-        },
-        getBoundingClientRect() {
-            return { top: 80, bottom: 360 };
-        }
-    };
-    const footer = {};
-    const modal = {
-        dataset: {},
-        style: {},
-        contains(el) {
-            return el === noteField || el === modalBody || el === bodyChild || el === footer;
-        },
-        querySelector(selector) {
-            if (selector === '.modal-body') return modalBody;
-            if (selector === '.modal-footer') return footer;
-            return null;
-        }
-    };
-    const doc = {
-        get activeElement() {
-            return activeElement;
-        },
-        addEventListener(event, handler, options) {
-            docListeners[event] = { handler, options };
-        },
-        getElementById(id) {
-            if (id === 'modal-overlay') return { style: {} };
-            if (id === 'edit-modal') return modal;
-            if (id === 'edit-nota') return noteField;
-            return null;
-        },
-        querySelector() {
-            return null;
-        }
-    };
-    const options = {
-        document: doc,
-        window: {
-            innerHeight: 640,
-            visualViewport: { height: 360, offsetTop: 0 }
-        },
-        isModalOpen: () => true,
-        setTimeout(callback, ms) {
-            timeouts.push({ callback, ms });
-        }
-    };
-
-    ModalMobileController.bindPlainFieldReveal(options);
-    activeElement = noteField;
-    noteField.listeners.focus();
-
-    assert.equal(docListeners.touchmove.options.passive, false);
-    assert(bodyClasses.has('field-scroll-locked'));
-
-    let footerPrevented = false;
-    docListeners.touchmove.handler({
-        target: footer,
-        cancelable: true,
-        preventDefault() {
-            footerPrevented = true;
-        }
-    });
-
-    assert(footerPrevented);
-
-    let bodyPrevented = false;
-    docListeners.touchmove.handler({
-        target: bodyChild,
-        cancelable: true,
-        preventDefault() {
-            bodyPrevented = true;
-        }
-    });
-
-    assert.equal(bodyPrevented, false);
-
-    activeElement = null;
-
-    let transientPrevented = false;
-    docListeners.touchmove.handler({
-        target: footer,
-        cancelable: true,
-        preventDefault() {
-            transientPrevented = true;
-        }
-    });
-
-    assert(transientPrevented);
-
-    bodyClasses.delete('field-scroll-locked');
-
-    let inactivePrevented = false;
-    docListeners.touchmove.handler({
-        target: footer,
-        cancelable: true,
-        preventDefault() {
-            inactivePrevented = true;
-        }
-    });
-
-    assert.equal(inactivePrevented, false);
-});
-
-test('Controller mobile modale include la label e ripristina lo scroll alla deselezione', () => {
-    const { ModalMobileController } = loadUiViews();
-    const timeouts = [];
-    let activeElement = null;
-    const bodyClasses = new Set();
-    const group = {
-        getBoundingClientRect() {
-            return { top: 58, bottom: 136 };
-        }
-    };
-    const field = {
-        id: 'edit-descrizione',
-        tagName: 'TEXTAREA',
-        type: 'text',
-        listeners: {},
-        addEventListener(event, handler) {
-            this.listeners[event] = handler;
-        },
-        matches(selector) {
-            return selector === 'input, textarea, select';
-        },
-        closest(selector) {
-            return selector === '.form-group' ? group : null;
-        },
-        getBoundingClientRect() {
-            return { top: 90, bottom: 130 };
-        }
-    };
-    const modalBody = {
-        scrollTop: 120,
-        dataset: {},
-        style: {},
-        classList: {
-            add(cls) { bodyClasses.add(cls); },
-            remove(cls) { bodyClasses.delete(cls); },
-            contains(cls) { return bodyClasses.has(cls); }
-        },
-        getBoundingClientRect() {
-            return { top: 80, bottom: 360 };
-        }
-    };
-    const modal = {
-        style: {},
-        contains(el) {
-            return el === field;
-        },
-        querySelector(selector) {
             return selector === '.modal-body' ? modalBody : null;
         }
     };
@@ -4542,47 +3884,37 @@ test('Controller mobile modale include la label e ripristina lo scroll alla dese
             return activeElement;
         },
         getElementById(id) {
-            if (id === 'modal-overlay') return { style: {} };
+            if (id === 'modal-overlay') return overlay;
             if (id === 'edit-modal') return modal;
-            if (id === 'edit-descrizione') return field;
+            return null;
+        },
+        querySelector() {
             return null;
         }
     };
+    const win = {
+        innerHeight: 640,
+        visualViewport: { height: 360, offsetTop: 0 }
+    };
     const options = {
         document: doc,
-        window: {
-            innerHeight: 640,
-            visualViewport: { height: 640, offsetTop: 0 }
-        },
+        window: win,
         isModalOpen: () => true,
-        setTimeout(callback, ms) {
-            timeouts.push({ callback, ms });
+        getLastViewportHeight: () => lastViewportHeight,
+        setLastViewportHeight(value) {
+            lastViewportHeight = value;
         }
     };
 
-    ModalMobileController.bindPlainFieldReveal(options);
     activeElement = field;
-    field.listeners.focus();
-
-    timeouts[0].callback();
-
-    assert.equal(modalBody.scrollTop, 90);
-    assert(bodyClasses.has('field-scroll-locked'));
-
-    activeElement = null;
-    field.listeners.blur();
-    timeouts[timeouts.length - 1].callback();
+    ModalMobileController.handleViewportChange(options);
 
     assert.equal(modalBody.scrollTop, 120);
-    assert(!bodyClasses.has('field-scroll-locked'));
-
-    timeouts[1].callback();
-    timeouts[2].callback();
-    timeouts[3].callback();
-
-    assert.equal(modalBody.scrollTop, 120);
+    assert.equal(modalBody.style.paddingBottom, undefined);
+    assert.equal(overlay.style.paddingBottom, undefined);
+    assert.equal(modal.style.maxHeight, undefined);
+    assert.equal(activeElement, field);
 });
-
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {
     const { ModalController } = loadUiViews();
     const calls = [];

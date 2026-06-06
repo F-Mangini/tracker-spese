@@ -1,19 +1,9 @@
 /* ============================================
-   MODAL MOBILE CONTROLLER - focus/picker/viewport
+   MODAL MOBILE CONTROLLER - focus/picker/back
    ============================================ */
 
 const ModalMobileController = (() => {
-    const DROPDOWN_TOP_GAP = 8;
-    const DROPDOWN_BOTTOM_GAP = 6;
-    const MODAL_TOP_GAP = 8;
-    const BODY_EXTRA_GAP = 12;
-    const DEFAULT_BODY_PADDING_BOTTOM = 16;
-    const PLAIN_FIELD_IDS = ['edit-importo', 'edit-descrizione', 'edit-nota'];
     const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
-    const FIELD_SCROLL_LOCK_CLASS = 'field-scroll-locked';
-    const REVEAL_SCROLL_KEY = 'fieldRevealScrollTop';
-    const KEYBOARD_REVEAL_SCROLL_KEY = 'keyboardRevealScrollTop';
-    const DOCUMENT_SCROLL_GUARD_KEY = 'documentScrollGuardBound';
     const KEYBOARD_TRANSITION_THRESHOLD = 100;
 
     function noop() { }
@@ -37,22 +27,6 @@ const ModalMobileController = (() => {
         return win.innerHeight || (doc.documentElement && doc.documentElement.clientHeight) || 0;
     }
 
-    function getKeyboardInset(options = {}) {
-        const win = getWindow(options);
-        const vv = win.visualViewport;
-
-        if (!vv || !Number.isFinite(vv.height)) return 0;
-
-        const offsetTop = Number.isFinite(vv.offsetTop) ? vv.offsetTop : 0;
-        const inset = win.innerHeight - (offsetTop + vv.height);
-
-        return Math.max(0, Math.round(inset));
-    }
-
-    function isKeyboardOpen(options = {}) {
-        return getKeyboardInset(options) > 0;
-    }
-
     function isModalOpen(options = {}) {
         return !!(options.isModalOpen && options.isModalOpen());
     }
@@ -61,497 +35,6 @@ const ModalMobileController = (() => {
         const doc = getDocument(options);
         if (!doc || typeof doc.querySelector !== 'function') return null;
         return doc.querySelector('#edit-modal .searchable-dropdown.open');
-    }
-
-    function getModalParts(options = {}) {
-        const doc = getDocument(options);
-        const overlay = doc.getElementById('modal-overlay');
-        const modal = doc.getElementById('edit-modal');
-        const body = modal && typeof modal.querySelector === 'function'
-            ? modal.querySelector('.modal-body')
-            : null;
-        const footer = modal && typeof modal.querySelector === 'function'
-            ? modal.querySelector('.modal-footer')
-            : null;
-
-        return { overlay, modal, body, footer };
-    }
-
-    function getElementHeight(element) {
-        if (!element) return 0;
-        if (typeof element.getBoundingClientRect === 'function') {
-            const rect = element.getBoundingClientRect();
-            if (rect && Number.isFinite(rect.height)) return Math.max(0, rect.height);
-            if (rect && Number.isFinite(rect.bottom) && Number.isFinite(rect.top)) {
-                return Math.max(0, rect.bottom - rect.top);
-            }
-        }
-
-        return Number.isFinite(element.offsetHeight) ? Math.max(0, element.offsetHeight) : 0;
-    }
-
-    function getDropdownVisibleRect(dropdown) {
-        const dropdownRect = dropdown.getBoundingClientRect();
-        const list = typeof dropdown.querySelector === 'function'
-            ? dropdown.querySelector('.sd-list')
-            : null;
-
-        if (!list || typeof list.getBoundingClientRect !== 'function') {
-            return dropdownRect;
-        }
-
-        const listRect = list.getBoundingClientRect();
-
-        return {
-            top: Math.min(dropdownRect.top, listRect.top),
-            bottom: Math.max(dropdownRect.bottom, listRect.bottom)
-        };
-    }
-
-    function getLabelAwareRect(target, rect) {
-        const group = target && typeof target.closest === 'function'
-            ? target.closest('.form-group')
-            : null;
-        if (!group || typeof group.getBoundingClientRect !== 'function') return rect;
-
-        const groupRect = group.getBoundingClientRect();
-        if (!groupRect || !Number.isFinite(groupRect.top)) return rect;
-
-        return {
-            top: Math.min(rect.top, groupRect.top),
-            bottom: rect.bottom
-        };
-    }
-
-    function scrollElementBy(element, delta) {
-        if (!element || !Number.isFinite(element.scrollTop) || !Number.isFinite(delta) || Math.abs(delta) < 1) {
-            return 0;
-        }
-
-        const previous = element.scrollTop;
-        if (Number.isFinite(element.scrollHeight) && Number.isFinite(element.clientHeight)) {
-            const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-            element.scrollTop = Math.min(maxScroll, Math.max(0, previous + delta));
-        } else {
-            element.scrollTop = previous + delta;
-        }
-
-        return element.scrollTop - previous;
-    }
-
-    function getOverflow(rect, topLimit, bottomLimit) {
-        const overflowBottom = rect.bottom - bottomLimit;
-        if (overflowBottom > 0) return overflowBottom;
-
-        const overflowTop = topLimit - rect.top;
-        if (overflowTop > 0) return -overflowTop;
-
-        return 0;
-    }
-
-    function getBaseBodyPaddingBottom(body, options = {}) {
-        if (!body || !body.dataset) return DEFAULT_BODY_PADDING_BOTTOM;
-        if (body.dataset.basePaddingBottom) {
-            const saved = Number(body.dataset.basePaddingBottom);
-            return Number.isFinite(saved) ? saved : DEFAULT_BODY_PADDING_BOTTOM;
-        }
-
-        const win = getWindow(options);
-        const style = win && typeof win.getComputedStyle === 'function'
-            ? win.getComputedStyle(body)
-            : null;
-        const value = style ? Number.parseFloat(style.paddingBottom) : DEFAULT_BODY_PADDING_BOTTOM;
-        const base = Number.isFinite(value) ? value : DEFAULT_BODY_PADDING_BOTTOM;
-
-        body.dataset.basePaddingBottom = String(base);
-        return base;
-    }
-
-    function setBodyExtraSpace(body, extraSpace = 0, options = {}) {
-        if (!body || !body.style) return;
-
-        const extra = Math.max(0, Math.ceil(Number(extraSpace) || 0));
-        if (extra <= 0) {
-            body.style.paddingBottom = '';
-            return;
-        }
-
-        body.style.paddingBottom = `${getBaseBodyPaddingBottom(body, options) + extra}px`;
-    }
-
-    function isEditableModalField(el) {
-        if (!el || typeof el.matches !== 'function') return false;
-        if (!el.matches('input, textarea, select')) return false;
-
-        const type = String(el.type || '').toLowerCase();
-        return !['button', 'submit', 'reset', 'hidden'].includes(type);
-    }
-
-    function hasOpenNativePicker(doc) {
-        return PICKER_FIELD_IDS.some(id => {
-            const el = doc.getElementById(id);
-            return !!(el && el.classList && el.classList.contains('picker-open'));
-        });
-    }
-
-    function shouldLockBodyScroll(options = {}) {
-        const doc = getDocument(options);
-        const { modal } = getModalParts(options);
-        const active = doc.activeElement;
-
-        if (!isModalOpen(options) || !modal) return false;
-        if (getOpenDropdown(options) || hasOpenNativePicker(doc)) return true;
-        if (!active || typeof modal.contains !== 'function' || !modal.contains(active)) return false;
-
-        return isEditableModalField(active);
-    }
-
-    function setBodyScrollLock(body, locked) {
-        if (!body || !body.classList) return;
-        if (locked) {
-            body.classList.add(FIELD_SCROLL_LOCK_CLASS);
-        } else {
-            body.classList.remove(FIELD_SCROLL_LOCK_CLASS);
-        }
-    }
-
-    function isBodyScrollLocked(body) {
-        return !!(body &&
-            body.classList &&
-            typeof body.classList.contains === 'function' &&
-            body.classList.contains(FIELD_SCROLL_LOCK_CLASS));
-    }
-
-    function isInsideElement(element, target) {
-        if (!element || !target) return false;
-        if (typeof element.contains === 'function') return element.contains(target);
-        if (typeof target.closest !== 'function') return false;
-
-        const selector = element.id
-            ? `#${element.id}`
-            : element.classList && typeof element.classList.contains === 'function' && element.classList.contains('modal-body')
-                ? '.modal-body'
-                : null;
-
-        return selector ? target.closest(selector) === element : false;
-    }
-
-    function shouldBlockOuterScroll(event, options = {}) {
-        if (!event || !isModalOpen(options) || !isKeyboardOpen(options)) return false;
-
-        const doc = getDocument(options);
-        const { modal, body } = getModalParts(options);
-        if (!modal || !body) return false;
-
-        const active = doc.activeElement;
-        const dropdown = getOpenDropdown(options);
-        const hasModalInteraction = !!dropdown ||
-            isBodyScrollLocked(body) ||
-            !!(active && typeof modal.contains === 'function' && modal.contains(active) && isEditableModalField(active));
-
-        if (!hasModalInteraction) return false;
-        if (isInsideElement(body, event.target)) return false;
-
-        return true;
-    }
-
-    function bindDocumentScrollGuard(options = {}) {
-        const doc = getDocument(options);
-        const { modal } = getModalParts(options);
-
-        if (!doc || typeof doc.addEventListener !== 'function' || !modal) return;
-        if (modal.dataset && modal.dataset[DOCUMENT_SCROLL_GUARD_KEY] === 'true') return;
-        if (!modal.dataset && modal[DOCUMENT_SCROLL_GUARD_KEY]) return;
-
-        const blockOuterScroll = event => {
-            if (!shouldBlockOuterScroll(event, options)) return;
-            if (event.cancelable !== false && typeof event.preventDefault === 'function') {
-                event.preventDefault();
-            }
-        };
-
-        doc.addEventListener('touchmove', blockOuterScroll, { passive: false });
-        doc.addEventListener('wheel', blockOuterScroll, { passive: false });
-
-        if (modal.dataset) {
-            modal.dataset[DOCUMENT_SCROLL_GUARD_KEY] = 'true';
-        } else {
-            modal[DOCUMENT_SCROLL_GUARD_KEY] = true;
-        }
-    }
-
-    function updateBodyScrollLock(options = {}) {
-        const { body } = getModalParts(options);
-        setBodyScrollLock(body, shouldLockBodyScroll(options));
-    }
-
-    function restoreBodyScrollPosition(body, scrollTop) {
-        if (body && Number.isFinite(body.scrollTop) && Number.isFinite(scrollTop)) {
-            body.scrollTop = Math.max(0, scrollTop);
-        }
-    }
-
-    function preserveActiveFieldScroll(field, options = {}, event = null) {
-        const doc = getDocument(options);
-        if (!field || doc.activeElement !== field || !isKeyboardOpen(options)) return false;
-
-        const { body } = getModalParts(options);
-        if (!body || !Number.isFinite(body.scrollTop)) return false;
-
-        if (event && typeof event.preventDefault === 'function' && event.cancelable !== false) {
-            event.preventDefault();
-        }
-
-        const savedScrollTop = body.scrollTop;
-        const defer = options.setTimeout ||
-            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-        const restore = () => restoreBodyScrollPosition(body, savedScrollTop);
-
-        restore();
-        [0, 16, 60, 120].forEach(delay => defer(restore, delay));
-
-        const win = getWindow(options);
-        if (win && typeof win.requestAnimationFrame === 'function') {
-            win.requestAnimationFrame(() => {
-                restore();
-                win.requestAnimationFrame(restore);
-            });
-        }
-
-        return true;
-    }
-
-    function captureRevealScroll(options = {}) {
-        const { body } = getModalParts(options);
-        if (!body || !body.dataset || !Number.isFinite(body.scrollTop)) return;
-        if (body.dataset[REVEAL_SCROLL_KEY] !== undefined) return;
-
-        body.dataset[REVEAL_SCROLL_KEY] = String(body.scrollTop);
-    }
-
-    function captureKeyboardRevealScroll(options = {}) {
-        const { body } = getModalParts(options);
-        if (!body || !body.dataset || !Number.isFinite(body.scrollTop)) return;
-        if (body.dataset[KEYBOARD_REVEAL_SCROLL_KEY] !== undefined) return;
-
-        body.dataset[KEYBOARD_REVEAL_SCROLL_KEY] = String(body.scrollTop);
-    }
-
-    function clearKeyboardRevealScroll(body) {
-        if (body && body.dataset) {
-            delete body.dataset[KEYBOARD_REVEAL_SCROLL_KEY];
-        }
-    }
-
-    function clearRevealScroll(body) {
-        if (body && body.dataset) {
-            delete body.dataset[REVEAL_SCROLL_KEY];
-            clearKeyboardRevealScroll(body);
-        }
-    }
-
-    function restoreKeyboardRevealScroll(options = {}) {
-        const { body } = getModalParts(options);
-        if (!body || !body.dataset) {
-            updateBodyScrollLock(options);
-            return;
-        }
-
-        const saved = Number(body.dataset[KEYBOARD_REVEAL_SCROLL_KEY]);
-        clearKeyboardRevealScroll(body);
-
-        if (Number.isFinite(saved) && Number.isFinite(body.scrollTop)) {
-            body.scrollTop = Math.max(0, saved);
-        }
-
-        updateBodyScrollLock(options);
-    }
-
-    function restoreRevealScroll(options = {}) {
-        const { body } = getModalParts(options);
-        if (!body || !body.dataset) {
-            updateBodyScrollLock(options);
-            return;
-        }
-
-        const saved = Number(body.dataset[REVEAL_SCROLL_KEY]);
-        clearRevealScroll(body);
-
-        if (Number.isFinite(saved) && Number.isFinite(body.scrollTop)) {
-            body.scrollTop = Math.max(0, saved);
-        }
-
-        updateBodyScrollLock(options);
-    }
-
-    function getDropdownExtraSpace(dropdown) {
-        if (!dropdown || !dropdown.classList || !dropdown.classList.contains('open')) return 0;
-
-        const list = typeof dropdown.querySelector === 'function'
-            ? dropdown.querySelector('.sd-list')
-            : null;
-        if (!list || typeof list.getBoundingClientRect !== 'function') return 0;
-
-        const rect = list.getBoundingClientRect();
-        const height = Number.isFinite(rect.height)
-            ? rect.height
-            : Number.isFinite(rect.bottom) && Number.isFinite(rect.top)
-                ? rect.bottom - rect.top
-                : 0;
-
-        return Math.max(0, height + BODY_EXTRA_GAP);
-    }
-
-    function updateViewportLayout(options = {}, config = {}) {
-        const { overlay, modal, body, footer } = getModalParts(options);
-        const viewportHeight = getViewportHeight(options);
-        const keyboardInset = getKeyboardInset(options);
-        const hasKeyboard = keyboardInset > 0;
-        const footerHeight = hasKeyboard ? getElementHeight(footer) : 0;
-
-        if (overlay && overlay.style) {
-            overlay.style.paddingBottom = hasKeyboard ? `${keyboardInset}px` : '';
-        }
-
-        if (modal && modal.style) {
-            modal.style.maxHeight = hasKeyboard && viewportHeight
-                ? `${Math.max(240, viewportHeight - MODAL_TOP_GAP - footerHeight)}px`
-                : '';
-        }
-
-        setBodyExtraSpace(body, config.extraBodySpace || 0, options);
-        updateBodyScrollLock(options);
-    }
-
-    function clearViewportLayout(options = {}) {
-        const { overlay, modal, body } = getModalParts(options);
-
-        if (overlay && overlay.style) overlay.style.paddingBottom = '';
-        if (modal && modal.style) modal.style.maxHeight = '';
-        if (body && body.style) body.style.paddingBottom = '';
-        setBodyScrollLock(body, false);
-        clearRevealScroll(body);
-    }
-
-    function getTargetRect(target, config = {}) {
-        const rect = config.includeDropdown
-            ? getDropdownVisibleRect(target)
-            : target.getBoundingClientRect();
-
-        return config.includeLabel === false
-            ? rect
-            : getLabelAwareRect(target, rect);
-    }
-
-    function isActiveTarget(target, options = {}) {
-        const doc = getDocument(options);
-        return !!(doc && doc.activeElement === target);
-    }
-
-    function revealElement(target, options = {}, config = {}) {
-        if (!target || typeof target.getBoundingClientRect !== 'function') return;
-        if (config.requireOpenDropdown && target.classList && !target.classList.contains('open')) return;
-        if (config.requireActiveField && !isActiveTarget(target, options)) return;
-
-        const { body } = getModalParts(options);
-        const extraBodySpace = config.extraBodySpace != null
-            ? config.extraBodySpace
-            : config.includeDropdown
-                ? getDropdownExtraSpace(target)
-                : 0;
-
-        captureRevealScroll(options);
-        if (isKeyboardOpen(options)) captureKeyboardRevealScroll(options);
-        updateViewportLayout(options, { extraBodySpace });
-
-        const bodyRect = body && typeof body.getBoundingClientRect === 'function'
-            ? body.getBoundingClientRect()
-            : null;
-        const rect = getTargetRect(target, config);
-
-        if (!body || !bodyRect || !Number.isFinite(body.scrollTop)) return;
-
-        const bodyBottom = bodyRect.bottom - DROPDOWN_BOTTOM_GAP;
-        const bodyTop = bodyRect.top + DROPDOWN_TOP_GAP;
-        const bodyDelta = getOverflow(rect, bodyTop, bodyBottom);
-
-        if (bodyDelta) {
-            scrollElementBy(body, bodyDelta);
-        }
-    }
-
-    function revealDropdown(dropdown, options = {}) {
-        revealElement(dropdown, options, {
-            includeDropdown: true,
-            requireOpenDropdown: true
-        });
-    }
-
-    function revealPlainField(field, options = {}) {
-        revealElement(field, options);
-    }
-
-    function scheduleReveal(target, options = {}, config = {}) {
-        const defer = options.setTimeout ||
-            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-
-        [0, 120, 280, 460].forEach(delay => {
-            defer(() => revealElement(target, options, config), delay);
-        });
-    }
-
-    function scheduleDropdownReveal(options = {}) {
-        const dropdown = getOpenDropdown(options);
-        if (!dropdown) return;
-
-        revealDropdown(dropdown, options);
-
-        scheduleReveal(dropdown, options, {
-            includeDropdown: true,
-            requireOpenDropdown: true
-        });
-    }
-
-    function schedulePlainFieldReveal(field, options = {}) {
-        if (!field) return;
-        scheduleReveal(field, options, { requireActiveField: true });
-    }
-
-    function bindPlainFieldReveal(options = {}) {
-        const doc = getDocument(options);
-        bindDocumentScrollGuard(options);
-
-        PLAIN_FIELD_IDS.forEach(id => {
-            const field = doc.getElementById(id);
-            if (!field || typeof field.addEventListener !== 'function') return;
-
-            const reveal = () => {
-                if (typeof options.setLastViewportHeight === 'function') {
-                    options.setLastViewportHeight(getViewportHeight(options));
-                }
-                updateBodyScrollLock(options);
-                schedulePlainFieldReveal(field, options);
-            };
-            const revealFromClick = () => {
-                if (doc.activeElement === field) return;
-                reveal();
-            };
-            const preserveActiveTap = event => {
-                preserveActiveFieldScroll(field, options, event);
-            };
-            const release = () => {
-                const defer = options.setTimeout ||
-                    (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-                defer(() => restoreRevealScroll(options), 0);
-            };
-
-            field.addEventListener('pointerdown', preserveActiveTap);
-            field.addEventListener('mousedown', preserveActiveTap);
-            field.addEventListener('focus', reveal);
-            field.addEventListener('click', revealFromClick);
-            field.addEventListener('input', () => schedulePlainFieldReveal(field, options));
-            field.addEventListener('blur', release);
-        });
     }
 
     function getActivePlainField(options = {}) {
@@ -568,6 +51,13 @@ const ModalMobileController = (() => {
 
     function blur(el) {
         try { el.blur(); } catch (_) { }
+    }
+
+    function clearPickerVisuals(doc) {
+        PICKER_FIELD_IDS.forEach(id => {
+            const el = doc.getElementById(id);
+            if (el) el.classList.remove('picker-open');
+        });
     }
 
     function bindNonStickyNativePicker(el, options = {}) {
@@ -594,16 +84,12 @@ const ModalMobileController = (() => {
 
             if (doc.activeElement === el) blur(el);
 
-            revealPlainField(el, options);
-
             try {
                 el.classList.add('picker-open');
-                updateBodyScrollLock(options);
                 el.showPicker();
             } catch (_) {
                 openedProgrammatically = false;
                 el.classList.remove('picker-open');
-                restoreRevealScroll(options);
                 try { el.focus(); } catch (__) { }
                 return;
             }
@@ -619,36 +105,32 @@ const ModalMobileController = (() => {
         const closeVisuals = e => {
             if (e.target !== el) {
                 el.classList.remove('picker-open');
-                restoreRevealScroll(options);
             }
         };
 
         doc.addEventListener('pointerdown', closeVisuals, { passive: true });
         win.addEventListener('focus', () => {
             el.classList.remove('picker-open');
-            restoreRevealScroll(options);
         });
 
         el.addEventListener('focus', () => {
             if (!openedProgrammatically) {
                 blur(el);
                 el.classList.remove('picker-open');
-                restoreRevealScroll(options);
                 return;
             }
 
             defer(() => {
                 if (doc.activeElement === el) blur(el);
-                updateBodyScrollLock(options);
             }, 0);
         });
 
         el.addEventListener('change', () => {
-            defer(() => restoreRevealScroll(options), 0);
+            el.classList.remove('picker-open');
         });
 
         el.addEventListener('blur', () => {
-            defer(() => restoreRevealScroll(options), 0);
+            el.classList.remove('picker-open');
         });
 
         el.addEventListener('keydown', e => {
@@ -659,13 +141,10 @@ const ModalMobileController = (() => {
                 clearSelection();
 
                 try {
-                    revealPlainField(el, options);
                     el.classList.add('picker-open');
-                    updateBodyScrollLock(options);
                     el.showPicker();
                 } catch (_) {
                     el.classList.remove('picker-open');
-                    restoreRevealScroll(options);
                 }
 
                 defer(() => {
@@ -673,7 +152,6 @@ const ModalMobileController = (() => {
                 }, 0);
             } else if (e.key === 'Escape') {
                 el.classList.remove('picker-open');
-                restoreRevealScroll(options);
                 blur(el);
             }
         });
@@ -729,11 +207,7 @@ const ModalMobileController = (() => {
         const active = getActivePlainField(options);
         if (active) blur(active);
 
-        ['edit-data', 'edit-ora'].forEach(id => {
-            const el = doc.getElementById(id);
-            if (el) el.classList.remove('picker-open');
-        });
-        restoreRevealScroll(options);
+        clearPickerVisuals(doc);
 
         const sel = win.getSelection ? win.getSelection() : null;
         if (sel && sel.rangeCount > 0) {
@@ -742,7 +216,7 @@ const ModalMobileController = (() => {
     }
 
     function shouldBlurForViewportChange(el, delta) {
-        if (!el || delta <= 100) return false;
+        if (!el || delta <= KEYBOARD_TRANSITION_THRESHOLD) return false;
 
         const type = (el.type || '').toLowerCase();
         const isTextLike =
@@ -763,40 +237,23 @@ const ModalMobileController = (() => {
 
         if (prevHeight > 0) {
             if (isModalOpen(options)) {
-                const keyboardOpening = delta < -KEYBOARD_TRANSITION_THRESHOLD;
-                const keyboardClosing = delta > KEYBOARD_TRANSITION_THRESHOLD;
                 const active = getActivePlainField(options);
-                const dropdown = getOpenDropdown(options);
 
-                if (keyboardOpening || keyboardClosing) {
-                    updateViewportLayout(options);
-
-                    if (keyboardClosing && shouldBlurForViewportChange(active, delta)) {
-                        blur(active);
-                        updateViewportLayout(options);
-                    }
-
-                    if (dropdown) {
-                        if (keyboardClosing) restoreKeyboardRevealScroll(options);
-                        else scheduleDropdownReveal(options);
-                    } else if (active && keyboardOpening) {
-                        revealPlainField(active, options);
-                    }
-                } else {
-                    updateBodyScrollLock(options);
+                if (shouldBlurForViewportChange(active, delta)) {
+                    blur(active);
                 }
             }
 
             if (options.isFilterOpen && options.isFilterOpen()) {
                 const searchInput = doc.getElementById('search-input');
-                if (searchInput && doc.activeElement === searchInput && delta > 100) {
+                if (searchInput && doc.activeElement === searchInput && delta > KEYBOARD_TRANSITION_THRESHOLD) {
                     blur(searchInput);
                 }
             }
 
             if (options.getCurrentPage && options.getCurrentPage() === 'timeline') {
                 const expenseInput = doc.getElementById('expense-input');
-                if (expenseInput && doc.activeElement === expenseInput && delta > 100) {
+                if (expenseInput && doc.activeElement === expenseInput && delta > KEYBOARD_TRANSITION_THRESHOLD) {
                     blur(expenseInput);
                 }
             }
@@ -838,8 +295,6 @@ const ModalMobileController = (() => {
                 options.setKeyboardWatchTimer(null);
             }
         }
-
-        clearViewportLayout(options);
     }
 
     function blurPickerOnReturn(options = {}) {
@@ -866,17 +321,8 @@ const ModalMobileController = (() => {
 
     return {
         getViewportHeight,
-        getKeyboardInset,
-        isKeyboardOpen,
         getOpenDropdown,
         getActivePlainField,
-        updateViewportLayout,
-        clearViewportLayout,
-        restoreRevealScroll,
-        preserveActiveFieldScroll,
-        revealDropdown,
-        revealPlainField,
-        bindPlainFieldReveal,
         bindNonStickyNativePicker,
         pushHistoryState,
         ensureInteractionState,

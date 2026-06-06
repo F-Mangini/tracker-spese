@@ -219,6 +219,42 @@ const ModalMobileController = (() => {
         setBodyScrollLock(body, shouldLockBodyScroll(options));
     }
 
+    function restoreBodyScrollPosition(body, scrollTop) {
+        if (body && Number.isFinite(body.scrollTop) && Number.isFinite(scrollTop)) {
+            body.scrollTop = Math.max(0, scrollTop);
+        }
+    }
+
+    function preserveActiveFieldScroll(field, options = {}, event = null) {
+        const doc = getDocument(options);
+        if (!field || doc.activeElement !== field || !isKeyboardOpen(options)) return false;
+
+        const { body } = getModalParts(options);
+        if (!body || !Number.isFinite(body.scrollTop)) return false;
+
+        if (event && typeof event.preventDefault === 'function' && event.cancelable !== false) {
+            event.preventDefault();
+        }
+
+        const savedScrollTop = body.scrollTop;
+        const defer = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : callback => callback());
+        const restore = () => restoreBodyScrollPosition(body, savedScrollTop);
+
+        restore();
+        [0, 16, 60, 120].forEach(delay => defer(restore, delay));
+
+        const win = getWindow(options);
+        if (win && typeof win.requestAnimationFrame === 'function') {
+            win.requestAnimationFrame(() => {
+                restore();
+                win.requestAnimationFrame(restore);
+            });
+        }
+
+        return true;
+    }
+
     function captureRevealScroll(options = {}) {
         const { body } = getModalParts(options);
         if (!body || !body.dataset || !Number.isFinite(body.scrollTop)) return;
@@ -433,12 +469,17 @@ const ModalMobileController = (() => {
                 if (doc.activeElement === field) return;
                 reveal();
             };
+            const preserveActiveTap = event => {
+                preserveActiveFieldScroll(field, options, event);
+            };
             const release = () => {
                 const defer = options.setTimeout ||
                     (typeof setTimeout === 'function' ? setTimeout : callback => callback());
                 defer(() => restoreRevealScroll(options), 0);
             };
 
+            field.addEventListener('pointerdown', preserveActiveTap);
+            field.addEventListener('mousedown', preserveActiveTap);
             field.addEventListener('focus', reveal);
             field.addEventListener('click', revealFromClick);
             field.addEventListener('input', () => schedulePlainFieldReveal(field, options));
@@ -765,6 +806,7 @@ const ModalMobileController = (() => {
         updateViewportLayout,
         clearViewportLayout,
         restoreRevealScroll,
+        preserveActiveFieldScroll,
         revealDropdown,
         revealPlainField,
         bindPlainFieldReveal,

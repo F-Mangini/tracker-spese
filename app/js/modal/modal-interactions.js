@@ -51,6 +51,11 @@ const ModalInteractions = (() => {
         return !!(doc && doc.activeElement === input);
     }
 
+    function preserveActiveFieldScroll(input, event, options = {}) {
+        return typeof options.preserveActiveFieldScroll === 'function' &&
+            !!options.preserveActiveFieldScroll(input, event);
+    }
+
     function getDropdownVisibleRect(container) {
         const containerRect = container.getBoundingClientRect();
         const list = typeof container.querySelector === 'function'
@@ -290,18 +295,30 @@ const ModalInteractions = (() => {
                 scheduleDropdownReveal(container, options);
             } else {
                 suppressFocusRevealOnce();
-                if (isActiveInput(activeDocument, input)) return;
+                if (isActiveInput(activeDocument, input)) {
+                    preserveActiveFieldScroll(input, e, options);
+                    return;
+                }
                 scheduleDropdownReveal(container, options);
             }
         });
 
-        input.addEventListener('click', () => {
+        input.addEventListener('pointerdown', e => {
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+            }
+        });
+
+        input.addEventListener('click', e => {
             if (handledMouseDown) {
                 handledMouseDown = false;
                 return;
             }
 
-            if (isActiveInput(activeDocument, input)) return;
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+                return;
+            }
 
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);
@@ -533,18 +550,30 @@ const ModalInteractions = (() => {
                 scheduleDropdownReveal(container, options);
             } else {
                 suppressFocusRevealOnce();
-                if (isActiveInput(activeDocument, input)) return;
+                if (isActiveInput(activeDocument, input)) {
+                    preserveActiveFieldScroll(input, e, options);
+                    return;
+                }
                 scheduleDropdownReveal(container, options);
             }
         });
 
-        input.addEventListener('click', () => {
+        input.addEventListener('pointerdown', e => {
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+            }
+        });
+
+        input.addEventListener('click', e => {
             if (handledMouseDown) {
                 handledMouseDown = false;
                 return;
             }
 
-            if (isActiveInput(activeDocument, input)) return;
+            if (isActiveInput(activeDocument, input)) {
+                preserveActiveFieldScroll(input, e, options);
+                return;
+            }
 
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);

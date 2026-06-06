@@ -3343,6 +3343,7 @@ test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi',
 test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
     const timeouts = [];
     const classes = new Set();
+    const preserveCalls = [];
     let activeElement = null;
     const input = {
         dataset: {},
@@ -3421,6 +3422,11 @@ test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
         window: { innerHeight: 640, visualViewport: { height: 360, offsetTop: 0 } },
         setTimeout(callback, ms) {
             timeouts.push({ callback, ms });
+        },
+        preserveActiveFieldScroll(field, event) {
+            preserveCalls.push(field);
+            if (event && typeof event.preventDefault === 'function') event.preventDefault();
+            return true;
         }
     });
 
@@ -3435,10 +3441,12 @@ test('Interazioni dropdown modale ignorano tap su input gia attivo', () => {
     const scrollBeforeActiveTap = modalBody.scrollTop;
     timeouts.length = 0;
     let prevented = false;
+    input.listeners.pointerdown({ preventDefault() { prevented = true; } });
     input.listeners.mousedown({ preventDefault() { prevented = true; } });
     input.listeners.click();
 
-    assert.equal(prevented, false);
+    assert.equal(prevented, true);
+    assert.equal(preserveCalls.length, 2);
     assert.deepEqual(timeouts.map(item => item.ms), [0, 0]);
     assert(!timeouts.some(item => item.ms > 0));
     assert.equal(modalBody.scrollTop, scrollBeforeActiveTap);
@@ -4202,6 +4210,22 @@ test('Controller mobile modale mantiene visibile il campo nota sopra la tastiera
     assert.equal(modal.style.maxHeight, '292px');
     assert.equal(modalBody.scrollTop, 56);
     assert.equal(pageScroll, 0);
+
+    timeouts.length = 0;
+    let activePointerPrevented = false;
+    noteField.listeners.pointerdown({
+        preventDefault() {
+            activePointerPrevented = true;
+        }
+    });
+
+    assert.equal(activePointerPrevented, true);
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 16, 60, 120]);
+
+    modalBody.scrollTop = 999;
+    timeouts[0].callback();
+
+    assert.equal(modalBody.scrollTop, 56);
 
     timeouts.length = 0;
     noteField.listeners.click();
@@ -5615,7 +5639,9 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     const calls = [];
     let clickHandler = null;
     let mouseDownHandler = null;
+    let pointerDownHandler = null;
     let inputHandler = null;
+    let activeElement = null;
 
     function classList(initial = []) {
         const set = new Set(initial);
@@ -5636,7 +5662,10 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         value: 'JSON',
         readOnly: true,
         dataset: { value: 'json' },
-        focus: () => calls.push('focus'),
+        focus: () => {
+            activeElement = input;
+            calls.push('focus');
+        },
         closest(selector) {
             if (selector === '#export-format-dropdown .sd-input') return input;
             if (selector === '#export-format-dropdown .sd-item') return null;
@@ -5741,11 +5770,15 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         addEventListener(event, handler) {
             if (event === 'click') clickHandler = handler;
             if (event === 'mousedown') mouseDownHandler = handler;
+            if (event === 'pointerdown') pointerDownHandler = handler;
             if (event === 'input') inputHandler = handler;
         }
     };
     const options = {
         document: {
+            get activeElement() {
+                return activeElement;
+            },
             getElementById(id) {
                 return id === 'export-modal-overlay' ? modal : null;
             }
@@ -5802,6 +5835,16 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     });
     assert.equal(input.readOnly, false);
     assert.equal(input.value, '');
+
+    let exportPointerPrevented = false;
+    pointerDownHandler({
+        target: input,
+        preventDefault() {
+            exportPointerPrevented = true;
+        }
+    });
+
+    assert.equal(exportPointerPrevented, true);
 
     input.value = 'cs';
     inputHandler({ target: input });

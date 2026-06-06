@@ -964,6 +964,40 @@ const SettingsController = (() => {
         return element.scrollTop - previous;
     }
 
+    function restoreElementScrollPosition(element, scrollTop) {
+        if (element && Number.isFinite(element.scrollTop) && Number.isFinite(scrollTop)) {
+            element.scrollTop = Math.max(0, scrollTop);
+        }
+    }
+
+    function preserveExportActiveFieldScroll(input, options = {}, event = null) {
+        if (!input || !isActiveElement(input, options) || getKeyboardInset(options) <= 0) return false;
+
+        const { body } = getExportModalParts(options);
+        if (!body || !Number.isFinite(body.scrollTop)) return false;
+
+        if (event && typeof event.preventDefault === 'function' && event.cancelable !== false) {
+            event.preventDefault();
+        }
+
+        const savedScrollTop = body.scrollTop;
+        const defer = getDefer(options);
+        const restore = () => restoreElementScrollPosition(body, savedScrollTop);
+
+        restore();
+        [0, 16, 60, 120].forEach(delay => defer(restore, delay));
+
+        const win = getWindowLike(options);
+        if (win && typeof win.requestAnimationFrame === 'function') {
+            win.requestAnimationFrame(() => {
+                restore();
+                win.requestAnimationFrame(restore);
+            });
+        }
+
+        return true;
+    }
+
     function getOverflow(rect, topLimit, bottomLimit) {
         const overflowBottom = rect.bottom - bottomLimit;
         if (overflowBottom > 0) return overflowBottom;
@@ -1302,6 +1336,8 @@ const SettingsController = (() => {
             : null;
         if (!input) return;
 
+        if (!input.readOnly && preserveExportActiveFieldScroll(input, options, event)) return;
+
         if (!dropdown.classList.contains('open')) {
             event.preventDefault();
             if (typeof input.focus === 'function') input.focus();
@@ -1376,7 +1412,7 @@ const SettingsController = (() => {
                     ? dropdown.querySelector('.sd-input')
                     : null;
                 if (input && !input.readOnly) {
-                    if (isActiveElement(input, options)) return;
+                    if (preserveExportActiveFieldScroll(input, options, event)) return;
                     scheduleExportDropdownReveal(dropdown, options);
                 }
                 return;
@@ -1407,6 +1443,11 @@ const SettingsController = (() => {
 
         modal.addEventListener('mousedown', event => {
             handleExportFormatMousedown(event, modal, options);
+        });
+
+        modal.addEventListener('pointerdown', event => {
+            const input = closest(event.target, '#export-format-dropdown .sd-input');
+            if (input) preserveExportActiveFieldScroll(input, options, event);
         });
 
         modal.addEventListener('focusin', event => {

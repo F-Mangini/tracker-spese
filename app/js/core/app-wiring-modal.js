@@ -108,6 +108,11 @@ const AppWiringModal = (() => {
                 restoreModalRevealScroll: () => deps.ModalMobileController.restoreRevealScroll(
                     modalMobileOptions()
                 ),
+                preserveActiveFieldScroll: (field, event) => deps.ModalMobileController.preserveActiveFieldScroll(
+                    field,
+                    modalMobileOptions(),
+                    event
+                ),
                 ensureInteractionState: () => deps.ModalMobileController.ensureInteractionState(modalMobileOptions()),
                 releaseInteractionState: () => deps.ModalMobileController.releaseInteractionState(modalMobileOptions()),
                 isInteractionActive: () => app._modalInteractionActive,

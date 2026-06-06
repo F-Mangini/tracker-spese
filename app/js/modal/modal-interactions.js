@@ -47,6 +47,10 @@ const ModalInteractions = (() => {
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
     }
 
+    function isActiveInput(doc, input) {
+        return !!(doc && doc.activeElement === input);
+    }
+
     function getDropdownVisibleRect(container) {
         const containerRect = container.getBoundingClientRect();
         const list = typeof container.querySelector === 'function'
@@ -286,6 +290,7 @@ const ModalInteractions = (() => {
                 scheduleDropdownReveal(container, options);
             } else {
                 suppressFocusRevealOnce();
+                if (isActiveInput(activeDocument, input)) return;
                 scheduleDropdownReveal(container, options);
             }
         });
@@ -295,6 +300,8 @@ const ModalInteractions = (() => {
                 handledMouseDown = false;
                 return;
             }
+
+            if (isActiveInput(activeDocument, input)) return;
 
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);
@@ -526,6 +533,7 @@ const ModalInteractions = (() => {
                 scheduleDropdownReveal(container, options);
             } else {
                 suppressFocusRevealOnce();
+                if (isActiveInput(activeDocument, input)) return;
                 scheduleDropdownReveal(container, options);
             }
         });
@@ -535,6 +543,8 @@ const ModalInteractions = (() => {
                 handledMouseDown = false;
                 return;
             }
+
+            if (isActiveInput(activeDocument, input)) return;
 
             if (container.classList.contains('open') && isEditable) {
                 scheduleDropdownReveal(container, options);

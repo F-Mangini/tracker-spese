@@ -12,6 +12,7 @@ const ModalMobileController = (() => {
     const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
     const FIELD_SCROLL_LOCK_CLASS = 'field-scroll-locked';
     const REVEAL_SCROLL_KEY = 'fieldRevealScrollTop';
+    const KEYBOARD_REVEAL_SCROLL_KEY = 'keyboardRevealScrollTop';
 
     function noop() { }
 
@@ -44,6 +45,10 @@ const ModalMobileController = (() => {
         const inset = win.innerHeight - (offsetTop + vv.height);
 
         return Math.max(0, Math.round(inset));
+    }
+
+    function isKeyboardOpen(options = {}) {
+        return getKeyboardInset(options) > 0;
     }
 
     function isModalOpen(options = {}) {
@@ -221,10 +226,42 @@ const ModalMobileController = (() => {
         body.dataset[REVEAL_SCROLL_KEY] = String(body.scrollTop);
     }
 
+    function captureKeyboardRevealScroll(options = {}) {
+        const { body } = getModalParts(options);
+        if (!body || !body.dataset || !Number.isFinite(body.scrollTop)) return;
+        if (body.dataset[KEYBOARD_REVEAL_SCROLL_KEY] !== undefined) return;
+
+        body.dataset[KEYBOARD_REVEAL_SCROLL_KEY] = String(body.scrollTop);
+    }
+
+    function clearKeyboardRevealScroll(body) {
+        if (body && body.dataset) {
+            delete body.dataset[KEYBOARD_REVEAL_SCROLL_KEY];
+        }
+    }
+
     function clearRevealScroll(body) {
         if (body && body.dataset) {
             delete body.dataset[REVEAL_SCROLL_KEY];
+            clearKeyboardRevealScroll(body);
         }
+    }
+
+    function restoreKeyboardRevealScroll(options = {}) {
+        const { body } = getModalParts(options);
+        if (!body || !body.dataset) {
+            updateBodyScrollLock(options);
+            return;
+        }
+
+        const saved = Number(body.dataset[KEYBOARD_REVEAL_SCROLL_KEY]);
+        clearKeyboardRevealScroll(body);
+
+        if (Number.isFinite(saved) && Number.isFinite(body.scrollTop)) {
+            body.scrollTop = Math.max(0, saved);
+        }
+
+        updateBodyScrollLock(options);
     }
 
     function restoreRevealScroll(options = {}) {
@@ -321,6 +358,7 @@ const ModalMobileController = (() => {
                 : 0;
 
         captureRevealScroll(options);
+        if (isKeyboardOpen(options)) captureKeyboardRevealScroll(options);
         updateViewportLayout(options, { extraBodySpace });
 
         const bodyRect = body && typeof body.getBoundingClientRect === 'function'
@@ -390,6 +428,10 @@ const ModalMobileController = (() => {
                 updateBodyScrollLock(options);
                 schedulePlainFieldReveal(field, options);
             };
+            const revealFromClick = () => {
+                if (doc.activeElement === field) return;
+                reveal();
+            };
             const release = () => {
                 const defer = options.setTimeout ||
                     (typeof setTimeout === 'function' ? setTimeout : callback => callback());
@@ -397,7 +439,7 @@ const ModalMobileController = (() => {
             };
 
             field.addEventListener('focus', reveal);
-            field.addEventListener('click', reveal);
+            field.addEventListener('click', revealFromClick);
             field.addEventListener('input', () => schedulePlainFieldReveal(field, options));
             field.addEventListener('blur', release);
         });
@@ -612,6 +654,7 @@ const ModalMobileController = (() => {
 
         if (prevHeight > 0) {
             if (isModalOpen(options)) {
+                const keyboardClosing = delta > 100;
                 updateViewportLayout(options);
                 const active = getActivePlainField(options);
                 if (shouldBlurForViewportChange(active, delta)) {
@@ -620,7 +663,8 @@ const ModalMobileController = (() => {
                 }
                 const dropdown = getOpenDropdown(options);
                 if (dropdown) {
-                    scheduleDropdownReveal(options);
+                    if (keyboardClosing) restoreKeyboardRevealScroll(options);
+                    else scheduleDropdownReveal(options);
                 } else if (active) {
                     revealPlainField(active, options);
                 }
@@ -706,6 +750,7 @@ const ModalMobileController = (() => {
     return {
         getViewportHeight,
         getKeyboardInset,
+        isKeyboardOpen,
         getOpenDropdown,
         getActivePlainField,
         updateViewportLayout,

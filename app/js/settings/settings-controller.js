@@ -221,9 +221,11 @@ const SettingsController = (() => {
             : [];
         const hasLastExport = !!lastExport;
         const currentFilters = getCurrentFilterSnapshot(options);
+        const pendingFilters = readPendingExportFilters(getExportModal(options));
+        const filtersForToggle = pendingFilters || currentFilters;
         const lastFiltersMatch = hasLastExport &&
             lastExport.filters &&
-            areSameFilterSnapshots(currentFilters, lastExport.filters);
+            areSameFilterSnapshots(filtersForToggle, lastExport.filters);
 
         return {
             hasLastExport,
@@ -243,6 +245,10 @@ const SettingsController = (() => {
             : {};
 
         return SettingsActions.createExportFilterSnapshot(filters);
+    }
+
+    function getExportFilterSnapshotForSave(options = {}) {
+        return readPendingExportFilters(getExportModal(options)) || getCurrentFilterSnapshot(options);
     }
 
     function getExportModalModel(options = {}) {
@@ -282,6 +288,30 @@ const SettingsController = (() => {
     function clearExportMemoryBase(modal) {
         if (!modal || !modal.dataset) return;
         delete modal.dataset.exportToggleBaseSelection;
+    }
+
+    function clearPendingExportFilters(modal) {
+        if (!modal || !modal.dataset) return;
+        delete modal.dataset.exportPendingFilters;
+    }
+
+    function readPendingExportFilters(modal) {
+        if (!modal || !modal.dataset || !modal.dataset.exportPendingFilters) {
+            return null;
+        }
+
+        try {
+            return SettingsActions.normalizeFilterSnapshot(JSON.parse(modal.dataset.exportPendingFilters));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writePendingExportFilters(modal, filters) {
+        if (!modal || !modal.dataset) return;
+        modal.dataset.exportPendingFilters = JSON.stringify(
+            SettingsActions.normalizeFilterSnapshot(filters)
+        );
     }
 
     function readExportMemoryBase(modal) {
@@ -333,6 +363,7 @@ const SettingsController = (() => {
                 applyExportSelection(baseIds, options);
             }
             clearExportMemoryBase(modal);
+            clearPendingExportFilters(modal);
             renderExportModal(options);
             return;
         }
@@ -341,12 +372,10 @@ const SettingsController = (() => {
             writeExportMemoryBase(modal, memory.currentIds);
         }
 
-        if (
-            selectingLastFilters &&
-            lastExportFilters &&
-            typeof options.applyExportFilters === 'function'
-        ) {
-            options.applyExportFilters(lastExportFilters, targetIds);
+        if (selectingLastFilters && lastExportFilters) {
+            writePendingExportFilters(modal, lastExportFilters);
+        } else {
+            clearPendingExportFilters(modal);
         }
 
         applyExportSelection(targetIds, options);
@@ -442,6 +471,7 @@ const SettingsController = (() => {
         const wasOpen = !modal.classList.contains('hidden');
         modal.classList.add('hidden');
         clearExportMemoryBase(modal);
+        clearPendingExportFilters(modal);
 
         if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
@@ -576,7 +606,7 @@ const SettingsController = (() => {
             selectionInitialized: true,
             lastExport: {
                 selectedIds: getCurrentSelectedIds(options),
-                filters: getCurrentFilterSnapshot(options)
+                filters: getExportFilterSnapshotForSave(options)
             }
         });
 
@@ -593,6 +623,11 @@ const SettingsController = (() => {
             : [];
         const hasLastExport = !!prefs.lastExport;
         const selectedIds = currentSelectedIds.length > 0 ? currentSelectedIds : lastSelectedIds;
+        const pendingFilters = readPendingExportFilters(getExportModal(options));
+
+        if (pendingFilters && typeof options.applyExportFilters === 'function') {
+            options.applyExportFilters(pendingFilters, selectedIds);
+        }
 
         if (typeof options.beginExportSelection === 'function') {
             options.beginExportSelection({

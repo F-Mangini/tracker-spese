@@ -5513,6 +5513,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
             currentIds = config.selectedIds.slice();
             calls.push(['begin-selection', config]);
         },
+        navigateToTimeline: () => calls.push(['navigate-timeline']),
         countActiveFilters: () => 0
     };
 
@@ -5537,16 +5538,15 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
     assert.deepEqual(currentIds, ['a', 'c']);
-    assert.deepEqual(calls[calls.length - 2], [
-        'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
-        ['a', 'c']
-    ]);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
         { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+    assert.equal(
+        modal.dataset.exportPendingFilters,
+        '{"query":"pane","categories":[],"methods":[],"amountMin":0,"amountMax":null,"dateFrom":"","dateTo":"","selectedOnly":false}'
+    );
     assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
     assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
@@ -5557,6 +5557,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         { selectedIds: ['manual'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
+    assert.equal(modal.dataset.exportPendingFilters, undefined);
 
     currentIds = ['a', 'c'];
     currentFilters = { query: 'latte' };
@@ -5565,17 +5566,25 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert(!body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
-    assert.deepEqual(calls[calls.length - 2], [
-        'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
-        ['a', 'c']
-    ]);
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
         { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, '["a","c"]');
+    assert.equal(calls.some(call => call[0] === 'apply-filters'), false);
+
+    clickHandler({ target: { id: 'btn-export-filters' } });
+    assert.deepEqual(calls.slice(-3), [
+        [
+            'apply-filters',
+            { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+            ['a', 'c']
+        ],
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['navigate-timeline']
+    ]);
+    assert.equal(modal.dataset.exportPendingFilters, undefined);
 
     SettingsActions.saveExportPreferences(localStorage, storage, {
         lastExport: {

@@ -176,6 +176,26 @@ const SettingsController = (() => {
             leftIds.every((id, index) => id === rightIds[index]);
     }
 
+    function areSameFilterSnapshots(left = {}, right = {}) {
+        if (!SettingsActions || typeof SettingsActions.normalizeFilterSnapshot !== 'function') {
+            return false;
+        }
+
+        const normalize = snapshot => {
+            const filters = SettingsActions.normalizeFilterSnapshot(snapshot);
+            return {
+                ...filters,
+                categories: normalizeSelectionIds(filters.categories).sort(),
+                methods: normalizeSelectionIds(filters.methods).sort(),
+                amountMax: filters.amountMax === Infinity ? 'Infinity' : filters.amountMax
+            };
+        };
+        const leftFilters = normalize(left);
+        const rightFilters = normalize(right);
+
+        return JSON.stringify(leftFilters) === JSON.stringify(rightFilters);
+    }
+
     function getLastExportFilteredIds(prefs, options = {}) {
         const lastExport = prefs && prefs.lastExport;
         if (!lastExport || !lastExport.filters) return [];
@@ -200,6 +220,10 @@ const SettingsController = (() => {
             ? getLastExportFilteredIds(prefs, options)
             : [];
         const hasLastExport = !!lastExport;
+        const currentFilters = getCurrentFilterSnapshot(options);
+        const lastFiltersMatch = hasLastExport &&
+            lastExport.filters &&
+            areSameFilterSnapshots(currentFilters, lastExport.filters);
 
         return {
             hasLastExport,
@@ -207,7 +231,7 @@ const SettingsController = (() => {
             lastSelectionIds,
             lastFilterIds,
             lastSelectionActive: hasLastExport && areSameSelection(currentIds, lastSelectionIds),
-            lastFiltersActive: hasLastExport && areSameSelection(currentIds, lastFilterIds),
+            lastFiltersActive: lastFiltersMatch && areSameSelection(currentIds, lastFilterIds),
             lastSelectionCount: lastSelectionIds.length,
             lastFiltersCount: lastFilterIds.length
         };
@@ -297,6 +321,9 @@ const SettingsController = (() => {
         const targetIds = selectingLastFilters
             ? memory.lastFilterIds
             : memory.lastSelectionIds;
+        const lastExportFilters = prefs.lastExport && prefs.lastExport.filters
+            ? prefs.lastExport.filters
+            : null;
 
         if (!memory.hasLastExport) return;
 
@@ -312,6 +339,14 @@ const SettingsController = (() => {
 
         if (!readExportMemoryBase(modal)) {
             writeExportMemoryBase(modal, memory.currentIds);
+        }
+
+        if (
+            selectingLastFilters &&
+            lastExportFilters &&
+            typeof options.applyExportFilters === 'function'
+        ) {
+            options.applyExportFilters(lastExportFilters, targetIds);
         }
 
         applyExportSelection(targetIds, options);

@@ -202,7 +202,7 @@ const SettingsView = (() => {
                     <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
                     <button id="btn-export-custom" class="btn btn-secondary btn-block">Esporta</button>
                 </div>
-                <h3>\uD83D\uDCE5 Importa Dati</h3>
+                <h3 class="settings-import-title">\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
                 <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
                 <button id="btn-import" class="btn btn-secondary btn-block">\uD83D\uDCC1 Scegli file...</button>

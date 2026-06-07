@@ -2034,6 +2034,10 @@ body.expense-input-active #input-bar {
     margin-bottom: 12px;
 }
 
+.settings-import-title {
+    margin-top: 20px;
+}
+
 .settings-hint {
     font-size: 0.82rem;
     color: var(--text-tertiary);
@@ -2108,7 +2112,10 @@ body.expense-input-active #input-bar {
 
 .export-checklist {
     display: grid;
-    gap: 8px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    overflow: hidden;
 }
 
 .export-check-row {
@@ -2116,13 +2123,15 @@ body.expense-input-active #input-bar {
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
+    background: transparent;
     color: var(--text-primary);
     font-size: 0.9rem;
     font-weight: 600;
     min-height: 42px;
+}
+
+.export-check-row + .export-check-row {
+    border-top: 1px solid var(--border);
 }
 
 .export-check-row input {
@@ -2133,7 +2142,7 @@ body.expense-input-active #input-bar {
 
 .export-check-row.disabled {
     color: var(--text-tertiary);
-    background: var(--bg-primary);
+    background: transparent;
 }
 
 .export-selection-summary {

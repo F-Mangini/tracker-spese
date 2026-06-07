@@ -5467,6 +5467,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     ];
     const calls = [];
     let currentIds = ['manual'];
+    let currentFilters = { query: '' };
     let clickHandler = null;
     const body = { innerHTML: '' };
     const fields = {
@@ -5501,8 +5502,13 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         localStorage,
         getSpese: () => spese,
         getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
         getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
         getFilteredIdsForExportFilters: () => ['a', 'c'],
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = { ...filters };
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
         beginExportSelection(config) {
             currentIds = config.selectedIds.slice();
             calls.push(['begin-selection', config]);
@@ -5531,11 +5537,18 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
     assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'c']
+    ]);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
         { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
     assert.deepEqual(currentIds, ['manual']);
@@ -5544,6 +5557,25 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         { selectedIds: ['manual'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
+
+    currentIds = ['a', 'c'];
+    currentFilters = { query: 'latte' };
+    SettingsController.openExportModal(options, { keepCurrentSelection: true });
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
+    assert(!body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'c']
+    ]);
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseSelection, '["a","c"]');
 
     SettingsActions.saveExportPreferences(localStorage, storage, {
         lastExport: {

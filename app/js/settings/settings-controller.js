@@ -248,7 +248,7 @@ const SettingsController = (() => {
             const filterCount = typeof options.countActiveFilters === 'function'
                 ? options.countActiveFilters()
                 : 0;
-            const filterLabel = 'Filtra \uD83D\uDD0D';
+            const filterLabel = 'Seleziona';
             filterBtn.innerHTML = filterCount > 0
                 ? `${filterLabel}<span class="filter-badge">${filterCount}</span>`
                 : filterLabel;

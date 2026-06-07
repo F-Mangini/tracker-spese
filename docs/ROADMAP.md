@@ -47,7 +47,7 @@ Completato su `codex/ux-export`:
 
 - Import ed export riuniti nella stessa card impostazioni.
 - Export Default con JSON completo e conferma semplice.
-- Prima finestra Export Custom con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, toggle `Ultima Selezione` / `Ultimi Filtri`, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- Prima finestra `Esporta` configurabile con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, toggle `Ultima Selezione` / `Ultimi Filtri`, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
 - JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
 
 ## Repository e Canali
@@ -86,10 +86,10 @@ Ancora da affrontare:
 - Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
 - Rivalutare dove spiegare che JSON/CSV/raw sono file in chiaro se l'app verra condivisa oltre l'uso personale del maintainer, evitando disclaimer ripetuti nei flussi quotidiani.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
-- Completato primo export rapido per spese selezionate: la modalita selezione timeline apre la finestra Export Custom conservando la selezione corrente.
+- Completato primo export rapido per spese selezionate: la modalita selezione timeline apre la finestra `Esporta` conservando la selezione corrente.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
 - Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
-- Export rapido e custom completati come prima versione: Default JSON completo; Custom con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export custom riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
+- Export rapido e configurabile completati come prima versione: Default JSON completo; finestra `Esporta` con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
 - Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
@@ -159,9 +159,9 @@ Da riprendere solo quando servira:
 - Cestino con spese cancellate e ripristinabili.
 - Swipe su spesa per eliminazione rapida.
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
-- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export custom/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
+- Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: formati TSV/tabella Markdown.
-- Modalita selezione riusata dall'export custom: primo ingresso da impostazioni seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito, mentre l'apertura dalla timeline conserva la selezione corrente e la finestra permette di tornare a ultima selezione o ultimi filtri.
+- Modalita selezione riusata dall'export configurabile: primo ingresso da impostazioni seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito, mentre l'apertura dalla timeline conserva la selezione corrente e la finestra permette di tornare a ultima selezione o ultimi filtri.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici

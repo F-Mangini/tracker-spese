@@ -2570,6 +2570,30 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     TimelineSelectionController.syncHeader({
         document: doc,
         isActive: () => true,
+        getCurrentPage: () => 'timeline',
+        appConfig: { channel: 'dev' },
+        getSelectedIds: () => new Set(),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    }, {
+        active: true,
+        selectedCount: 0,
+        selectedTotal: 0,
+        visibleCount: 1,
+        visibleAllSelected: false,
+        deletePending: false
+    });
+
+    assert.equal(elements['btn-selection-copy'].disabled, true);
+    assert.equal(elements['btn-selection-export'].disabled, true);
+    assert(elements['btn-selection-copy'].classList.contains('disabled-empty-selection'));
+    assert(elements['btn-selection-export'].classList.contains('disabled-empty-selection'));
+
+    TimelineSelectionController.syncHeader({
+        document: doc,
+        isActive: () => true,
         getCurrentPage: () => 'settings',
         appConfig: { channel: 'dev' },
         getSelectedIds: () => new Set(['a']),
@@ -4213,9 +4237,12 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     }, true);
 
     assert(page.includes('btn-export-raw'));
-    assert(page.includes('Importa / Esporta dati'));
+    assert(page.includes('Esporta Dati'));
+    assert(page.includes('Scarica un backup JSON o nel formato che preferisci.'));
+    assert(page.includes('Importa Dati'));
     assert(page.includes('btn-export-default'));
     assert(page.includes('btn-export-custom'));
+    assert(page.includes('>Esporta</button>'));
     assert(page.includes('btn-import'));
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
@@ -4972,7 +4999,8 @@ test('Controller impostazioni collega finestra export a history e selezione time
     SettingsController.openExportModal(options);
     assert.equal(SettingsController.isExportModalOpen(options), true);
     assert(body.innerHTML.includes('1 spesa selezionata'));
-    assert(filterBtn.innerHTML.includes('Filtra \uD83D\uDD0D'));
+    assert(filterBtn.innerHTML.includes('Seleziona'));
+    assert(!filterBtn.innerHTML.includes('Filtra \uD83D\uDD0D'));
     assert(filterBtn.innerHTML.includes('filter-badge'));
     assert(filterBtn.innerHTML.includes('2'));
     assert.deepEqual(calls, [

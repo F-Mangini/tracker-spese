@@ -1177,14 +1177,16 @@ body.expense-input-active #input-bar {
     color: var(--danger);
 }
 
-.bottom-action-btn:not(.bottom-action-danger):active,
-.bottom-action-btn.pressed:not(.bottom-action-danger) {
+.bottom-action-btn:not(.bottom-action-danger):not(:disabled):not(.disabled-empty-selection):active,
+.bottom-action-btn.pressed:not(.bottom-action-danger):not(:disabled):not(.disabled-empty-selection) {
     color: var(--accent);
 }
 
-.bottom-action-btn:disabled {
+.bottom-action-btn:disabled,
+.bottom-action-btn.disabled-empty-selection {
     opacity: 0.42;
     cursor: default;
+    color: var(--text-primary);
 }
 
 .nav-icon {

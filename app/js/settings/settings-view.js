@@ -196,12 +196,13 @@ const SettingsView = (() => {
             </div>
 
             <div class="settings-section">
-                <h3>\uD83D\uDCE4 Importa / Esporta dati</h3>
-                <p class="settings-hint">Default crea un backup JSON completo. Custom permette di scegliere formato, contenuti e selezione.</p>
+                <h3>\uD83D\uDCE4 Esporta Dati</h3>
+                <p class="settings-hint">Scarica un backup JSON o nel formato che preferisci.</p>
                 <div class="settings-buttons">
                     <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
-                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Custom</button>
+                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Esporta</button>
                 </div>
+                <h3>\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
                 <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
                 <button id="btn-import" class="btn btn-secondary btn-block">\uD83D\uDCC1 Scegli file...</button>

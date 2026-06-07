@@ -255,7 +255,14 @@ const TimelineSelectionController = (() => {
         }
 
         [copyButton, exportButton, deleteButton].forEach(button => {
-            if (button) button.disabled = !actionsAvailable || selectedCount === 0;
+            if (!button) return;
+            const disabled = !actionsAvailable || selectedCount === 0;
+            button.disabled = disabled;
+        });
+        [copyButton, exportButton].forEach(button => {
+            if (button && button.classList && typeof button.classList.toggle === 'function') {
+                button.classList.toggle('disabled-empty-selection', selectedCount === 0);
+            }
         });
     }
 

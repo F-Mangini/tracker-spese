@@ -1869,6 +1869,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
 
+    const detachedMethods = filters.methods;
+    filters.methods = new Set();
+    methodChips[0].listener();
+    assert.equal(detachedMethods.has('carta'), false);
+    assert.equal(filters.methods.has('carta'), true);
+    assert(methodChips[0].classList.contains('active'));
+
     state.selectionActive = true;
     FilterController.syncFilterUI(options);
     assert(!elements['selection-filter-section'].classList.contains('hidden'));
@@ -1983,6 +1990,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.resetFilters(options);
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
+    assert.equal(filters.methods.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
     assert.equal(filters.selectedOnlyIds.size, 0);
@@ -5710,6 +5718,144 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         (body.innerHTML.match(/aria-pressed="true"/g) || []).length,
         2
     );
+});
+
+test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale export', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane' }),
+        expense({ id: 'b', descrizione: 'Latte' }),
+        expense({ id: 'c', descrizione: 'Pane integrale' }),
+        expense({ id: 'manual', descrizione: 'Corrente' })
+    ];
+    const staleCalls = [];
+    const calls = [];
+    let currentIds = ['manual'];
+    let currentFilters = { query: 'latte' };
+    let clickHandler = null;
+    const body = { innerHTML: '' };
+    const fields = {
+        '#export-modal-body': body,
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: false },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const documentLike = {
+        getElementById(id) {
+            return id === 'export-modal-overlay' ? modal : null;
+        }
+    };
+    const staleOptions = {
+        document: documentLike,
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => ['stale-manual'],
+        getCurrentFilters: () => ({ query: 'stale' }),
+        getSelectedSpese: () => [],
+        getFilteredIdsForExportFilters: () => ['stale-target'],
+        applyExportFilters: (filters, selectedIds) => {
+            staleCalls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection: config => {
+            staleCalls.push(['begin-selection', config]);
+        },
+        navigateToTimeline: () => staleCalls.push(['navigate-timeline']),
+        countActiveFilters: () => 0
+    };
+    const currentOptions = {
+        document: documentLike,
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
+        getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            return spese
+                .filter(spesa => {
+                    const query = snapshot.query.toLowerCase();
+                    return !query || String(spesa.descrizione || '').toLowerCase().includes(query);
+                })
+                .map(spesa => spesa.id);
+        },
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = { ...filters };
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection(config) {
+            currentIds = config.selectedIds.slice();
+            calls.push(['begin-selection', config]);
+        },
+        navigateToTimeline: () => calls.push(['navigate-timeline']),
+        countActiveFilters: () => 0
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a', 'c'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    SettingsController.bindExportModal(staleOptions);
+    SettingsController.bindExportModal(currentOptions);
+    SettingsController.openExportModal(currentOptions, { keepCurrentSelection: true });
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['a', 'c']);
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(currentFilters, {
+        query: 'latte',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['manual']);
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    clickHandler({ target: { id: 'btn-export-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['navigate-timeline']
+    ]);
 });
 
 test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {

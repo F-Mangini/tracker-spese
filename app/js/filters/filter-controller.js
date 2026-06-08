@@ -496,12 +496,24 @@ const FilterController = (() => {
         container.querySelectorAll('.filter-chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 const id = chip.dataset.id;
+                const filters = options.filters || {};
+                const currentSet = containerId === 'filter-cats'
+                    ? filters.categories
+                    : containerId === 'filter-methods'
+                    ? filters.methods
+                    : targetSet;
+                const activeSet = currentSet &&
+                    typeof currentSet.has === 'function' &&
+                    typeof currentSet.add === 'function' &&
+                    typeof currentSet.delete === 'function'
+                    ? currentSet
+                    : targetSet;
 
-                if (targetSet.has(id)) {
-                    targetSet.delete(id);
+                if (activeSet.has(id)) {
+                    activeSet.delete(id);
                     chip.classList.remove('active');
                 } else {
-                    targetSet.add(id);
+                    activeSet.add(id);
                     chip.classList.add('active');
                 }
 

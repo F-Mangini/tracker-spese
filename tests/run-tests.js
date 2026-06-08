@@ -2437,6 +2437,60 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert(calls.includes('refresh'));
 });
 
+test('Controller selezione chiude i filtri prima di export ed eliminazione', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: true,
+        selectedIds: new Set(['a']),
+        deletePending: false
+    };
+    const spese = [expense({ id: 'a', importo: 2 })];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => {
+            state.deletePending = value;
+            calls.push(['delete-pending', value]);
+        },
+        closeFiltersForSelectionAction: continueAction => {
+            calls.push('close-filters');
+            continueAction();
+            return true;
+        },
+        openCustomExportModal: () => calls.push('custom-export'),
+        renderTimeline: () => calls.push('render'),
+        showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    assert.equal(TimelineSelectionController.showExportChoices(options), true);
+    assert.deepEqual(calls, ['close-filters', 'custom-export']);
+
+    calls.length = 0;
+
+    assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
+    assert.deepEqual(calls, [
+        'close-filters',
+        ['delete-pending', true],
+        'render',
+        ['choices', 'Eliminare 1 spese selezionate?', ['Annulla', 'Elimina']]
+    ]);
+});
+
 test('Controller selezione mantiene header e nav attivi anche nelle statistiche', () => {
     const { TimelineSelectionController } = loadUiViews();
 
@@ -2801,8 +2855,10 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         },
         restoring: false,
         filterOpen: true,
-        advancedFiltersOpen: false
+        advancedFiltersOpen: false,
+        selectionActive: false
     };
+    let pendingSettingsNavigation = null;
     const options = {
         document: doc,
         pageScrollTop: state.pageScrollTop,
@@ -2825,6 +2881,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         renderTimeline: () => calls.push('render-timeline'),
         renderStats: () => calls.push('render-stats'),
         renderSettings: () => calls.push('render-settings'),
+        shouldConfirmSettingsNavigation: () => state.selectionActive,
+        confirmSettingsNavigation: continueNavigation => {
+            pendingSettingsNavigation = continueNavigation;
+            calls.push(['confirm-settings']);
+        },
         requestAnimationFrame: callback => callback(),
         defer: callback => callback()
     };
@@ -2866,7 +2927,15 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(main.classList.contains('no-input-bar'));
     state.advancedFiltersOpen = false;
 
-    NavigationController.navigateTo(options, 'settings');
+    state.selectionActive = true;
+    navSettings.listeners.click();
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(typeof pendingSettingsNavigation, 'function');
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'confirm-settings'));
+    assert(!calls.includes('render-settings'));
+
+    state.selectionActive = false;
+    pendingSettingsNavigation();
 
     assert.equal(state.currentPage, 'settings');
     assert.equal(state.filterOpen, false);
@@ -5080,6 +5149,81 @@ test('Controller impostazioni collega finestra export a history e selezione time
     assert.equal(savedPrefs.includePersonalizzazioni, true);
 });
 
+test('Controller impostazioni chiudendo export dalle impostazioni esce dalla selezione nascosta', () => {
+    const { SettingsController } = loadUiViews();
+    const classes = new Set(['hidden']);
+    const calls = [];
+    let selectionActive = false;
+    const body = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return { innerHTML: '' };
+            return null;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage: { KEY: 'spese-test' },
+        localStorage: createLocalStorage(),
+        getCurrentPage: () => 'settings',
+        getSelectedSpese: () => (selectionActive ? [expense({ id: 'a' })] : []),
+        getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
+        countActiveFilters: () => 0,
+        beginExportSelection: config => {
+            selectionActive = true;
+            calls.push(['begin-export-selection', config]);
+        },
+        isTimelineSelectionActive: () => selectionActive,
+        exitTimelineSelection: fromPopstate => {
+            selectionActive = false;
+            calls.push(['exit-selection', fromPopstate]);
+        },
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: steps => calls.push(['consume', steps || 1])
+    };
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls.slice(-2), [
+        ['exit-selection', true],
+        ['consume', 2]
+    ]);
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options, true);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls.slice(-2), [
+        ['exit-selection', true],
+        ['consume', 1]
+    ]);
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options, true, { preserveSelection: true });
+    assert.equal(selectionActive, true);
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-export-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+});
+
 test('Controller impostazioni ricorda solo ultimo export custom riuscito', () => {
     const { SettingsController, SettingsActions } = loadUiViews();
     const calls = [];
@@ -6488,6 +6632,108 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
         ['filter-badge', true],
         'settings'
     ]);
+});
+
+test('Wiring app chiude il pannello filtri prima delle azioni selezione', () => {
+    const { AppWiring, AppState } = loadUiViews();
+    const calls = [];
+    const app = {
+        ...AppState.create(),
+        filterOpen: false
+    };
+    const wiring = AppWiring.create(app, {
+        document: { body: {} },
+        window: {},
+        history: {},
+        setTimeout: (callback, delay) => {
+            calls.push(['timeout', delay]);
+            callback();
+            return null;
+        },
+        FilterController: {
+            closeFilterPanel: () => {
+                app.filterOpen = false;
+                calls.push('close-filter');
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        }
+    });
+
+    let continued = 0;
+
+    assert.equal(wiring.timelineSelectionOptions().closeFiltersForSelectionAction(() => {
+        continued += 1;
+    }), false);
+    assert.equal(continued, 0);
+
+    app.filterOpen = true;
+
+    assert.equal(wiring.timelineSelectionOptions().closeFiltersForSelectionAction(() => {
+        continued += 1;
+        calls.push('continue');
+    }), true);
+    assert.deepEqual(calls, [
+        'close-filter',
+        ['timeout', 0],
+        ['timeout', 0],
+        'continue'
+    ]);
+    assert.equal(continued, 1);
+});
+
+test('Wiring app chiede conferma prima delle impostazioni con selezione attiva', () => {
+    const { AppWiring, AppState } = loadUiViews();
+    const calls = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        timelineSelectionActive: true,
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: { body: {} },
+        window: {},
+        history: {},
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                calls.push(['confirm', options.message, options.choices.map(choice => choice.text)]);
+                return true;
+            }
+        },
+        TimelineSelectionController: {
+            syncHeader() {},
+            exit(_options, fromPopstate) {
+                app.timelineSelectionActive = false;
+                calls.push(['exit-selection', fromPopstate]);
+                return true;
+            }
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    assert.equal(navOptions.shouldConfirmSettingsNavigation(), true);
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+
+    assert.deepEqual(calls[0], ['confirm', 'Uscire da Selezione?', ['Annulla', 'Esci']]);
+    assert.equal(confirmPayload.choices[0].onClick, undefined);
+
+    confirmPayload.choices[1].onClick();
+
+    assert.deepEqual(calls.slice(1), [
+        ['exit-selection', true],
+        'continue'
+    ]);
+    assert.equal(app.timelineSelectionActive, false);
 });
 
 test('Controller tema mantiene separati tema persistente e toggle temporaneo', () => {

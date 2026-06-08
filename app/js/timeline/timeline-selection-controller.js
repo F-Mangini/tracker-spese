@@ -403,6 +403,29 @@ const TimelineSelectionController = (() => {
         ];
     }
 
+    function afterFilterPanelClosed(options = {}, callback = noop) {
+        if (typeof options.closeFiltersForSelectionAction !== 'function') {
+            callback();
+            return false;
+        }
+
+        const deferred = options.closeFiltersForSelectionAction(callback);
+        if (!deferred) callback();
+        return !!deferred;
+    }
+
+    function openExportChoices(options = {}, selected = []) {
+        if (typeof options.openCustomExportModal === 'function') {
+            options.openCustomExportModal();
+            return;
+        }
+
+        (options.showChoices || noop)(
+            `Esportare ${selected.length} spese selezionate?`,
+            getExportChoices(options)
+        );
+    }
+
     function showExportChoices(options = {}) {
         const selected = getSelectedSpese(options);
         if (selected.length === 0) {
@@ -410,15 +433,7 @@ const TimelineSelectionController = (() => {
             return false;
         }
 
-        if (typeof options.openCustomExportModal === 'function') {
-            options.openCustomExportModal();
-            return true;
-        }
-
-        (options.showChoices || noop)(
-            `Esportare ${selected.length} spese selezionate?`,
-            getExportChoices(options)
-        );
+        afterFilterPanelClosed(options, () => openExportChoices(options, selected));
 
         return true;
     }
@@ -530,13 +545,7 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
-    function showDeleteConfirm(options = {}) {
-        const selected = getSelectedSpese(options);
-        if (selected.length === 0) {
-            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
-            return false;
-        }
-
+    function openDeleteConfirm(options = {}, selected = []) {
         setDeletePending(options, true);
         (options.renderTimeline || noop)();
 
@@ -555,6 +564,16 @@ const TimelineSelectionController = (() => {
                 }
             ]
         );
+    }
+
+    function showDeleteConfirm(options = {}) {
+        const selected = getSelectedSpese(options);
+        if (selected.length === 0) {
+            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
+            return false;
+        }
+
+        afterFilterPanelClosed(options, () => openDeleteConfirm(options, selected));
 
         return true;
     }

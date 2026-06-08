@@ -547,15 +547,34 @@ const SettingsController = (() => {
         }
     }
 
-    function closeExportModal(options = {}, fromPopstate = false) {
+    function shouldExitSelectionAfterExportClose(options = {}, wasOpen, config = {}) {
+        if (!wasOpen || config.preserveSelection) return false;
+        if (typeof options.getCurrentPage !== 'function' || options.getCurrentPage() !== 'settings') {
+            return false;
+        }
+        if (typeof options.isTimelineSelectionActive === 'function' && !options.isTimelineSelectionActive()) {
+            return false;
+        }
+
+        return typeof options.exitTimelineSelection === 'function';
+    }
+
+    function closeExportModal(options = {}, fromPopstate = false, config = {}) {
         const modal = getExportModal(options);
         if (!modal) return;
 
         const wasOpen = !modal.classList.contains('hidden');
+        const shouldExitSelection = shouldExitSelectionAfterExportClose(options, wasOpen, config);
         modal.classList.add('hidden');
         clearExportMemoryBase(modal);
 
+        if (shouldExitSelection) {
+            options.exitTimelineSelection(true);
+        }
+
         if (wasOpen && !fromPopstate && typeof options.consumeUiState === 'function') {
+            options.consumeUiState(shouldExitSelection ? 2 : 1);
+        } else if (wasOpen && fromPopstate && shouldExitSelection && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
         }
     }
@@ -713,7 +732,7 @@ const SettingsController = (() => {
             });
         }
 
-        closeExportModal(options, true);
+        closeExportModal(options, true, { preserveSelection: true });
 
         if (typeof options.navigateToTimeline === 'function') {
             options.navigateToTimeline();

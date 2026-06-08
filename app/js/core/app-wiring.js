@@ -255,6 +255,24 @@ const AppWiring = (() => {
                 syncTimelineSelectionHeader: () => deps.TimelineSelectionController.syncHeader(
                     timelineSelectionOptions()
                 ),
+                shouldConfirmSettingsNavigation: () => app.timelineSelectionActive,
+                confirmSettingsNavigation: continueNavigation => deps.ConfirmController.showChoices({
+                    ...confirmOptions(),
+                    message: 'Uscire da Selezione?',
+                    choices: [
+                        { text: 'Annulla', className: 'btn-secondary' },
+                        {
+                            text: 'Esci',
+                            className: 'btn-primary',
+                            onClick: () => {
+                                deps.TimelineSelectionController.exit(timelineSelectionOptions(), true);
+                                if (typeof continueNavigation === 'function') {
+                                    continueNavigation();
+                                }
+                            }
+                        }
+                    ]
+                }),
                 renderTimeline: () => app.renderTimeline(),
                 renderStats: () => app.renderStats(),
                 renderSettings: () => app.renderSettings(),
@@ -457,6 +475,17 @@ const AppWiring = (() => {
                         keepCurrentSelection: true
                     });
                 },
+                closeFiltersForSelectionAction: continueAction => {
+                    if (!app.filterOpen) return false;
+
+                    deps.FilterController.closeFilterPanel(filterOptions());
+                    deps.setTimeout(() => {
+                        deps.setTimeout(() => {
+                            if (typeof continueAction === 'function') continueAction();
+                        }, 0);
+                    }, 0);
+                    return true;
+                },
                 navigatorLike: deps.window.navigator,
                 showToast: (message, type) => app.showToast(message, type),
                 showChoices: (message, choices) => deps.ConfirmController.showChoices({
@@ -631,6 +660,11 @@ const AppWiring = (() => {
                 beginExportSelection: config => deps.TimelineSelectionController.beginExportSelection(
                     timelineSelectionOptions(),
                     config
+                ),
+                isTimelineSelectionActive: () => app.timelineSelectionActive,
+                exitTimelineSelection: fromPopstate => deps.TimelineSelectionController.exit(
+                    timelineSelectionOptions(),
+                    fromPopstate
                 ),
                 navigateToTimeline: () => {
                     consumeUiState(app.currentPage === 'timeline' ? 1 : 2);

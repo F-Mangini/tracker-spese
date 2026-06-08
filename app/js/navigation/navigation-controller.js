@@ -164,8 +164,27 @@ const NavigationController = (() => {
         return action;
     }
 
-    function navigateTo(options = {}, page, fromPopstate = false) {
+    function shouldConfirmSettingsNavigation(options = {}, page, fromPopstate = false, config = {}) {
+        if (config.skipSelectionConfirm) return false;
+        if (fromPopstate || page !== 'settings') return false;
+        if (page === getCurrentPage(options)) return false;
+
+        return typeof options.shouldConfirmSettingsNavigation === 'function' &&
+            options.shouldConfirmSettingsNavigation(page);
+    }
+
+    function navigateTo(options = {}, page, fromPopstate = false, config = {}) {
         if (!page) return null;
+
+        if (shouldConfirmSettingsNavigation(options, page, fromPopstate, config)) {
+            if (typeof options.confirmSettingsNavigation === 'function') {
+                options.confirmSettingsNavigation(() => navigateTo(options, page, fromPopstate, {
+                    ...config,
+                    skipSelectionConfirm: true
+                }));
+            }
+            return null;
+        }
 
         rememberCurrentPageScroll(options);
         const action = updateNavigationHistory(options, page, fromPopstate);

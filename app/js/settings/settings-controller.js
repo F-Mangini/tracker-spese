@@ -176,6 +176,11 @@ const SettingsController = (() => {
             leftIds.every((id, index) => id === rightIds[index]);
     }
 
+    function selectionContainsAll(currentIds = [], requiredIds = []) {
+        const current = new Set(normalizeSelectionIds(currentIds));
+        return normalizeSelectionIds(requiredIds).every(id => current.has(id));
+    }
+
     function areSameFilterSnapshots(left = {}, right = {}) {
         if (!SettingsActions || typeof SettingsActions.normalizeFilterSnapshot !== 'function') {
             return false;
@@ -231,7 +236,7 @@ const SettingsController = (() => {
             lastSelectionIds,
             lastFilterIds,
             lastSelectionActive: hasLastExport && areSameSelection(currentIds, lastSelectionIds),
-            lastFiltersActive: lastFiltersMatch && areSameSelection(currentIds, lastFilterIds),
+            lastFiltersActive: lastFiltersMatch && selectionContainsAll(currentIds, lastFilterIds),
             lastSelectionCount: lastSelectionIds.length,
             lastFiltersCount: lastFilterIds.length
         };
@@ -262,9 +267,12 @@ const SettingsController = (() => {
         const modal = getExportModal(options);
         if (!modal || typeof modal.querySelector !== 'function') return;
 
+        const model = getExportModalModel(options);
+        syncExportMemoryBaseState(modal, model.memory);
+
         const body = modal.querySelector('#export-modal-body');
         if (body) {
-            body.innerHTML = SettingsView.renderExportModal(getExportModalModel(options));
+            body.innerHTML = SettingsView.renderExportModal(model);
         }
 
         const filterBtn = modal.querySelector('#btn-export-filters');
@@ -282,6 +290,8 @@ const SettingsController = (() => {
     function clearExportMemoryBase(modal) {
         if (!modal || !modal.dataset) return;
         delete modal.dataset.exportToggleBaseSelection;
+        delete modal.dataset.exportToggleBaseFilterSelection;
+        delete modal.dataset.exportToggleBaseFilters;
     }
 
     function readExportMemoryBase(modal) {
@@ -299,6 +309,60 @@ const SettingsController = (() => {
     function writeExportMemoryBase(modal, selectedIds) {
         if (!modal || !modal.dataset) return;
         modal.dataset.exportToggleBaseSelection = JSON.stringify(normalizeSelectionIds(selectedIds));
+    }
+
+    function clearExportFilterMemoryBase(modal) {
+        if (!modal || !modal.dataset) return;
+        delete modal.dataset.exportToggleBaseFilterSelection;
+        delete modal.dataset.exportToggleBaseFilters;
+    }
+
+    function readExportFilterSelectionBase(modal) {
+        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseFilterSelection) {
+            return null;
+        }
+
+        try {
+            return normalizeSelectionIds(JSON.parse(modal.dataset.exportToggleBaseFilterSelection));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function readExportFilterSnapshotBase(modal) {
+        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseFilters) {
+            return null;
+        }
+
+        try {
+            return SettingsActions.normalizeFilterSnapshot(JSON.parse(modal.dataset.exportToggleBaseFilters));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writeExportFilterMemoryBase(modal, selectedIds, filters) {
+        if (!modal || !modal.dataset) return;
+        modal.dataset.exportToggleBaseFilterSelection = JSON.stringify(normalizeSelectionIds(selectedIds));
+        modal.dataset.exportToggleBaseFilters = JSON.stringify(
+            SettingsActions.normalizeFilterSnapshot(filters)
+        );
+    }
+
+    function syncExportMemoryBaseState(modal, memory = {}) {
+        if (!modal || !modal.dataset) return;
+
+        if (modal.dataset.exportToggleBaseFilterSelection && !memory.lastFiltersActive) {
+            clearExportFilterMemoryBase(modal);
+        }
+
+        if (
+            modal.dataset.exportToggleBaseSelection &&
+            !memory.lastSelectionActive &&
+            !memory.lastFiltersActive
+        ) {
+            delete modal.dataset.exportToggleBaseSelection;
+        }
     }
 
     function applyExportSelection(selectedIds, options = {}) {
@@ -328,16 +392,37 @@ const SettingsController = (() => {
         if (!memory.hasLastExport) return;
 
         if (isActive) {
+            if (selectingLastFilters) {
+                const baseIds = readExportFilterSelectionBase(modal);
+                const baseFilters = readExportFilterSnapshotBase(modal);
+
+                if (baseFilters && typeof options.applyExportFilters === 'function') {
+                    options.applyExportFilters(baseFilters, baseIds || []);
+                }
+
+                if (baseIds) {
+                    applyExportSelection(baseIds, options);
+                }
+
+                clearExportFilterMemoryBase(modal);
+                renderExportModal(options);
+                return;
+            }
+
             const baseIds = readExportMemoryBase(modal);
             if (baseIds) {
                 applyExportSelection(baseIds, options);
             }
-            clearExportMemoryBase(modal);
+            if (modal && modal.dataset) {
+                delete modal.dataset.exportToggleBaseSelection;
+            }
             renderExportModal(options);
             return;
         }
 
-        if (!readExportMemoryBase(modal)) {
+        if (selectingLastFilters) {
+            writeExportFilterMemoryBase(modal, memory.currentIds, getCurrentFilterSnapshot(options));
+        } else if (!readExportMemoryBase(modal)) {
             writeExportMemoryBase(modal, memory.currentIds);
         }
 
@@ -423,8 +508,21 @@ const SettingsController = (() => {
         const modal = getExportModal(options);
         if (!modal) return;
 
-        initializeExportModalSelection(options, config);
         clearExportMemoryBase(modal);
+        const baseIds = getCurrentSelectedIds(options);
+        const baseFilters = getCurrentFilterSnapshot(options);
+        const initState = initializeExportModalSelection(options, config);
+
+        if (initState.restoredLastExport) {
+            const memory = getExportMemoryState(options);
+            if (memory.lastSelectionActive) {
+                writeExportMemoryBase(modal, baseIds);
+            }
+            if (memory.lastFiltersActive) {
+                writeExportFilterMemoryBase(modal, baseIds, baseFilters);
+            }
+        }
+
         renderExportModal(options);
 
         const wasOpen = !modal.classList.contains('hidden');

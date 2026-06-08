@@ -2118,18 +2118,27 @@ body.expense-input-active #input-bar {
     overflow: hidden;
 }
 
-.form-group .export-check-row {
+.form-group label.export-check-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 9px 14px;
     background: #ffffff;
-    color: #1a1a2e;
+    color: var(--text-primary);
     font-size: 0.9rem;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: 0;
+    line-height: 18px;
+    font-weight: 400;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
     min-height: 42px;
+    margin-bottom: 0;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.form-group label.export-check-row span {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
 }
 
 .export-check-row + .export-check-row {

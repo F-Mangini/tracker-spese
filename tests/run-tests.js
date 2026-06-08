@@ -5504,7 +5504,20 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         getTimelineSelectedIds: () => currentIds,
         getCurrentFilters: () => currentFilters,
         getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
-        getFilteredIdsForExportFilters: () => ['a', 'c'],
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            return spese
+                .filter(spesa => {
+                    const query = snapshot.query.toLowerCase();
+                    const matchesQuery = !query || String(spesa.descrizione || '').toLowerCase().includes(query);
+                    const matchesCategory = snapshot.categories.length === 0 || snapshot.categories.includes(spesa.categoria);
+                    const matchesMethod = snapshot.methods.length === 0 || snapshot.methods.includes(spesa.metodo);
+                    const matchesMin = spesa.importo >= snapshot.amountMin;
+                    const matchesMax = snapshot.amountMax === Infinity || spesa.importo <= snapshot.amountMax;
+                    return matchesQuery && matchesCategory && matchesMethod && matchesMin && matchesMax;
+                })
+                .map(spesa => spesa.id);
+        },
         applyExportFilters(filters, selectedIds) {
             currentFilters = { ...filters };
             calls.push(['apply-filters', filters, selectedIds]);
@@ -5562,6 +5575,30 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentIds, ['a', 'b']);
+    assert.deepEqual(currentFilters, {
+        query: '',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: '', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'b']
+    ]);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseFilterSelection, undefined);
+    assert.equal(modal.dataset.exportToggleBaseFilters, undefined);
+
+    clickHandler({ target: { id: 'export-toggle-last-selection' } });
     assert.deepEqual(currentIds, ['manual']);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
@@ -5605,7 +5642,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         'begin-selection',
         { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
     ]);
-    assert.equal(modal.dataset.exportToggleBaseSelection, '["a","c"]');
+    assert.equal(modal.dataset.exportToggleBaseFilterSelection, '["a","c"]');
 
     clickHandler({ target: { id: 'btn-export-filters' } });
     assert.deepEqual(calls.slice(-2), [
@@ -5615,10 +5652,58 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
 
     SettingsActions.saveExportPreferences(localStorage, storage, {
         lastExport: {
+            selectedIds: ['manual'],
+            filters: {}
+        }
+    });
+    currentIds = ['manual'];
+    currentFilters = {
+        query: 'latte',
+        categories: ['bar'],
+        methods: ['carta'],
+        amountMin: 1,
+        amountMax: 5,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    };
+    SettingsController.openExportModal(options, { keepCurrentSelection: true });
+    assert(!body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentFilters, {
+        query: '',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['a', 'b', 'c', 'manual']);
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentFilters, {
+        query: 'latte',
+        categories: ['bar'],
+        methods: ['carta'],
+        amountMin: 1,
+        amountMax: 5,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['manual']);
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
             selectedIds: ['a', 'c'],
             filters: { query: 'pane' }
         }
     });
+    currentFilters = SettingsActions.normalizeFilterSnapshot({ query: 'pane' });
     clickHandler({ target: { id: 'export-toggle-last-selection' } });
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.equal(

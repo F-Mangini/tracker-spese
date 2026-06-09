@@ -77,9 +77,13 @@ const ExpenseSubmitController = (() => {
 
         const category = getCategoryForToast(options, spesa);
         const prefix = category.emoji ? `${category.emoji} ` : '';
+        const ui = getUi(options);
+        const amountText = ui && typeof ui.money === 'function'
+            ? ui.money(spesa.importo)
+            : `\u20ac${spesa.importo.toFixed(2)}`;
         call(
             options.showToast,
-            `${prefix}${spesa.descrizione} \u00b7 \u20ac${spesa.importo.toFixed(2)}`,
+            `${prefix}${spesa.descrizione} \u00b7 ${amountText}`,
             'success'
         );
 

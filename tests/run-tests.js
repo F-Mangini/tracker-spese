@@ -908,11 +908,11 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
 });
 
 test('Controller submit input rapido pulisce input e aggiorna viste dopo salvataggio', () => {
-    const { ExpenseSubmitController } = loadUiViews();
+    const { ExpenseSubmitController, AppUI } = loadUiViews();
     const calls = [];
     let newCardId = null;
     const input = {
-        value: 'caffe 1.50',
+        value: 'caffe 120.49',
         blurred: false,
         blur() {
             this.blurred = true;
@@ -933,7 +933,7 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
     const savedExpense = expense({
         id: 'new-expense',
         descrizione: 'Caffe',
-        importo: 1.5,
+        importo: 120.49,
         categoria: 'bar'
     });
 
@@ -951,7 +951,8 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
         ui: {
             getCategory(id, categories) {
                 return categories.find(category => category.id === id);
-            }
+            },
+            money: AppUI.money
         },
         setNewCardId: id => { newCardId = id; },
         refreshAfterAdd: () => calls.push('refresh'),
@@ -963,10 +964,10 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
     assert.equal(input.blurred, true);
     assert.equal(newCardId, 'new-expense');
     assert(calls.includes('refresh'));
-    assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'add'), ['add', 'caffe 1.50']);
+    assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'add'), ['add', 'caffe 120.49']);
     assert.deepEqual(
         calls.find(call => Array.isArray(call) && call[0] === 'toast'),
-        ['toast', 'B Caffe \u00b7 \u20ac1.50', 'success']
+        ['toast', 'B Caffe \u00b7 \u20ac120', 'success']
     );
 });
 
@@ -1488,7 +1489,12 @@ test('Helper UI normalizzano importi e formattano denaro senza DOM', () => {
 
     assert.equal(AppUI.parseAmountInput('€1,50'), 1.5);
     assert.equal(AppUI.parseAmountInput('1.234,56 euro'), 1234.56);
-    assert.equal(AppUI.money(3), '€3.00');
+    assert.equal(AppUI.money(3), '€3');
+    assert.equal(AppUI.money(27.00), '€27');
+    assert.equal(AppUI.money(3.5), '€3.50');
+    assert.equal(AppUI.money(51.34), '€51.34');
+    assert.equal(AppUI.money(132.49), '€132');
+    assert.equal(AppUI.money(132.59), '€133');
 });
 
 test('Controller download isola link temporaneo e revoca URL senza App', () => {
@@ -1566,7 +1572,7 @@ test('Vista filtri calcola slider e footer riepilogo', () => {
     assert.equal(FilterView.getSliderMax(spese), 500);
     assert.equal(
         FilterView.renderFooterInfo({ activeCount: 1, filtered: spese }),
-        '1 filtro · 2 spese · €124.00'
+        '1 filtro · 2 spese · €124'
     );
 });
 
@@ -3012,6 +3018,17 @@ test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
     assert.deepEqual(bar.data.datasets[0].data, [10, 0]);
     assert.deepEqual(bar.data.datasets[0].backgroundColor, ['#10b981cc', '#10b98133']);
     assert.equal(bar.options.scales.y.grid.color, '#dddddd');
+    assert.equal(
+        doughnut.options.plugins.tooltip.callbacks.label({
+            parsed: 132.59,
+            dataset: { data: [132.59] }
+        }),
+        ' €133 (100.0%)'
+    );
+    assert.equal(
+        bar.options.plugins.tooltip.callbacks.label({ parsed: { y: 51.34 } }),
+        ' €51.34'
+    );
 });
 
 test('Controller statistiche riusa modello precomputato', () => {

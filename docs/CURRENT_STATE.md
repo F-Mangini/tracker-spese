@@ -60,6 +60,8 @@ Una spesa contiene normalmente:
 
 `data/storage.js` normalizza letture e import: importi numerici, date valide, tag senza `#`, impostazioni con fallback e id duplicati rigenerati. Le scritture ritornano risultati espliciti `{ success, ... }`.
 
+Gli importi vengono salvati come numeri ma visualizzati con una regola compatta: senza centesimi quando l'importo e intero, con due decimali sotto 100 quando servono, e arrotondati all'intero piu vicino da 100 in su.
+
 Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccati per evitare perdita dati silenziosa. La pagina impostazioni permette l'export del raw.
 
 La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.

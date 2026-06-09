@@ -454,13 +454,13 @@ const SettingsController = (() => {
     function initializeExportModalSelection(options = {}, config = {}) {
         const prefs = getExportPreferences(options);
         const lastExport = prefs.lastExport;
-        const lastSelectedIds = lastExport && Array.isArray(lastExport.selectedIds)
-            ? lastExport.selectedIds
+        const lastFilterIds = lastExport
+            ? getLastExportFilteredIds(prefs, options)
             : [];
         const selectedIds = config.keepCurrentSelection
             ? getCurrentSelectedIds(options)
             : lastExport
-            ? lastSelectedIds
+            ? lastFilterIds
             : getAllExpenseIds(options);
 
         if (config.keepCurrentSelection) {
@@ -719,16 +719,11 @@ const SettingsController = (() => {
     function openExportFilters(options = {}) {
         const prefs = persistExportModalDraft(options);
         const currentSelectedIds = getCurrentSelectedIds(options);
-        const lastSelectedIds = prefs.lastExport && Array.isArray(prefs.lastExport.selectedIds)
-            ? prefs.lastExport.selectedIds
-            : [];
-        const hasLastExport = !!prefs.lastExport;
-        const selectedIds = currentSelectedIds.length > 0 ? currentSelectedIds : lastSelectedIds;
 
         if (typeof options.beginExportSelection === 'function') {
             options.beginExportSelection({
-                selectedIds,
-                selectFilteredWhenEmpty: !hasLastExport && selectedIds.length === 0
+                selectedIds: currentSelectedIds,
+                selectFilteredWhenEmpty: false
             });
         }
 

@@ -200,7 +200,7 @@ const SettingsView = (() => {
                 <p class="settings-hint">Scarica un backup JSON o nel formato che preferisci.</p>
                 <div class="settings-buttons">
                     <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
-                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Esporta</button>
+                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Custom</button>
                 </div>
                 <h3 class="settings-import-title">\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>

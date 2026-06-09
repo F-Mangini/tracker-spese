@@ -4319,7 +4319,7 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(page.includes('Importa Dati'));
     assert(page.includes('btn-export-default'));
     assert(page.includes('btn-export-custom'));
-    assert(page.includes('>Esporta</button>'));
+    assert(page.includes('>Custom</button>'));
     assert(page.includes('btn-import'));
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
@@ -5140,7 +5140,7 @@ test('Controller impostazioni collega finestra export a history e selezione time
         filterOptions.storage
     );
     assert.deepEqual(calls.slice(-2), [
-        ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: true }],
+        ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: false }],
         ['navigate-timeline']
     ]);
     assert.equal(savedPrefs.selectionInitialized, false);
@@ -5222,6 +5222,94 @@ test('Controller impostazioni chiudendo export dalle impostazioni esce dalla sel
         ['begin-export-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
+});
+
+test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const classes = new Set(['hidden']);
+    const body = { innerHTML: '' };
+    const filterBtn = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane' }),
+        expense({ id: 'b', descrizione: 'Latte' }),
+        expense({ id: 'c', descrizione: 'Pane integrale' })
+    ];
+    const calls = [];
+    let currentIds = ['b'];
+    let currentFilters = { query: '' };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
+        getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            const query = snapshot.query.toLowerCase();
+            return spese
+                .filter(spesa => !query || String(spesa.descrizione || '').toLowerCase().includes(query))
+                .map(spesa => spesa.id);
+        },
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = SettingsActions.normalizeFilterSnapshot(filters);
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection(config) {
+            currentIds = config.selectedIds.slice();
+            calls.push(['begin-selection', config]);
+        },
+        countActiveFilters: () => 1,
+        pushUiState: state => calls.push(['push', state])
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['b'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    SettingsController.openExportModal(options);
+
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(calls, [
+        ['apply-filters', { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+    assert(body.innerHTML.includes('2 spese selezionate'));
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 });
 
 test('Controller impostazioni ricorda solo ultimo export custom riuscito', () => {
@@ -5336,14 +5424,15 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
         getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' }), expense({ id: 'c' })],
         getSelectedSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
         countActiveFilters: () => 5,
+        getFilteredIdsForExportFilters: () => ['a', 'c'],
         applyExportFilters: (filters, selectedIds) => reopenCalls.push(['apply-filters', filters, selectedIds]),
         beginExportSelection: config => reopenCalls.push(['begin-selection', config]),
         pushUiState: state => reopenCalls.push(['push', state])
     });
 
     assert.deepEqual(reopenCalls, [
-        ['apply-filters', savedAfterExport.lastExport.filters, ['a', 'b']],
-        ['begin-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['apply-filters', savedAfterExport.lastExport.filters, ['a', 'c']],
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
     assert(filterBtn.innerHTML.includes('filter-badge'));

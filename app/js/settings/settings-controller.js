@@ -714,6 +714,19 @@ const SettingsController = (() => {
         const spec = result.download;
         options.download(spec.content, spec.filename, spec.mime);
         options.showToast(spec.toast, 'info');
+
+        const currentPage = typeof options.getCurrentPage === 'function'
+            ? options.getCurrentPage()
+            : '';
+        closeExportModal(options);
+        if (
+            currentPage !== 'settings' &&
+            typeof options.isTimelineSelectionActive === 'function' &&
+            options.isTimelineSelectionActive() &&
+            typeof options.exitTimelineSelection === 'function'
+        ) {
+            options.exitTimelineSelection(false);
+        }
     }
 
     function openExportFilters(options = {}) {

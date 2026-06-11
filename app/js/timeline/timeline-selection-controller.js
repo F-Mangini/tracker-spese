@@ -113,6 +113,18 @@ const TimelineSelectionController = (() => {
         (options.renderTimeline || noop)();
     }
 
+    function rememberFiltersBeforeSelection(options = {}, wasActive = isActive(options)) {
+        if (wasActive || typeof options.rememberFiltersBeforeSelection !== 'function') return;
+
+        options.rememberFiltersBeforeSelection();
+    }
+
+    function restoreFiltersAfterSelection(options = {}) {
+        if (typeof options.restoreFiltersAfterSelection === 'function') {
+            options.restoreFiltersAfterSelection();
+        }
+    }
+
     function getSelectedSpese(options = {}, spese = null) {
         const ids = getSelectedIds(options);
         const list = Array.isArray(spese) ? spese : getAllSpese(options);
@@ -272,6 +284,7 @@ const TimelineSelectionController = (() => {
 
         if (id) ids.add(id);
 
+        rememberFiltersBeforeSelection(options, wasActive);
         setActive(options, true);
         setSelectedIds(options, ids);
         setDeletePending(options, false);
@@ -294,11 +307,12 @@ const TimelineSelectionController = (() => {
         if (typeof options.setSelectedOnlyFilter === 'function') {
             options.setSelectedOnlyFilter(false);
         }
+        restoreFiltersAfterSelection(options);
         syncHeader(options, { active: false, selectedCount: 0, visibleCount: 0 });
         notifySelectionChanged(options);
 
         if (!fromPopstate && typeof options.consumeUiState === 'function') {
-            options.consumeUiState();
+            options.consumeUiState(1);
         }
 
         return true;
@@ -332,6 +346,7 @@ const TimelineSelectionController = (() => {
         const shouldDeselectVisible = visibleIds.length > 0 && visibleIds.every(id => ids.has(id));
 
         if (!isActive(options)) {
+            rememberFiltersBeforeSelection(options, false);
             setActive(options, true);
             if (typeof options.pushUiState === 'function') {
                 options.pushUiState({ panel: 'timeline-selection' });
@@ -368,6 +383,7 @@ const TimelineSelectionController = (() => {
             : new Set(visibleIds);
         const wasActive = isActive(options);
 
+        rememberFiltersBeforeSelection(options, wasActive);
         setActive(options, true);
         setSelectedIds(options, nextIds);
         setDeletePending(options, false);
@@ -603,9 +619,10 @@ const TimelineSelectionController = (() => {
             options.setSelectedOnlyFilter(false);
         }
         if (wasActive && typeof options.consumeUiState === 'function') {
-            options.consumeUiState();
+            options.consumeUiState(1);
         }
         (options.refreshAfterDataChange || noop)();
+        restoreFiltersAfterSelection(options);
         syncHeader(options, { active: false, selectedCount: 0, visibleCount: 0 });
         (options.showToast || noop)(`${result.count} spese eliminate`, 'info');
         return true;

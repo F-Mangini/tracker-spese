@@ -32,6 +32,7 @@ const AppState = (() => {
             timelineSelectionActive: false,
             timelineSelectedIds: new Set(),
             timelineSelectionDeletePending: false,
+            timelineSelectionBaseFilters: null,
 
             statsPeriod: 'month',
             statsOffset: 0,

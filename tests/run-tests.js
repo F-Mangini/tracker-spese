@@ -2443,6 +2443,83 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert(calls.includes('refresh'));
 });
 
+test('Controller selezione timeline ricorda e ripristina i filtri attorno alla selezione', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: false,
+        selectedIds: new Set(),
+        deletePending: false
+    };
+    const spese = [
+        expense({ id: 'a', importo: 2 }),
+        expense({ id: 'b', importo: 3 })
+    ];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        storage: {
+            deleteSpese(ids) {
+                calls.push(['delete-many', ids]);
+                return { success: true, count: ids.length };
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => { state.deletePending = value; },
+        pushUiState: payload => calls.push(['push', payload.panel]),
+        consumeUiState: steps => calls.push(['consume', steps]),
+        renderTimeline: () => calls.push('render'),
+        refreshAfterDataChange: () => calls.push('refresh'),
+        rememberFiltersBeforeSelection: () => calls.push('remember-filters'),
+        restoreFiltersAfterSelection: () => calls.push('restore-filters'),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    TimelineSelectionController.enter(options, 'a');
+    TimelineSelectionController.toggle(options, 'b');
+    TimelineSelectionController.exit(options);
+
+    assert.deepEqual(calls, [
+        'remember-filters',
+        ['push', 'timeline-selection'],
+        'render',
+        'render',
+        'restore-filters',
+        'render',
+        ['consume', 1]
+    ]);
+
+    calls.length = 0;
+    TimelineSelectionController.beginExportSelection(options, {
+        selectedIds: ['a'],
+        selectFilteredWhenEmpty: false
+    });
+    TimelineSelectionController.deleteSelected(options);
+
+    assert.deepEqual(calls, [
+        'remember-filters',
+        ['push', 'timeline-selection'],
+        'render',
+        ['delete-many', ['a']],
+        ['consume', 1],
+        'refresh',
+        'restore-filters',
+        ['toast', 'info', '1 spese eliminate']
+    ]);
+});
+
 test('Controller selezione chiude i filtri prima di export ed eliminazione', () => {
     const { TimelineSelectionController } = loadUiViews();
     const calls = [];
@@ -5495,6 +5572,77 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
     assert(timelineBody.innerHTML.includes('1 spesa selezionata'));
 });
 
+test('Controller impostazioni dopo export custom chiude modale ed esce dalla selezione', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    let clickHandler = null;
+    let selectionActive = true;
+    const classes = new Set();
+    const storage = {
+        KEY: 'spese-test',
+        exportJSON(options) {
+            calls.push(['export-json', options.spese.map(spesa => spesa.id)]);
+            return { success: true, content: '{"ok":true}', count: options.spese.length };
+        }
+    };
+    const fields = {
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: false },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage: createLocalStorage(),
+        getCurrentPage: () => 'timeline',
+        getTimelineSelectedIds: () => new Set(['a']),
+        getSelectedSpese: () => [expense({ id: 'a' })],
+        getCurrentFilters: () => ({ query: '' }),
+        isTimelineSelectionActive: () => selectionActive,
+        exitTimelineSelection: fromPopstate => {
+            selectionActive = false;
+            calls.push(['exit-selection', fromPopstate]);
+        },
+        consumeUiState: steps => calls.push(['consume', steps]),
+        dateStamp: () => '2026-06-11',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    SettingsController.bindExportModal(options);
+    clickHandler({ target: { id: 'btn-export-run' } });
+
+    assert.equal(classes.has('hidden'), true);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls, [
+        ['export-json', ['a']],
+        ['download', 'spese_export_2026-06-11.json', 'application/json', '{"ok":true}'],
+        ['toast', 'info', 'Export JSON custom avviato...'],
+        ['consume', 1],
+        ['exit-selection', false]
+    ]);
+});
+
 test('Controller impostazioni gestisce dropdown formato e ripristino contenuti dopo CSV', () => {
     const { SettingsController, SettingsActions } = loadUiViews();
     const localStorage = createLocalStorage();
@@ -6787,6 +6935,83 @@ test('Wiring app chiude il pannello filtri prima delle azioni selezione', () => 
         'continue'
     ]);
     assert.equal(continued, 1);
+});
+
+test('Wiring app ripristina i filtri precedenti quando termina la selezione', () => {
+    const { AppWiring, AppState, TimelineSelectionController, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    const app = {
+        ...AppState.create(),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'pane';
+    app.filters.categories = new Set(['alimentari']);
+    app.filters.methods = new Set(['carta']);
+    app.filters.amountMin = 2;
+    app.filters.amountMax = 20;
+    app.filters.dateFrom = '2026-06-01';
+    app.filters.dateTo = '2026-06-10';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action) {
+                historyActions.push(action);
+                return true;
+            }
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        },
+        ExpenseStore: {
+            getSpese: () => [
+                expense({ id: 'a', descrizione: 'Pane', categoria: 'alimentari', metodo: 'carta', importo: 5, data: '2026-06-05T10:00:00' }),
+                expense({ id: 'b', descrizione: 'Bus', categoria: 'trasporti', metodo: 'contanti', importo: 3, data: '2026-06-05T10:00:00' })
+            ]
+        }
+    });
+    const options = wiring.timelineSelectionOptions();
+
+    TimelineSelectionController.enter(options, 'a');
+    app.filters.query = 'bus';
+    app.filters.categories = new Set(['trasporti']);
+    app.filters.methods = new Set(['contanti']);
+    app.filters.amountMin = 0;
+    app.filters.amountMax = 10;
+    app.filters.dateFrom = '';
+    app.filters.dateTo = '';
+
+    TimelineSelectionController.exit(options);
+
+    assert.equal(app.filters.query, 'pane');
+    assert.deepEqual(Array.from(app.filters.categories), ['alimentari']);
+    assert.deepEqual(Array.from(app.filters.methods), ['carta']);
+    assert.equal(app.filters.amountMin, 2);
+    assert.equal(app.filters.amountMax, 20);
+    assert.equal(app.filters.dateFrom, '2026-06-01');
+    assert.equal(app.filters.dateTo, '2026-06-10');
+    assert.equal(app.filters.selectedOnly, false);
+    assert.equal(app.timelineSelectionBaseFilters, null);
+    assert.deepEqual(
+        historyActions.map(action => action.type),
+        [
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.BACK
+        ]
+    );
 });
 
 test('Wiring app chiede conferma prima delle impostazioni con selezione attiva', () => {

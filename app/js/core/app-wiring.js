@@ -227,6 +227,37 @@ const AppWiring = (() => {
             syncFiltersAndViews();
         }
 
+        function createCurrentFilterSnapshot() {
+            if (deps.SettingsActions && typeof deps.SettingsActions.createExportFilterSnapshot === 'function') {
+                return deps.SettingsActions.createExportFilterSnapshot(app.filters);
+            }
+
+            return {
+                query: app.filters.query || '',
+                categories: Array.from(app.filters.categories || []),
+                methods: Array.from(app.filters.methods || []),
+                amountMin: Number(app.filters.amountMin || 0),
+                amountMax: app.filters.amountMax === Infinity ? Infinity : Number(app.filters.amountMax),
+                dateFrom: app.filters.dateFrom || '',
+                dateTo: app.filters.dateTo || '',
+                selectedOnly: !!app.filters.selectedOnly
+            };
+        }
+
+        function rememberFiltersBeforeSelection() {
+            if (app.timelineSelectionActive || app.timelineSelectionBaseFilters) return;
+
+            app.timelineSelectionBaseFilters = createCurrentFilterSnapshot();
+        }
+
+        function restoreFiltersAfterSelection() {
+            const snapshot = app.timelineSelectionBaseFilters;
+            app.timelineSelectionBaseFilters = null;
+            if (!snapshot) return;
+
+            applyFilterSnapshot(snapshot, []);
+        }
+
         function themeOptions() {
             return {
                 storage: deps.Storage,
@@ -454,8 +485,10 @@ const AppWiring = (() => {
                     app.filters.selectedOnly = !!value;
                     app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
                 },
+                rememberFiltersBeforeSelection,
+                restoreFiltersAfterSelection,
                 pushUiState,
-                consumeUiState: () => consumeUiState(),
+                consumeUiState: steps => consumeUiState(steps),
                 renderTimeline: () => app.renderTimeline(),
                 onSelectionChange: () => syncFiltersAndViews(),
                 refreshAfterDataChange: () => app.refreshExpenseViews({

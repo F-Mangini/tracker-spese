@@ -138,12 +138,28 @@ const AppWiring = (() => {
             return {
                 stack: deps.UIStack,
                 history: deps.history,
-                setSuppressPopstate: value => { app._suppressNextPopstate = value; }
+                setSuppressPopstate
             };
         }
 
         function runHistoryAction(action) {
             return deps.HistoryController.run(action, historyOptions());
+        }
+
+        function hasSuppressedPopstate() {
+            return !!app._suppressNextPopstate || Number(app._suppressPopstateCount || 0) > 0;
+        }
+
+        function setSuppressPopstate(value) {
+            if (value) {
+                app._suppressPopstateCount = Number(app._suppressPopstateCount || 0) + 1;
+            } else if (Number(app._suppressPopstateCount || 0) > 0) {
+                app._suppressPopstateCount -= 1;
+            } else {
+                app._suppressNextPopstate = false;
+            }
+
+            app._suppressNextPopstate = Number(app._suppressPopstateCount || 0) > 0;
         }
 
         function pushUiState(state) {
@@ -534,8 +550,8 @@ const AppWiring = (() => {
                 document: deps.document,
                 stack: deps.UIStack,
                 effects: deps.UIStackEffects,
-                getSuppressNextPopstate: () => app._suppressNextPopstate,
-                setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
+                getSuppressNextPopstate: hasSuppressedPopstate,
+                setSuppressNextPopstate: setSuppressPopstate,
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
                 closeConfirm: fromPopstate => {
                     const result = deps.ConfirmController.close({

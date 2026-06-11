@@ -50,6 +50,7 @@ const AppState = (() => {
 
             _modalInteractionActive: false,
             _suppressNextPopstate: false,
+            _suppressPopstateCount: 0,
             _suspendInteractionRelease: false,
             _keyboardWatchTimer: null,
             _expenseInputActive: false,

@@ -6584,6 +6584,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second._suppressPopstateCount, 0);
     assert.equal(second.timelineSelectionActive, false);
     assert.equal(second.timelineSelectedIds.size, 0);
     assert.equal(second.timelineSelectionDeletePending, false);
@@ -6886,6 +6887,67 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
         ['filter-badge', true],
         'settings'
     ]);
+});
+
+test('Wiring app sopprime tutti i popstate programmati prima di resettare i filtri', () => {
+    const { AppWiring, AppState, UIStackController } = loadUiViews();
+    const calls = [];
+    const app = {
+        ...AppState.create(),
+        _activeFiltersHistory: true,
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'caffe';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        FilterController: {
+            resetFilters() {
+                app.filters.query = '';
+                calls.push('reset-filters');
+            },
+            updateFilterBadge() {},
+            syncFilterUI() {}
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        }
+    });
+
+    wiring.consumeUiState();
+    wiring.consumeUiState();
+    assert.equal(app._suppressPopstateCount, 2);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, 'caffe');
+    assert.equal(app._suppressPopstateCount, 1);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, 'caffe');
+    assert.equal(app._suppressPopstateCount, 0);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, '');
+    assert.deepEqual(calls, ['reset-filters']);
 });
 
 test('Wiring app chiude il pannello filtri prima delle azioni selezione', () => {

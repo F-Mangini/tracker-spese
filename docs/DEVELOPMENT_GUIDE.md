@@ -19,7 +19,7 @@ Questa guida definisce come lavorare sul progetto durante manutenzione, hardenin
 - Non cambiare schema dati senza prevedere compatibilita o migrazione leggera.
 - Non rompere backup JSON esistenti.
 - Non forzare aggiornamenti automatici sulla release offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.
-- Ogni modifica UI mobile va verificata almeno su viewport stretta.
+- Ogni modifica UI mobile va verificata almeno su viewport stretta nel browser integrato quando disponibile. Usare come base `393x852`; per modifiche sensibili a layout, filtri, modali o bottom nav provare anche `360x800` e `412x915`.
 - Le soluzioni per tastiera, back button e scroll mobile vanno trattate con cautela: spesso sono workaround costruiti dopo bug reali.
 - Non sostituire automaticamente i `textarea` monoriga con `input`: in diversi punti sono usati per evitare suggerimenti/autofill invasivi della tastiera mobile.
 - Il toggle tema nell'header e temporaneo; il cambio persistente del tema appartiene alla pagina impostazioni.
@@ -133,3 +133,5 @@ node tests/run-tests.js
 ```
 
 Copre i moduli principali del refactor: storage, parser, filtri, statistiche, query/cache, refresh, input rapido, timeline, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo. I prossimi test ad alto valore riguardano history/back button reale, tastiera mobile su device e interazioni DOM complesse.
+
+Per verifiche UI locali usare prima il browser integrato, servendo la root del repository via HTTP e aprendo `http://127.0.0.1:<porta>/app/index.html`. Con viewport mobile il controllo e piu vicino all'uso Android quotidiano e deve includere almeno apertura filtri, navigazione tra Timeline/Statistiche/Impostazioni e controllo degli errori console. La simulazione viewport resta comunque diversa da Android reale: tastiera, autofill, dettatura, gesture di sistema, installazione PWA e offline vanno validati sul telefono prima di promuovere modifiche sensibili.

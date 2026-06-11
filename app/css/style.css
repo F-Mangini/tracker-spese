@@ -2114,7 +2114,7 @@ body.expense-input-active #input-bar {
     display: grid;
     border: 2px solid var(--border);
     border-radius: var(--radius-sm);
-    background: #ffffff;
+    background: var(--bg-input);
     overflow: hidden;
 }
 
@@ -2123,7 +2123,7 @@ body.expense-input-active #input-bar {
     align-items: center;
     gap: 10px;
     padding: 9px 14px;
-    background: #ffffff;
+    background: var(--bg-input);
     color: var(--text-primary);
     font-size: 0.9rem;
     line-height: 18px;

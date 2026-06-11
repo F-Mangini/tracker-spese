@@ -7014,6 +7014,103 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
     );
 });
 
+test('Wiring app conserva i filtri precedenti aprendo export custom dalle impostazioni', () => {
+    const { AppWiring, AppState, SettingsController, SettingsActions, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    const classes = new Set(['hidden']);
+    const body = { innerHTML: '' };
+    const filterBtn = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane', importo: 5 }),
+        expense({ id: 'b', descrizione: 'Latte', importo: 4 })
+    ];
+    const app = {
+        ...AppState.create(),
+        currentPage: 'settings',
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'latte';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById(id) {
+                if (id === 'export-modal-overlay') return modal;
+                if (id === 'settings-content') return {};
+                return null;
+            }
+        },
+        window: {
+            navigator: {},
+            localStorage
+        },
+        history: {},
+        Storage: storage,
+        HistoryController: {
+            run(action) {
+                historyActions.push(action);
+                return true;
+            }
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        },
+        ExpenseStore: {
+            getSpese: () => spese
+        }
+    });
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    const options = wiring.settingsOptions();
+    SettingsController.openExportModal(options);
+
+    assert.equal(app.timelineSelectionActive, true);
+    assert.equal(app.filters.query, 'pane');
+    assert.deepEqual(Array.from(app.timelineSelectedIds), ['a']);
+    assert.equal(app.timelineSelectionBaseFilters.query, 'latte');
+
+    SettingsController.closeExportModal(options);
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filters.query, 'latte');
+    assert.equal(app.timelineSelectionBaseFilters, null);
+    assert.deepEqual(
+        historyActions.map(action => action.type),
+        [
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.GO
+        ]
+    );
+});
+
 test('Wiring app chiede conferma prima delle impostazioni con selezione attiva', () => {
     const { AppWiring, AppState } = loadUiViews();
     const calls = [];

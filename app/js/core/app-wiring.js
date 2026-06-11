@@ -690,6 +690,7 @@ const AppWiring = (() => {
                     timelineSelectionOptions()
                 ),
                 countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
+                rememberFiltersBeforeSelection,
                 beginExportSelection: config => deps.TimelineSelectionController.beginExportSelection(
                     timelineSelectionOptions(),
                     config

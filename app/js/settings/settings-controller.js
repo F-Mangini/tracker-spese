@@ -470,6 +470,13 @@ const SettingsController = (() => {
             };
         }
 
+        if (
+            typeof options.beginExportSelection === 'function' &&
+            typeof options.rememberFiltersBeforeSelection === 'function'
+        ) {
+            options.rememberFiltersBeforeSelection();
+        }
+
         if (!config.keepCurrentSelection && lastExport && lastExport.filters && typeof options.applyExportFilters === 'function') {
             options.applyExportFilters(lastExport.filters, selectedIds);
         }

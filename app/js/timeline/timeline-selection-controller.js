@@ -6,6 +6,7 @@ const TimelineSelectionController = (() => {
     const NAV_SET_ACTIONS = 'actions';
     const NAV_SET_MAIN = 'main';
     const NAV_SWIPE_THRESHOLD = 42;
+    const NAV_WHEEL_THRESHOLD = 8;
 
     function noop() { }
 
@@ -689,10 +690,10 @@ const TimelineSelectionController = (() => {
             )
         );
 
-        const applyDelta = (deltaX, deltaY = 0) => {
+        const applyDelta = (deltaX, deltaY = 0, threshold = NAV_SWIPE_THRESHOLD) => {
             const absX = Math.abs(deltaX);
             const absY = Math.abs(deltaY);
-            if (!canPage() || absX < NAV_SWIPE_THRESHOLD || absX < absY * 1.2) return false;
+            if (!canPage() || absX < threshold || absX < absY * 1.2) return false;
 
             setBottomNavSet(bottomNav, deltaX < 0 ? NAV_SET_MAIN : NAV_SET_ACTIONS);
             return true;
@@ -708,13 +709,18 @@ const TimelineSelectionController = (() => {
         bottomNav.addEventListener('touchend', event => {
             const touch = event.changedTouches && event.changedTouches[0];
             if (!touch) return;
-            applyDelta(touch.clientX - startX, touch.clientY - startY);
-        }, { passive: true });
+            const applied = applyDelta(touch.clientX - startX, touch.clientY - startY);
+            if (applied && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+        }, { passive: false });
 
         bottomNav.addEventListener('wheel', event => {
             const deltaX = Number(event.deltaX || 0);
-            const deltaY = event.shiftKey ? Number(event.deltaY || 0) : 0;
-            const applied = applyDelta(deltaX || deltaY, 0);
+            const deltaY = Number(event.deltaY || 0);
+            const dominantDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+            const perpendicularDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaY : deltaX;
+            const applied = applyDelta(dominantDelta, perpendicularDelta, NAV_WHEEL_THRESHOLD);
             if (applied && typeof event.preventDefault === 'function') {
                 event.preventDefault();
             }

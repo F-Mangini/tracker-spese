@@ -1108,7 +1108,7 @@ body.expense-input-active #input-bar {
     padding-bottom: var(--safe-bottom);
     display: flex;
     align-items: stretch;
-    transition: transform 0.24s ease, opacity 0.18s ease;
+    transition: transform 0.16s ease, opacity 0.12s ease;
     will-change: transform;
 }
 

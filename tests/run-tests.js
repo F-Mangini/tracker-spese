@@ -2765,6 +2765,118 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 });
 
+test('Controller selezione permette wheel verticale e swipe reattivo nel bottom nav', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const listeners = {};
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function button(id) {
+        return {
+            id,
+            dataset: {},
+            classList: makeClassList(),
+            setAttribute() {},
+            addEventListener() {}
+        };
+    }
+
+    const mainSet = { setAttribute() {} };
+    const selectionSet = { setAttribute() {} };
+    const bottomNav = {
+        dataset: {},
+        classList: makeClassList(['selection-active']),
+        querySelector(selector) {
+            if (selector === '[data-nav-set="main"]') return mainSet;
+            if (selector === '[data-nav-set="selection"]') return selectionSet;
+            return null;
+        },
+        addEventListener(type, handler, options) {
+            listeners[type] = { handler, options };
+        }
+    };
+    const elements = {
+        'bottom-nav': bottomNav,
+        'btn-selection-copy': button('btn-selection-copy'),
+        'btn-selection-select-all': button('btn-selection-select-all'),
+        'btn-selection-export': button('btn-selection-export'),
+        'btn-selection-delete': button('btn-selection-delete')
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+
+    TimelineSelectionController.bindHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'timeline',
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        })
+    });
+
+    assert.equal(listeners.touchend.options.passive, false);
+    assert.equal(listeners.wheel.options.passive, false);
+
+    let preventedWheel = 0;
+    listeners.wheel.handler({
+        deltaX: 0,
+        deltaY: -24,
+        preventDefault() {
+            preventedWheel += 1;
+        }
+    });
+    assert(bottomNav.classList.contains('selection-show-main'));
+    assert.equal(bottomNav.dataset.selectionSet, 'main');
+    assert.equal(preventedWheel, 1);
+
+    listeners.wheel.handler({
+        deltaX: 0,
+        deltaY: 24,
+        preventDefault() {
+            preventedWheel += 1;
+        }
+    });
+    assert(!bottomNav.classList.contains('selection-show-main'));
+    assert.equal(bottomNav.dataset.selectionSet, 'actions');
+    assert.equal(preventedWheel, 2);
+
+    listeners.touchstart.handler({
+        touches: [{ clientX: 200, clientY: 20 }]
+    });
+    let preventedTouch = 0;
+    listeners.touchend.handler({
+        changedTouches: [{ clientX: 130, clientY: 24 }],
+        preventDefault() {
+            preventedTouch += 1;
+        }
+    });
+    assert(bottomNav.classList.contains('selection-show-main'));
+    assert.equal(preventedTouch, 1);
+});
+
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
     const { TimelineController } = loadUiViews();
     const calls = [];

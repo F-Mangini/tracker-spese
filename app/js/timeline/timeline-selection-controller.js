@@ -7,6 +7,8 @@ const TimelineSelectionController = (() => {
     const NAV_SET_MAIN = 'main';
     const NAV_SWIPE_THRESHOLD = 42;
     const NAV_WHEEL_THRESHOLD = 8;
+    const TAP_MOVE_LIMIT = 10;
+    const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
 
     function noop() { }
 
@@ -112,6 +114,50 @@ const TimelineSelectionController = (() => {
         }
 
         (options.renderTimeline || noop)();
+    }
+
+    function bindImmediateTap(button, handler) {
+        if (!button || typeof button.addEventListener !== 'function') return;
+
+        let touchStart = null;
+        let lastImmediateTap = 0;
+
+        button.addEventListener('click', event => {
+            if (
+                event &&
+                lastImmediateTap > 0 &&
+                Date.now() - lastImmediateTap < SYNTHETIC_CLICK_SUPPRESS_MS
+            ) {
+                if (typeof event.preventDefault === 'function') event.preventDefault();
+                return;
+            }
+
+            handler(event);
+        });
+
+        button.addEventListener('touchstart', event => {
+            const touch = event.touches && event.touches[0];
+            touchStart = touch
+                ? { x: touch.clientX, y: touch.clientY }
+                : null;
+        }, { passive: true });
+
+        button.addEventListener('touchend', event => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touchStart || !touch) return;
+
+            const moved = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
+            touchStart = null;
+            if (moved > TAP_MOVE_LIMIT || button.disabled) return;
+
+            lastImmediateTap = Date.now();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+            handler(event);
+        }, { passive: false });
+
+        button.addEventListener('touchcancel', () => {
+            touchStart = null;
+        }, { passive: true });
     }
 
     function rememberFiltersBeforeSelection(options = {}, wasActive = isActive(options)) {
@@ -646,22 +692,22 @@ const TimelineSelectionController = (() => {
 
         if (selectAllButton && selectAllButton.dataset.selectionBound !== 'true') {
             selectAllButton.dataset.selectionBound = 'true';
-            selectAllButton.addEventListener('click', () => selectVisible(options));
+            bindImmediateTap(selectAllButton, () => selectVisible(options));
         }
 
         if (copyButton && copyButton.dataset.selectionBound !== 'true') {
             copyButton.dataset.selectionBound = 'true';
-            copyButton.addEventListener('click', () => copySelected(options));
+            bindImmediateTap(copyButton, () => copySelected(options));
         }
 
         if (exportButton && exportButton.dataset.selectionBound !== 'true') {
             exportButton.dataset.selectionBound = 'true';
-            exportButton.addEventListener('click', () => showExportChoices(options));
+            bindImmediateTap(exportButton, () => showExportChoices(options));
         }
 
         if (deleteButton && deleteButton.dataset.selectionBound !== 'true') {
             deleteButton.dataset.selectionBound = 'true';
-            deleteButton.addEventListener('click', () => showDeleteConfirm(options));
+            bindImmediateTap(deleteButton, () => showDeleteConfirm(options));
         }
 
         bindBottomNavPager(options);

@@ -2795,7 +2795,10 @@ test('Controller selezione permette wheel verticale e swipe reattivo nel bottom 
             dataset: {},
             classList: makeClassList(),
             setAttribute() {},
-            addEventListener() {}
+            listeners: {},
+            addEventListener(event, handler, options) {
+                this.listeners[event] = { handler, options };
+            }
         };
     }
 
@@ -2825,6 +2828,7 @@ test('Controller selezione permette wheel verticale e swipe reattivo nel bottom 
             return elements[id] || null;
         }
     };
+    let exportActions = 0;
 
     TimelineSelectionController.bindHeader({
         document: doc,
@@ -2834,11 +2838,15 @@ test('Controller selezione permette wheel verticale e swipe reattivo nel bottom 
         getSpese: () => [expense({ id: 'a', importo: 5 })],
         getFilterModel: () => ({
             filteredSpese: [expense({ id: 'a', importo: 5 })]
-        })
+        }),
+        openCustomExportModal: () => {
+            exportActions += 1;
+        }
     });
 
     assert.equal(listeners.touchend.options.passive, false);
     assert.equal(listeners.wheel.options.passive, false);
+    assert.equal(elements['btn-selection-export'].listeners.touchend.options.passive, false);
 
     let preventedWheel = 0;
     listeners.wheel.handler({
@@ -2875,6 +2883,25 @@ test('Controller selezione permette wheel verticale e swipe reattivo nel bottom 
     });
     assert(bottomNav.classList.contains('selection-show-main'));
     assert.equal(preventedTouch, 1);
+
+    let preventedExportTap = 0;
+    elements['btn-selection-export'].disabled = false;
+    elements['btn-selection-export'].listeners.touchstart.handler({
+        touches: [{ clientX: 120, clientY: 20 }]
+    });
+    elements['btn-selection-export'].listeners.touchend.handler({
+        changedTouches: [{ clientX: 123, clientY: 22 }],
+        preventDefault() {
+            preventedExportTap += 1;
+        }
+    });
+    elements['btn-selection-export'].listeners.click.handler({
+        preventDefault() {
+            preventedExportTap += 1;
+        }
+    });
+    assert.equal(preventedExportTap, 2);
+    assert.equal(exportActions, 1);
 });
 
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
@@ -3088,8 +3115,30 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     NavigationController.init(options);
 
     assert.equal(typeof navStats.listeners.click, 'function');
+    assert.equal(typeof navStats.listeners.touchend, 'function');
     assert.equal(typeof main.listeners.scroll, 'function');
 
+    let preventedNavTap = 0;
+    navStats.listeners.touchstart({
+        touches: [{ clientX: 140, clientY: 20 }]
+    });
+    navStats.listeners.touchend({
+        changedTouches: [{ clientX: 142, clientY: 21 }],
+        preventDefault() {
+            preventedNavTap += 1;
+        }
+    });
+    navStats.listeners.click({
+        preventDefault() {
+            preventedNavTap += 1;
+        }
+    });
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(preventedNavTap, 2);
+    assert.equal(calls.filter(call => call === 'render-stats').length, 1);
+
+    NavigationController.navigateTo(options, 'timeline');
+    calls.length = 0;
     main.scrollTop = 88;
     main.listeners.scroll();
     assert.equal(state.pageScrollTop.timeline, 88);

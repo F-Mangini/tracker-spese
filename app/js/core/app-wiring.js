@@ -312,7 +312,7 @@ const AppWiring = (() => {
                             text: 'Esci',
                             className: 'btn-primary',
                             onClick: () => {
-                                deps.TimelineSelectionController.exit(timelineSelectionOptions(), true);
+                                deps.TimelineSelectionController.exit(timelineSelectionOptions(), false);
                                 if (typeof continueNavigation === 'function') {
                                     continueNavigation();
                                 }

@@ -7381,10 +7381,74 @@ test('Wiring app chiede conferma prima delle impostazioni con selezione attiva',
     confirmPayload.choices[1].onClick();
 
     assert.deepEqual(calls.slice(1), [
-        ['exit-selection', true],
+        ['exit-selection', false],
         'continue'
     ]);
     assert.equal(app.timelineSelectionActive, false);
+});
+
+test('Wiring app consuma history selezione prima di andare alle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.deepEqual(historyActions.map(action => action.type), [
+        UIStack.HISTORY_ACTIONS.BACK
+    ]);
+    assert.deepEqual(calls.slice(-2), [
+        'timeline',
+        'continue'
+    ]);
 });
 
 test('Controller tema mantiene separati tema persistente e toggle temporaneo', () => {

@@ -2,6 +2,13 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 12/06/2026
+
+BUG: Quando si apre la tastiera per scrivere in uno dei campi a tendina di "modifica spesa" o "esporta" la finestra deve scorrere in modo che tutta la tendina sia visibile sopra la tastiera. Al momento questo è vero solo per "modifica spesa" e solo la prima volta che si apre la tastiera.
+Im generale sistemare visibilità campi selezionati e tendine.
+
+FEAT: opzionalmente ordinamento per valore spesa al posto che cronologico. (In generale valutare altre modalità di ordinamento)
+
 ### Aggiunte del 04/06/2026
 
 FEAT: Nella pagina statistiche il "per categoria" e il "dettaglio categorie" sono da unire in un unica sezione nella quale facendo swipe si può cambiare tipo di visualizzazione (pie, barre, ecc.). Quello a torta deve avere le label per le percentuali maggiore e il resto listato sotto come l'attuale "dettaglio categorie". L'attuale formato del "dettaglio categorie" deve essere una delle opzioni di visualizzazione della sezione.
@@ -18,7 +25,7 @@ FEAT: parsing di .<categoria> (punto seguito da carattere, senza spazio) per for
 
 FEAT: Animazione a scorrimento verticale per il banner riassuntivo quando si disattivano filtri e per entrata e uscita da modalità selezione.
 
-FEAT: in impostazioni mettere importa ed esporta nella stessa card.
+FEAT: in impostazioni mettere importa ed esporta nella stessa card.✅
 
 BUG: nel riassunto (anche in quello del pannello filtri) in "settimana" vengono contate anche spese future non della settimana corrente. Serve fix.✅
 
@@ -46,14 +53,15 @@ FEAT: Migliorare esteticamente finestra scelta formato di export. E anche quello
 
 FEAT: Gestire import (nel caso di aggiunta) nel caso di id uguali che potrebbero significare che la spesa è già presente.
 
-FEAT: con il json voglio che sia possibile scegliere se esportare anche le impostazioni e personalizzazioni dell'app. Con il csv invece no, esporta solo i dati.
-Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
-
-FEAT: Nelle impostazioni al posto di un unico bottone per la selezione del formato, ne voglio due un "Default" che esporta un json completo (con solo una successiva finestrella semplice di conferma), e un "Custom" che apre invece la finestra di export. La finestra di export dei dati deve essere un po' più simile al modifica spesa. Ovvero voglio che il formato di export dei dati sia selezionabile da una tendina di opzioni (in futuro possiamo aggiungere altri formati), e voglio anche una checklist in cui sia possibile scegliere cosa esportare (dati, impostazioni, personalizzazioni), in basso due tasti: a sinistra "Filtri" e a destra "Esporta". Le scelte fatte per l'export (il formato, il cosa esportare, e i filtri) vengono salvate, in modo che al prossimo export si parte da quella configurazione. Il tasto "Filtri" deve mandare alla timeline in modalità selezione. Solo la prima volta per ogni export quando si clicca su "Filtri" la modalità selezione si apre con tutte le spese selezionate, le volte successive saranno selezionate solo quelle che erano state selezionate in precedenza. Inoltre, nella finestra di export, viene riportato il numero di spese selezionate e sul tasto "Filtri" il numero di filtri attivi.
+FEAT:Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
 
 FEAT: nella timeline facendo swipe orizzontale su una singola spesa, devono essere visualizzate, sulla stessa, l'opzione rapida di eliminazione (cestino rosso) e l'opzione per copiare la spesa (copia nella clipboard la spesa con tutte le sue informazioni, da decidere come strutturarla json? tsv? md table?). Queste opzioni devono comparire da destra con animazione a scorrimento coordinata con lo swipe e occupare solo una parte dello spazio della spesa. L'icona, il titolo e l'importo della spesa rimangono visibili a sinistra.
 
 FEAT: nella modalità di selezione oltre che poter eliminare tutte le spese selezionate, deve essere possibile copiare nella clipboard tutte le spese selezionate (da decidere come strutturarla json? tsv? md table?), e anche esportare solo le spese selezionate (potendo scegliere anche in questo caso il formato per l'esportazione, come quando si esporta dalle impostazioni). Quindi in modalità selezione, in alto, al posto del toggle del tema deve comparire un cestino rosso, e affianco, facendo spostare il tasto dei filtri più a sinistra, deve comparire il tasto per selezionare tutto (solo ciò attualmente selezionato dai filtri) e per l'esportazione. Il tasto per l'esportazione manda alla finestra di export. In modalità selezione nelle sezioni riassuntive viene riportato il numero e il valore delle spese selezionate, non di quelle restituite dai filtri. Cliccare sul seleziona tutto seleziona tutte e sole le spese filtrate dal filtro attualmente attivo, non aggiunge queste a quelle selezionate in precedenza.🟡
+
+FEAT: Nelle impostazioni al posto di un unico bottone per la selezione del formato, ne voglio due un "Default" che esporta un json completo (con solo una successiva finestrella semplice di conferma), e un "Custom" che apre invece la finestra di export. La finestra di export dei dati deve essere un po' più simile al modifica spesa. Ovvero voglio che il formato di export dei dati sia selezionabile da una tendina di opzioni (in futuro possiamo aggiungere altri formati), e voglio anche una checklist in cui sia possibile scegliere cosa esportare (dati, impostazioni, personalizzazioni), in basso due tasti: a sinistra "Filtri" e a destra "Esporta". Le scelte fatte per l'export (il formato, il cosa esportare, e i filtri) vengono salvate, in modo che al prossimo export si parte da quella configurazione. Il tasto "Filtri" deve mandare alla timeline in modalità selezione. Solo la prima volta per ogni export quando si clicca su "Filtri" la modalità selezione si apre con tutte le spese selezionate, le volte successive saranno selezionate solo quelle che erano state selezionate in precedenza. Inoltre, nella finestra di export, viene riportato il numero di spese selezionate e sul tasto "Filtri" il numero di filtri attivi.✅
+
+FEAT: con il json voglio che sia possibile scegliere se esportare anche le impostazioni e personalizzazioni dell'app. Con il csv invece no, esporta solo i dati.✅
 
 FEAT: far in modo che il numero della versione (soprattutto quello mostrato all'interno della pagina impostazioni) venga aggiornato con ogni versione.✅
 
@@ -68,9 +76,9 @@ Collegato a questo, il colore della categoria deve essere posto visivamente sull
 
 FEAT: possibilità di modificare le spese anche nella pagina delle statistiche
 
-FEAT: Anche le impostazioni e le personalizzazioni devono andare in backup e devono poter essere importate se ad esempio si cambia dispositivo.
-
 IDEA: Forse, priorità bassa. Supportare più "account" nell'app, in modo che ognuno sia indipendente, con le sue spese. Stesse impostazioni? da ragionarci. Possibilità di inserire una spesa su più di un account? da ragionarci.
+
+FEAT: Anche le impostazioni e le personalizzazioni devono andare in backup e devono poter essere importate se ad esempio si cambia dispositivo.🟡
 
 FEAT: Quando si va in modalità selezione voglio che le spese vengano evidenziate con il bordo verde come quello della selezione dei campi di inserimento. Quando si clicca su elimina il bordo deve diventare rosso e deve comparire il pop-up di conferma.✅
 
@@ -103,10 +111,6 @@ DEV: creare AGENTS.md e docs/AGENTS.md. E da qualche parte una lista di tutti e 
 
 
 ### dal file originale del 08/05/2026
-
-BUG: Animazione buggata quando si fa swipe indietro (tramite gesture telefono) dal lato sinistro dello schermo. (buggato sul mio vecchio realme 9, funzionante sul mio nuovo Xiaomi 15)🟡
-
-FEAT: Voglio le Categorie in ordine alfabetico (attualmente lo sono solo perché scritte in ordine nel codice) (e selezionabili da tab personalizzazione, il tab personalizzazione non esiste ancora, sarà da aggiungere dopo il refactor). 🟡
 
 FEAT: pannello filtri regolabile e bloccabile (tasto lucchetto) tramite pressione prolungata (chiedere maggiori dettagli per questa feature).
 
@@ -158,6 +162,10 @@ Linee separano gli anni quando sull'asse delle x sono riportati i mesi.
 FEAT: Migliorare estetica UI.
 
 FEAT: Sostituire emoji con icone.
+
+BUG: Animazione buggata quando si fa swipe indietro (tramite gesture telefono) dal lato sinistro dello schermo. (buggato sul mio vecchio realme 9, funzionante sul mio nuovo Xiaomi 15)🟡
+
+FEAT: Voglio le Categorie in ordine alfabetico (attualmente lo sono solo perché scritte in ordine nel codice) (e selezionabili da tab personalizzazione, il tab personalizzazione non esiste ancora, sarà da aggiungere dopo il refactor)🟡
 
 FEAT: Cambiare favicon.🟡
 

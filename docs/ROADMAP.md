@@ -18,9 +18,9 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 ## Prossime Priorita
 
 1. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-2. Rendere piu chiari export/import e preparare il futuro export custom senza cambiare schema dati.
+2. Stabilizzare visibilita di campi selezionati e tendine sopra la tastiera mobile, soprattutto nelle finestre `Modifica spesa` ed `Esporta`.
 3. Migliorare statistiche e visualizzazioni quando i flussi UX vicini sono stabili.
-4. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
+4. Solo dopo, riprendere personalizzazioni, ordinamenti alternativi e feature dati piu grandi.
 
 Completato il 2026-06-01:
 
@@ -57,6 +57,18 @@ Completato nella stabilizzazione export/selezione su `dev`:
 - Modalita selezione e bottom nav stabilizzate: cambio set piu reattivo, supporto rotellina desktop, chiusura completa dei filtri prima di export/eliminazione e conferma per uscire verso Impostazioni.
 - History corretta nei flussi selezione/export: uscire da Selezione verso Impostazioni aspetta la chiusura degli stati UI programmati, cosi il back successivo torna alla Timeline.
 
+Step roadmap completato il 2026-06-12:
+
+- Rendere piu chiari export/import e preparare il futuro export custom senza cambiare schema dati.
+- La parte export dello step e chiusa: `Default` produce un JSON completo con conferma semplice; `Custom` apre la finestra `Esporta` con formato JSON/CSV, checklist dei contenuti, memoria dell'ultimo export riuscito, riapplicazione di ultima selezione o ultimi filtri e integrazione con la modalita selezione timeline.
+- Il preparatorio per dati futuri e presente senza cambio schema: il JSON custom puo includere impostazioni e segnaposto per personalizzazioni future, mentre il CSV resta limitato ai dati tabellari.
+- Restano lavori separati sull'import: dialog piu curato, scelta su impostazioni/personalizzazioni diverse e gestione esplicita di possibili duplicati in aggiunta.
+
+Aggiunte dagli appunti del 2026-06-12:
+
+- Sistemare la visibilita mobile di campi selezionati e tendine quando si apre la tastiera, in particolare nei dropdown di `Modifica spesa` e `Esporta`.
+- Valutare ordinamenti alternativi della timeline, a partire dall'ordinamento opzionale per valore della spesa invece che solo cronologico.
+
 ## Repository e Canali
 
 Stato: completato. La dev refactor e stata promossa a stabile; la baseline della nuova fase PWA/offline e stata pubblicata su `main` per i test reali.
@@ -81,6 +93,7 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 
 Ancora da affrontare:
 
+- Sistemare la visibilita sopra tastiera di campi selezionati e tendine nelle finestre `Modifica spesa` ed `Esporta`; oggi il comportamento e parziale e fragile.
 - Comportamento del tasto filtri personalizzabile, inclusa modalita `adattivo` che decide se aprire automaticamente la tastiera in base alla dimensione del pannello semi-aperto.
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
@@ -95,9 +108,9 @@ Ancora da affrontare:
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
 - Completato primo export rapido per spese selezionate: la modalita selezione timeline apre la finestra `Esporta` conservando la selezione corrente.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
-- Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
 - Export rapido e configurabile completati come prima versione: Default JSON completo; finestra `Esporta` con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
 - Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
+- Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
 - Definire eventuali migrazioni schema in modo idempotente.
@@ -186,6 +199,7 @@ Da riprendere solo quando servira:
 
 - Pulsante `+` a sinistra nella barra di inserimento per selezionare data e ora della nuova spesa.
 - Parsing di `.<categoria>` nella barra di inserimento per forzare una categoria; se il pattern compare piu volte, usare l'ultima occorrenza.
+- Ordinamento opzionale della timeline per valore della spesa, e valutazione di altre modalita di ordinamento.
 - Spese ricorrenti.
 - Backup schedulato.
 - Accrediti oltre alle spese.

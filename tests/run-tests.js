@@ -908,11 +908,11 @@ test('Refresh app centralizza aggiornamento viste dopo cambio dati', () => {
 });
 
 test('Controller submit input rapido pulisce input e aggiorna viste dopo salvataggio', () => {
-    const { ExpenseSubmitController } = loadUiViews();
+    const { ExpenseSubmitController, AppUI } = loadUiViews();
     const calls = [];
     let newCardId = null;
     const input = {
-        value: 'caffe 1.50',
+        value: 'caffe 120.49',
         blurred: false,
         blur() {
             this.blurred = true;
@@ -933,7 +933,7 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
     const savedExpense = expense({
         id: 'new-expense',
         descrizione: 'Caffe',
-        importo: 1.5,
+        importo: 120.49,
         categoria: 'bar'
     });
 
@@ -951,7 +951,8 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
         ui: {
             getCategory(id, categories) {
                 return categories.find(category => category.id === id);
-            }
+            },
+            money: AppUI.money
         },
         setNewCardId: id => { newCardId = id; },
         refreshAfterAdd: () => calls.push('refresh'),
@@ -963,10 +964,10 @@ test('Controller submit input rapido pulisce input e aggiorna viste dopo salvata
     assert.equal(input.blurred, true);
     assert.equal(newCardId, 'new-expense');
     assert(calls.includes('refresh'));
-    assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'add'), ['add', 'caffe 1.50']);
+    assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'add'), ['add', 'caffe 120.49']);
     assert.deepEqual(
         calls.find(call => Array.isArray(call) && call[0] === 'toast'),
-        ['toast', 'B Caffe \u00b7 \u20ac1.50', 'success']
+        ['toast', 'B Caffe \u00b7 \u20ac120', 'success']
     );
 });
 
@@ -1488,7 +1489,12 @@ test('Helper UI normalizzano importi e formattano denaro senza DOM', () => {
 
     assert.equal(AppUI.parseAmountInput('€1,50'), 1.5);
     assert.equal(AppUI.parseAmountInput('1.234,56 euro'), 1234.56);
-    assert.equal(AppUI.money(3), '€3.00');
+    assert.equal(AppUI.money(3), '€3');
+    assert.equal(AppUI.money(27.00), '€27');
+    assert.equal(AppUI.money(3.5), '€3.50');
+    assert.equal(AppUI.money(51.34), '€51.34');
+    assert.equal(AppUI.money(132.49), '€132');
+    assert.equal(AppUI.money(132.59), '€133');
 });
 
 test('Controller download isola link temporaneo e revoca URL senza App', () => {
@@ -1566,7 +1572,7 @@ test('Vista filtri calcola slider e footer riepilogo', () => {
     assert.equal(FilterView.getSliderMax(spese), 500);
     assert.equal(
         FilterView.renderFooterInfo({ activeCount: 1, filtered: spese }),
-        '1 filtro · 2 spese · €124.00'
+        '1 filtro · 2 spese · €124'
     );
 });
 
@@ -1869,6 +1875,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
 
+    const detachedMethods = filters.methods;
+    filters.methods = new Set();
+    methodChips[0].listener();
+    assert.equal(detachedMethods.has('carta'), false);
+    assert.equal(filters.methods.has('carta'), true);
+    assert(methodChips[0].classList.contains('active'));
+
     state.selectionActive = true;
     FilterController.syncFilterUI(options);
     assert(!elements['selection-filter-section'].classList.contains('hidden'));
@@ -1983,6 +1996,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.resetFilters(options);
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
+    assert.equal(filters.methods.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
     assert.equal(filters.selectedOnlyIds.size, 0);
@@ -2429,6 +2443,137 @@ test('Controller selezione timeline gestisce selezione, copia, export e delete b
     assert(calls.includes('refresh'));
 });
 
+test('Controller selezione timeline ricorda e ripristina i filtri attorno alla selezione', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: false,
+        selectedIds: new Set(),
+        deletePending: false
+    };
+    const spese = [
+        expense({ id: 'a', importo: 2 }),
+        expense({ id: 'b', importo: 3 })
+    ];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        storage: {
+            deleteSpese(ids) {
+                calls.push(['delete-many', ids]);
+                return { success: true, count: ids.length };
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => { state.deletePending = value; },
+        pushUiState: payload => calls.push(['push', payload.panel]),
+        consumeUiState: steps => calls.push(['consume', steps]),
+        renderTimeline: () => calls.push('render'),
+        refreshAfterDataChange: () => calls.push('refresh'),
+        rememberFiltersBeforeSelection: () => calls.push('remember-filters'),
+        restoreFiltersAfterSelection: () => calls.push('restore-filters'),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    TimelineSelectionController.enter(options, 'a');
+    TimelineSelectionController.toggle(options, 'b');
+    TimelineSelectionController.exit(options);
+
+    assert.deepEqual(calls, [
+        'remember-filters',
+        ['push', 'timeline-selection'],
+        'render',
+        'render',
+        'restore-filters',
+        'render',
+        ['consume', 1]
+    ]);
+
+    calls.length = 0;
+    TimelineSelectionController.beginExportSelection(options, {
+        selectedIds: ['a'],
+        selectFilteredWhenEmpty: false
+    });
+    TimelineSelectionController.deleteSelected(options);
+
+    assert.deepEqual(calls, [
+        'remember-filters',
+        ['push', 'timeline-selection'],
+        'render',
+        ['delete-many', ['a']],
+        ['consume', 1],
+        'refresh',
+        'restore-filters',
+        ['toast', 'info', '1 spese eliminate']
+    ]);
+});
+
+test('Controller selezione chiude i filtri prima di export ed eliminazione', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const calls = [];
+    const state = {
+        active: true,
+        selectedIds: new Set(['a']),
+        deletePending: false
+    };
+    const spese = [expense({ id: 'a', importo: 2 })];
+    const options = {
+        document: {
+            getElementById() {
+                return null;
+            }
+        },
+        getSpese: () => spese,
+        getFilterModel: () => ({
+            allSpese: spese,
+            filteredSpese: spese
+        }),
+        getSelectedIds: () => state.selectedIds,
+        setSelectedIds: ids => { state.selectedIds = ids; },
+        isActive: () => state.active,
+        setActive: value => { state.active = value; },
+        isDeletePending: () => state.deletePending,
+        setDeletePending: value => {
+            state.deletePending = value;
+            calls.push(['delete-pending', value]);
+        },
+        closeFiltersForSelectionAction: continueAction => {
+            calls.push('close-filters');
+            continueAction();
+            return true;
+        },
+        openCustomExportModal: () => calls.push('custom-export'),
+        renderTimeline: () => calls.push('render'),
+        showChoices: (message, choices) => calls.push(['choices', message, choices.map(choice => choice.text)]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    assert.equal(TimelineSelectionController.showExportChoices(options), true);
+    assert.deepEqual(calls, ['close-filters', 'custom-export']);
+
+    calls.length = 0;
+
+    assert.equal(TimelineSelectionController.showDeleteConfirm(options), true);
+    assert.deepEqual(calls, [
+        'close-filters',
+        ['delete-pending', true],
+        'render',
+        ['choices', 'Eliminare 1 spese selezionate?', ['Annulla', 'Elimina']]
+    ]);
+});
+
 test('Controller selezione mantiene header e nav attivi anche nelle statistiche', () => {
     const { TimelineSelectionController } = loadUiViews();
 
@@ -2620,6 +2765,145 @@ test('Controller selezione mantiene header e nav attivi anche nelle statistiche'
     assert.equal(selectionSet.attributes['aria-hidden'], 'true');
 });
 
+test('Controller selezione permette wheel verticale e swipe reattivo nel bottom nav', () => {
+    const { TimelineSelectionController } = loadUiViews();
+    const listeners = {};
+
+    function makeClassList(initial = []) {
+        const classes = new Set(initial);
+        return {
+            add(cls) {
+                classes.add(cls);
+            },
+            remove(cls) {
+                classes.delete(cls);
+            },
+            toggle(cls, force) {
+                const shouldAdd = force === undefined ? !classes.has(cls) : !!force;
+                if (shouldAdd) classes.add(cls);
+                else classes.delete(cls);
+            },
+            contains(cls) {
+                return classes.has(cls);
+            }
+        };
+    }
+
+    function button(id) {
+        return {
+            id,
+            dataset: {},
+            classList: makeClassList(),
+            setAttribute() {},
+            listeners: {},
+            addEventListener(event, handler, options) {
+                this.listeners[event] = { handler, options };
+            }
+        };
+    }
+
+    const mainSet = { setAttribute() {} };
+    const selectionSet = { setAttribute() {} };
+    const bottomNav = {
+        dataset: {},
+        classList: makeClassList(['selection-active']),
+        querySelector(selector) {
+            if (selector === '[data-nav-set="main"]') return mainSet;
+            if (selector === '[data-nav-set="selection"]') return selectionSet;
+            return null;
+        },
+        addEventListener(type, handler, options) {
+            listeners[type] = { handler, options };
+        }
+    };
+    const elements = {
+        'bottom-nav': bottomNav,
+        'btn-selection-copy': button('btn-selection-copy'),
+        'btn-selection-select-all': button('btn-selection-select-all'),
+        'btn-selection-export': button('btn-selection-export'),
+        'btn-selection-delete': button('btn-selection-delete')
+    };
+    const doc = {
+        getElementById(id) {
+            return elements[id] || null;
+        }
+    };
+    let exportActions = 0;
+
+    TimelineSelectionController.bindHeader({
+        document: doc,
+        isActive: () => true,
+        getCurrentPage: () => 'timeline',
+        getSelectedIds: () => new Set(['a']),
+        getSpese: () => [expense({ id: 'a', importo: 5 })],
+        getFilterModel: () => ({
+            filteredSpese: [expense({ id: 'a', importo: 5 })]
+        }),
+        openCustomExportModal: () => {
+            exportActions += 1;
+        }
+    });
+
+    assert.equal(listeners.touchend.options.passive, false);
+    assert.equal(listeners.wheel.options.passive, false);
+    assert.equal(elements['btn-selection-export'].listeners.touchend.options.passive, false);
+
+    let preventedWheel = 0;
+    listeners.wheel.handler({
+        deltaX: 0,
+        deltaY: -24,
+        preventDefault() {
+            preventedWheel += 1;
+        }
+    });
+    assert(bottomNav.classList.contains('selection-show-main'));
+    assert.equal(bottomNav.dataset.selectionSet, 'main');
+    assert.equal(preventedWheel, 1);
+
+    listeners.wheel.handler({
+        deltaX: 0,
+        deltaY: 24,
+        preventDefault() {
+            preventedWheel += 1;
+        }
+    });
+    assert(!bottomNav.classList.contains('selection-show-main'));
+    assert.equal(bottomNav.dataset.selectionSet, 'actions');
+    assert.equal(preventedWheel, 2);
+
+    listeners.touchstart.handler({
+        touches: [{ clientX: 200, clientY: 20 }]
+    });
+    let preventedTouch = 0;
+    listeners.touchend.handler({
+        changedTouches: [{ clientX: 130, clientY: 24 }],
+        preventDefault() {
+            preventedTouch += 1;
+        }
+    });
+    assert(bottomNav.classList.contains('selection-show-main'));
+    assert.equal(preventedTouch, 1);
+
+    let preventedExportTap = 0;
+    elements['btn-selection-export'].disabled = false;
+    elements['btn-selection-export'].listeners.touchstart.handler({
+        touches: [{ clientX: 120, clientY: 20 }]
+    });
+    elements['btn-selection-export'].listeners.touchend.handler({
+        changedTouches: [{ clientX: 123, clientY: 22 }],
+        preventDefault() {
+            preventedExportTap += 1;
+        }
+    });
+    elements['btn-selection-export'].listeners.click.handler({
+        preventDefault() {
+            preventedExportTap += 1;
+        }
+    });
+    assert.equal(preventedExportTap, 2);
+    assert.equal(exportActions, 1);
+});
+
 test('Controller timeline in modalita selezione non apre la modale al click card', () => {
     const { TimelineController } = loadUiViews();
     const calls = [];
@@ -2793,8 +3077,10 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         },
         restoring: false,
         filterOpen: true,
-        advancedFiltersOpen: false
+        advancedFiltersOpen: false,
+        selectionActive: false
     };
+    let pendingSettingsNavigation = null;
     const options = {
         document: doc,
         pageScrollTop: state.pageScrollTop,
@@ -2817,6 +3103,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         renderTimeline: () => calls.push('render-timeline'),
         renderStats: () => calls.push('render-stats'),
         renderSettings: () => calls.push('render-settings'),
+        shouldConfirmSettingsNavigation: () => state.selectionActive,
+        confirmSettingsNavigation: continueNavigation => {
+            pendingSettingsNavigation = continueNavigation;
+            calls.push(['confirm-settings']);
+        },
         requestAnimationFrame: callback => callback(),
         defer: callback => callback()
     };
@@ -2824,8 +3115,30 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     NavigationController.init(options);
 
     assert.equal(typeof navStats.listeners.click, 'function');
+    assert.equal(typeof navStats.listeners.touchend, 'function');
     assert.equal(typeof main.listeners.scroll, 'function');
 
+    let preventedNavTap = 0;
+    navStats.listeners.touchstart({
+        touches: [{ clientX: 140, clientY: 20 }]
+    });
+    navStats.listeners.touchend({
+        changedTouches: [{ clientX: 142, clientY: 21 }],
+        preventDefault() {
+            preventedNavTap += 1;
+        }
+    });
+    navStats.listeners.click({
+        preventDefault() {
+            preventedNavTap += 1;
+        }
+    });
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(preventedNavTap, 2);
+    assert.equal(calls.filter(call => call === 'render-stats').length, 1);
+
+    NavigationController.navigateTo(options, 'timeline');
+    calls.length = 0;
     main.scrollTop = 88;
     main.listeners.scroll();
     assert.equal(state.pageScrollTop.timeline, 88);
@@ -2858,7 +3171,15 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(main.classList.contains('no-input-bar'));
     state.advancedFiltersOpen = false;
 
-    NavigationController.navigateTo(options, 'settings');
+    state.selectionActive = true;
+    navSettings.listeners.click();
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(typeof pendingSettingsNavigation, 'function');
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'confirm-settings'));
+    assert(!calls.includes('render-settings'));
+
+    state.selectionActive = false;
+    pendingSettingsNavigation();
 
     assert.equal(state.currentPage, 'settings');
     assert.equal(state.filterOpen, false);
@@ -2935,6 +3256,17 @@ test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
     assert.deepEqual(bar.data.datasets[0].data, [10, 0]);
     assert.deepEqual(bar.data.datasets[0].backgroundColor, ['#10b981cc', '#10b98133']);
     assert.equal(bar.options.scales.y.grid.color, '#dddddd');
+    assert.equal(
+        doughnut.options.plugins.tooltip.callbacks.label({
+            parsed: 132.59,
+            dataset: { data: [132.59] }
+        }),
+        ' €133 (100.0%)'
+    );
+    assert.equal(
+        bar.options.plugins.tooltip.callbacks.label({ parsed: { y: 51.34 } }),
+        ' €51.34'
+    );
 });
 
 test('Controller statistiche riusa modello precomputato', () => {
@@ -3135,6 +3467,302 @@ test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () =
     assert.deepEqual(filtered.map(item => item.id), ['bar', 'abbigliamento']);
     assert(html.includes('selected'));
     assert(html.includes('data-id="bar"'));
+});
+
+test('Interazioni dropdown modale aprono e filtrano senza auto scroll', () => {
+    const timeouts = [];
+    const classes = new Set();
+    let activeElement = null;
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {
+            activeElement = input;
+            if (this.listeners.focus) this.listeners.focus();
+        },
+        blur() {
+            activeElement = null;
+        }
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        }
+    };
+    const documentLike = {
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+
+    assert(classes.has('open'));
+    assert(!timeouts.some(item => item.ms > 0));
+
+    timeouts.length = 0;
+    input.listeners.mousedown({ preventDefault() {} });
+
+    assert.equal(input.readOnly, false);
+    assert(!timeouts.some(item => item.ms > 0));
+
+    input.value = 'ca';
+    input.listeners.input();
+
+    assert(list.innerHTML.includes('Casa'));
+    assert(!timeouts.some(item => item.ms > 0));
+});
+
+test('Interazioni dropdown modale ignorano blur transitorie nei tap successivi', () => {
+    const timeouts = [];
+    const classes = new Set();
+    let activeElement = null;
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {
+            activeElement = input;
+        },
+        blur() {
+            activeElement = null;
+            if (this.listeners.blur) this.listeners.blur();
+        }
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        getBoundingClientRect() {
+            return { top: 368, bottom: 512 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 0,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
+        }
+    };
+    const documentLike = {
+        documentElement: { clientHeight: 640 },
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        window: { innerHeight: 640, visualViewport: { height: 360 } },
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+    assert(classes.has('open'));
+
+    timeouts.length = 0;
+    input.listeners.mousedown({ preventDefault() {} });
+    assert.equal(input.readOnly, false);
+
+    activeElement = null;
+    input.listeners.blur();
+    activeElement = input;
+    timeouts[timeouts.length - 1].callback();
+
+    assert(classes.has('open'));
+    assert.equal(input.readOnly, false);
+
+    timeouts.length = 0;
+    input.listeners.mousedown({ preventDefault() {} });
+    input.listeners.click();
+
+    assert(classes.has('open'));
+
+    timeouts[0].callback();
+    activeElement = null;
+    input.listeners.blur();
+    timeouts[timeouts.length - 1].callback();
+
+    assert(!classes.has('open'));
+    assert.equal(input.readOnly, true);
+});
+
+test('Interazioni dropdown modale non riposizionano input gia attivo', () => {
+    const timeouts = [];
+    const classes = new Set();
+    let activeElement = null;
+    const input = {
+        dataset: {},
+        readOnly: true,
+        value: '',
+        listeners: {},
+        addEventListener(event, handler) {
+            this.listeners[event] = handler;
+        },
+        focus() {
+            activeElement = input;
+            if (this.listeners.focus) this.listeners.focus();
+        },
+        blur() {
+            activeElement = null;
+        }
+    };
+    const list = {
+        innerHTML: '',
+        querySelectorAll() {
+            return [];
+        },
+        getBoundingClientRect() {
+            return { top: 368, bottom: 548 };
+        }
+    };
+    const modalBody = {
+        scrollTop: 0,
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const container = {
+        innerHTML: '',
+        classList: {
+            add(cls) { classes.add(cls); },
+            remove(cls) { classes.delete(cls); },
+            contains(cls) { return classes.has(cls); }
+        },
+        querySelector(selector) {
+            if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return list;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
+        }
+    };
+    const documentLike = {
+        documentElement: { clientHeight: 640 },
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            return id === 'sd-categoria' ? container : null;
+        }
+    };
+    const { ModalInteractions } = loadUiViews({ document: documentLike });
+    const runZeroTimers = () => {
+        timeouts
+            .filter(item => item.ms === 0)
+            .forEach(item => item.callback());
+    };
+
+    ModalInteractions.createSearchableDropdown({
+        containerId: 'sd-categoria',
+        items: [
+            { id: 'bar', emoji: 'x', nome: 'Bar' },
+            { id: 'casa', emoji: 'y', nome: 'Casa' }
+        ],
+        currentValue: 'bar',
+        document: documentLike,
+        setTimeout(callback, ms) {
+            timeouts.push({ callback, ms });
+        }
+    });
+
+    input.listeners.mousedown({ preventDefault() {} });
+    runZeroTimers();
+    input.listeners.mousedown({ preventDefault() {} });
+    runZeroTimers();
+
+    assert.equal(input.readOnly, false);
+    assert.equal(activeElement, input);
+
+    timeouts.length = 0;
+    let prevented = false;
+    input.listeners.mousedown({ preventDefault() { prevented = true; } });
+    input.listeners.click();
+
+    assert.equal(prevented, false);
+    assert.deepEqual(timeouts.map(item => item.ms), [0, 0]);
+    assert(!timeouts.some(item => item.ms > 0));
+
+    runZeroTimers();
+    timeouts.length = 0;
+    input.listeners.click();
+
+    assert.deepEqual(timeouts.map(item => item.ms), []);
 });
 
 test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
@@ -3357,13 +3985,40 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     }
 
     const sdInput = makeElement('sd-input', { inModal: true, inDropdown: true });
+    const modalBody = {
+        scrollTop: 0,
+        dataset: {},
+        style: {},
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const dropdownList = {
+        getBoundingClientRect() {
+            return { top: 368, bottom: 548 };
+        }
+    };
     const dropdown = {
         classList: classList('dropdown', ['open']),
         querySelector(selector) {
-            return selector === '.sd-input' ? sdInput : null;
+            if (selector === '.sd-input') return sdInput;
+            if (selector === '.sd-list') return dropdownList;
+            return null;
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
         }
     };
-    const modal = { contains: el => !!(el && el.inModal) };
+    const modal = {
+        style: {},
+        contains: el => !!(el && el.inModal),
+        querySelector(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        }
+    };
     const editDesc = makeElement('edit-descrizione', { inModal: true, tagName: 'TEXTAREA' });
     const editData = makeElement('edit-data', { inModal: true, type: 'date', classes: ['picker-open'] });
     const editOra = makeElement('edit-ora', { inModal: true, type: 'time', classes: ['picker-open'] });
@@ -3385,6 +4040,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
         }
     };
     const elements = {
+        'modal-overlay': { style: {} },
         'edit-modal': modal,
         'edit-data': editData,
         'edit-ora': editOra,
@@ -3460,10 +4116,18 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
     assert.equal(lastViewportHeight, 450);
 
+    modalBody.scrollTop = 0;
+    activeElement = sdInput;
+    lastViewportHeight = 650;
+    win.visualViewport.height = 360;
+    ModalMobileController.handleViewportChange(options);
+    assert.equal(modalBody.scrollTop, 0);
+
     modalOpen = false;
     filterOpen = true;
     activeElement = searchInput;
     lastViewportHeight = 300;
+    win.visualViewport.height = 450;
     ModalMobileController.handleViewportChange(options);
     assert(calls.some(call => call[0] === 'blur' && call[1] === 'search-input'));
 
@@ -3493,6 +4157,7 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert.equal(timerId, null);
     assert.deepEqual(clearedIntervals, [1]);
 
+    timeouts.length = 0;
     activeElement = editData;
     ModalMobileController.bindNonStickyNativePicker(editData, options);
     let pointerPrevented = false;
@@ -3534,6 +4199,78 @@ test('Controller mobile modale isola focus, picker e viewport da App', () => {
     assert.equal(typeof winListeners.focus, 'function');
 });
 
+test('Controller mobile modale non applica auto scroll o layout alla finestra', () => {
+    const { ModalMobileController } = loadUiViews();
+    let activeElement = null;
+    let lastViewportHeight = 640;
+    const modalBody = {
+        scrollTop: 120,
+        dataset: {},
+        style: {},
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const field = {
+        inModal: true,
+        tagName: 'TEXTAREA',
+        type: 'text',
+        matches(selector) {
+            return selector === 'input, textarea, select';
+        },
+        closest() {
+            return null;
+        },
+        blur() {
+            activeElement = null;
+        }
+    };
+    const overlay = { style: {} };
+    const modal = {
+        style: {},
+        contains(el) {
+            return !!(el && el.inModal);
+        },
+        querySelector(selector) {
+            return selector === '.modal-body' ? modalBody : null;
+        }
+    };
+    const doc = {
+        get activeElement() {
+            return activeElement;
+        },
+        getElementById(id) {
+            if (id === 'modal-overlay') return overlay;
+            if (id === 'edit-modal') return modal;
+            return null;
+        },
+        querySelector() {
+            return null;
+        }
+    };
+    const win = {
+        innerHeight: 640,
+        visualViewport: { height: 360, offsetTop: 0 }
+    };
+    const options = {
+        document: doc,
+        window: win,
+        isModalOpen: () => true,
+        getLastViewportHeight: () => lastViewportHeight,
+        setLastViewportHeight(value) {
+            lastViewportHeight = value;
+        }
+    };
+
+    activeElement = field;
+    ModalMobileController.handleViewportChange(options);
+
+    assert.equal(modalBody.scrollTop, 120);
+    assert.equal(modalBody.style.paddingBottom, undefined);
+    assert.equal(overlay.style.paddingBottom, undefined);
+    assert.equal(modal.style.maxHeight, undefined);
+    assert.equal(activeElement, field);
+});
 test('Controller modale coordina apertura, salvataggio e chiusura fuori da App', () => {
     const { ModalController } = loadUiViews();
     const calls = [];
@@ -3837,7 +4574,7 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(page.includes('Importa Dati'));
     assert(page.includes('btn-export-default'));
     assert(page.includes('btn-export-custom'));
-    assert(page.includes('>Esporta</button>'));
+    assert(page.includes('>Custom</button>'));
     assert(page.includes('btn-import'));
     assert(page.includes('Spese registrate'));
     assert(page.includes('Versioni'));
@@ -3867,8 +4604,7 @@ test('Vista impostazioni renderizza info, guardrail e preview import escapata', 
     assert(!exportModal.includes('file in chiaro'));
     assert(!exportModal.includes('JSON puo includere'));
     assert(exportModal.includes('3 spese selezionate'));
-    assert(!exportModal.includes('sd-item selected'));
-    assert(exportModal.includes('data-current="true"'));
+    assert(exportModal.includes('sd-item selected'));
     assert(exportModal.includes('export-toggle-last-selection'));
     assert(exportModal.includes('export-toggle-last-filters'));
     assert(exportModal.includes('disabled'));
@@ -4659,13 +5395,176 @@ test('Controller impostazioni collega finestra export a history e selezione time
         filterOptions.storage
     );
     assert.deepEqual(calls.slice(-2), [
-        ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: true }],
+        ['begin-export-selection', { selectedIds: [], selectFilteredWhenEmpty: false }],
         ['navigate-timeline']
     ]);
     assert.equal(savedPrefs.selectionInitialized, false);
     assert.deepEqual(savedPrefs.selectedIds, []);
     assert.equal(savedPrefs.includeSettings, false);
     assert.equal(savedPrefs.includePersonalizzazioni, true);
+});
+
+test('Controller impostazioni chiudendo export dalle impostazioni esce dalla selezione nascosta', () => {
+    const { SettingsController } = loadUiViews();
+    const classes = new Set(['hidden']);
+    const calls = [];
+    let selectionActive = false;
+    const body = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return { innerHTML: '' };
+            return null;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage: { KEY: 'spese-test' },
+        localStorage: createLocalStorage(),
+        getCurrentPage: () => 'settings',
+        getSelectedSpese: () => (selectionActive ? [expense({ id: 'a' })] : []),
+        getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
+        countActiveFilters: () => 0,
+        beginExportSelection: config => {
+            selectionActive = true;
+            calls.push(['begin-export-selection', config]);
+        },
+        isTimelineSelectionActive: () => selectionActive,
+        exitTimelineSelection: fromPopstate => {
+            selectionActive = false;
+            calls.push(['exit-selection', fromPopstate]);
+        },
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: steps => calls.push(['consume', steps || 1])
+    };
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls.slice(-2), [
+        ['exit-selection', true],
+        ['consume', 2]
+    ]);
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options, true);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls.slice(-2), [
+        ['exit-selection', true],
+        ['consume', 1]
+    ]);
+
+    SettingsController.openExportModal(options);
+    assert.equal(selectionActive, true);
+
+    SettingsController.closeExportModal(options, true, { preserveSelection: true });
+    assert.equal(selectionActive, true);
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-export-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+});
+
+test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const classes = new Set(['hidden']);
+    const body = { innerHTML: '' };
+    const filterBtn = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane' }),
+        expense({ id: 'b', descrizione: 'Latte' }),
+        expense({ id: 'c', descrizione: 'Pane integrale' })
+    ];
+    const calls = [];
+    let currentIds = ['b'];
+    let currentFilters = { query: '' };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
+        getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            const query = snapshot.query.toLowerCase();
+            return spese
+                .filter(spesa => !query || String(spesa.descrizione || '').toLowerCase().includes(query))
+                .map(spesa => spesa.id);
+        },
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = SettingsActions.normalizeFilterSnapshot(filters);
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection(config) {
+            currentIds = config.selectedIds.slice();
+            calls.push(['begin-selection', config]);
+        },
+        countActiveFilters: () => 1,
+        pushUiState: state => calls.push(['push', state])
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['b'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    SettingsController.openExportModal(options);
+
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(calls, [
+        ['apply-filters', { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['push', { panel: 'export-modal' }]
+    ]);
+    assert(body.innerHTML.includes('2 spese selezionate'));
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 });
 
 test('Controller impostazioni ricorda solo ultimo export custom riuscito', () => {
@@ -4780,14 +5679,15 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
         getSpese: () => [expense({ id: 'a' }), expense({ id: 'b' }), expense({ id: 'c' })],
         getSelectedSpese: () => [expense({ id: 'a' }), expense({ id: 'b' })],
         countActiveFilters: () => 5,
+        getFilteredIdsForExportFilters: () => ['a', 'c'],
         applyExportFilters: (filters, selectedIds) => reopenCalls.push(['apply-filters', filters, selectedIds]),
         beginExportSelection: config => reopenCalls.push(['begin-selection', config]),
         pushUiState: state => reopenCalls.push(['push', state])
     });
 
     assert.deepEqual(reopenCalls, [
-        ['apply-filters', savedAfterExport.lastExport.filters, ['a', 'b']],
-        ['begin-selection', { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }],
+        ['apply-filters', savedAfterExport.lastExport.filters, ['a', 'c']],
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
     assert(filterBtn.innerHTML.includes('filter-badge'));
@@ -4828,10 +5728,80 @@ test('Controller impostazioni ricorda solo ultimo export custom riuscito', () =>
     });
 
     assert.deepEqual(timelineOpenCalls, [
-        ['begin-selection', { selectedIds: ['c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
     assert(timelineBody.innerHTML.includes('1 spesa selezionata'));
+});
+
+test('Controller impostazioni dopo export custom chiude modale ed esce dalla selezione', () => {
+    const { SettingsController } = loadUiViews();
+    const calls = [];
+    let clickHandler = null;
+    let selectionActive = true;
+    const classes = new Set();
+    const storage = {
+        KEY: 'spese-test',
+        exportJSON(options) {
+            calls.push(['export-json', options.spese.map(spesa => spesa.id)]);
+            return { success: true, content: '{"ok":true}', count: options.spese.length };
+        }
+    };
+    const fields = {
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: false },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const options = {
+        document: {
+            getElementById(id) {
+                return id === 'export-modal-overlay' ? modal : null;
+            }
+        },
+        storage,
+        localStorage: createLocalStorage(),
+        getCurrentPage: () => 'timeline',
+        getTimelineSelectedIds: () => new Set(['a']),
+        getSelectedSpese: () => [expense({ id: 'a' })],
+        getCurrentFilters: () => ({ query: '' }),
+        isTimelineSelectionActive: () => selectionActive,
+        exitTimelineSelection: fromPopstate => {
+            selectionActive = false;
+            calls.push(['exit-selection', fromPopstate]);
+        },
+        consumeUiState: steps => calls.push(['consume', steps]),
+        dateStamp: () => '2026-06-11',
+        download: (content, filename, mime) => calls.push(['download', filename, mime, content]),
+        showToast: (message, type) => calls.push(['toast', type, message])
+    };
+
+    SettingsController.bindExportModal(options);
+    clickHandler({ target: { id: 'btn-export-run' } });
+
+    assert.equal(classes.has('hidden'), true);
+    assert.equal(selectionActive, false);
+    assert.deepEqual(calls, [
+        ['export-json', ['a']],
+        ['download', 'spese_export_2026-06-11.json', 'application/json', '{"ok":true}'],
+        ['toast', 'info', 'Export JSON custom avviato...'],
+        ['consume', 1],
+        ['exit-selection', false]
+    ]);
 });
 
 test('Controller impostazioni gestisce dropdown formato e ripristino contenuti dopo CSV', () => {
@@ -4843,6 +5813,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     let clickHandler = null;
     let mouseDownHandler = null;
     let inputHandler = null;
+    let activeElement = null;
 
     function classList(initial = []) {
         const set = new Set(initial);
@@ -4863,7 +5834,10 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         value: 'JSON',
         readOnly: true,
         dataset: { value: 'json' },
-        focus: () => calls.push('focus'),
+        focus: () => {
+            activeElement = input;
+            calls.push('focus');
+        },
         closest(selector) {
             if (selector === '#export-format-dropdown .sd-input') return input;
             if (selector === '#export-format-dropdown .sd-item') return null;
@@ -4891,6 +5865,19 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
             return null;
         }
     };
+    const exportBody = {
+        scrollTop: 0,
+        dataset: {},
+        style: {},
+        getBoundingClientRect() {
+            return { top: 80, bottom: 360 };
+        }
+    };
+    const dropdownList = {
+        getBoundingClientRect() {
+            return { top: 368, bottom: 488, height: 120 };
+        }
+    };
     const dropdown = {
         classList: {
             add(cls) { classes.add(cls); },
@@ -4899,6 +5886,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         },
         querySelector(selector) {
             if (selector === '.sd-input') return input;
+            if (selector === '.sd-list') return dropdownList;
             if (selector === '.sd-item.selected') return jsonItem;
             return null;
         },
@@ -4907,6 +5895,12 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
                 return [jsonItem, csvItem];
             }
             return [];
+        },
+        closest(selector) {
+            return selector === '.modal-body' ? exportBody : null;
+        },
+        getBoundingClientRect() {
+            return { top: 320, bottom: 364 };
         }
     };
     const fields = {
@@ -4920,14 +5914,23 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         '#export-include-personalizzazioni': { checked: true },
         '#export-modal-close': null
     };
+    const exportPanel = {
+        style: {},
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return exportBody;
+            return fields[selector] || null;
+        }
+    };
     const modal = {
         dataset: {},
+        style: {},
         classList: {
             contains: () => false,
             add() {},
             remove() {}
         },
         querySelector(selector) {
+            if (selector === '#export-modal') return exportPanel;
             return fields[selector] || null;
         },
         addEventListener(event, handler) {
@@ -4938,6 +5941,9 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     };
     const options = {
         document: {
+            get activeElement() {
+                return activeElement;
+            },
             getElementById(id) {
                 return id === 'export-modal-overlay' ? modal : null;
             }
@@ -4947,7 +5953,10 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
         getTimelineSelectedIds: () => [],
         getSelectedSpese: () => [],
         getSpese: () => [],
-        countActiveFilters: () => 0
+        countActiveFilters: () => 0,
+        pushUiState: state => calls.push(['push', state]),
+        consumeUiState: () => calls.push('consume'),
+        setTimeout: callback => callback()
     };
 
     SettingsController.bindExportModal(options);
@@ -4959,6 +5968,24 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert(classes.has('open'));
     assert.equal(input.readOnly, true);
     assert(!jsonItem.classList.contains('highlighted'));
+    assert.deepEqual(calls.slice(-2), ['focus', ['push', { panel: 'export-format' }]]);
+    assert.equal(SettingsController.isExportFormatDropdownOpen(options), true);
+    assert.equal(modal.style.paddingBottom, undefined);
+    assert.equal(exportPanel.style.maxHeight, undefined);
+    assert.equal(exportBody.style.paddingBottom, undefined);
+    assert.equal(exportBody.scrollTop, 0);
+
+    SettingsController.clearExportModalInteraction(options, true);
+    assert.equal(classes.has('open'), false);
+    assert.equal(modal.dataset.exportFormatInteraction, undefined);
+    assert.equal(exportBody.style.paddingBottom, undefined);
+    assert(!calls.includes('consume'));
+
+    mouseDownHandler({
+        target: input,
+        preventDefault: () => calls.push('prevent-reopen')
+    });
+    assert(classes.has('open'));
 
     mouseDownHandler({
         target: input,
@@ -4966,6 +5993,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     });
     assert.equal(input.readOnly, false);
     assert.equal(input.value, '');
+    assert.equal(exportBody.scrollTop, 0);
 
     input.value = 'cs';
     inputHandler({ target: input });
@@ -4979,6 +6007,7 @@ test('Controller impostazioni gestisce dropdown formato e ripristino contenuti d
     assert.equal(prefs.includeSettings, false);
     assert.equal(prefs.includePersonalizzazioni, false);
     assert.equal(modal.dataset.exportPreCsvContents, '{"includeData":false,"includeSettings":true,"includePersonalizzazioni":true}');
+    assert(calls.includes('consume'));
 
     field.value = 'csv';
     fields['#export-include-data'].checked = true;
@@ -5005,6 +6034,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     ];
     const calls = [];
     let currentIds = ['manual'];
+    let currentFilters = { query: '' };
     let clickHandler = null;
     const body = { innerHTML: '' };
     const fields = {
@@ -5039,12 +6069,31 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         localStorage,
         getSpese: () => spese,
         getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
         getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
-        getFilteredIdsForExportFilters: () => ['a', 'c'],
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            return spese
+                .filter(spesa => {
+                    const query = snapshot.query.toLowerCase();
+                    const matchesQuery = !query || String(spesa.descrizione || '').toLowerCase().includes(query);
+                    const matchesCategory = snapshot.categories.length === 0 || snapshot.categories.includes(spesa.categoria);
+                    const matchesMethod = snapshot.methods.length === 0 || snapshot.methods.includes(spesa.metodo);
+                    const matchesMin = spesa.importo >= snapshot.amountMin;
+                    const matchesMax = snapshot.amountMax === Infinity || spesa.importo <= snapshot.amountMax;
+                    return matchesQuery && matchesCategory && matchesMethod && matchesMin && matchesMax;
+                })
+                .map(spesa => spesa.id);
+        },
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = { ...filters };
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
         beginExportSelection(config) {
             currentIds = config.selectedIds.slice();
             calls.push(['begin-selection', config]);
         },
+        navigateToTimeline: () => calls.push(['navigate-timeline']),
         countActiveFilters: () => 0
     };
 
@@ -5069,13 +6118,54 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
     assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'c']
+    ]);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
         { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
     clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentIds, ['a', 'b']);
+    assert.deepEqual(currentFilters, {
+        query: '',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: '', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'b']
+    ]);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseFilterSelection, undefined);
+    assert.equal(modal.dataset.exportToggleBaseFilters, undefined);
+
+    clickHandler({ target: { id: 'export-toggle-last-selection' } });
     assert.deepEqual(currentIds, ['manual']);
     assert.deepEqual(calls[calls.length - 1], [
         'begin-selection',
@@ -5083,18 +6173,248 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     ]);
     assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
 
+    currentIds = ['a', 'c'];
+    currentFilters = {
+        query: 'latte',
+        categories: ['bar'],
+        methods: ['card'],
+        amountMin: 5,
+        amountMax: 20,
+        dateFrom: '2026-01-01',
+        dateTo: '2026-02-01',
+        selectedOnly: true
+    };
+    SettingsController.openExportModal(options, { keepCurrentSelection: true });
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
+    assert(!body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['a', 'c']);
+    assert.deepEqual(calls[calls.length - 2], [
+        'apply-filters',
+        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        ['a', 'c']
+    ]);
+    assert.deepEqual(calls[calls.length - 1], [
+        'begin-selection',
+        { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
+    ]);
+    assert.equal(modal.dataset.exportToggleBaseFilterSelection, '["a","c"]');
+
+    clickHandler({ target: { id: 'btn-export-filters' } });
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['navigate-timeline']
+    ]);
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['manual'],
+            filters: {}
+        }
+    });
+    currentIds = ['manual'];
+    currentFilters = {
+        query: 'latte',
+        categories: ['bar'],
+        methods: ['carta'],
+        amountMin: 1,
+        amountMax: 5,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    };
+    SettingsController.openExportModal(options, { keepCurrentSelection: true });
+    assert(!body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentFilters, {
+        query: '',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['a', 'b', 'c', 'manual']);
+    assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(currentFilters, {
+        query: 'latte',
+        categories: ['bar'],
+        methods: ['carta'],
+        amountMin: 1,
+        amountMax: 5,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['manual']);
+
     SettingsActions.saveExportPreferences(localStorage, storage, {
         lastExport: {
             selectedIds: ['a', 'c'],
             filters: { query: 'pane' }
         }
     });
+    currentFilters = SettingsActions.normalizeFilterSnapshot({ query: 'pane' });
     clickHandler({ target: { id: 'export-toggle-last-selection' } });
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.equal(
         (body.innerHTML.match(/aria-pressed="true"/g) || []).length,
         2
     );
+});
+
+test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale export', () => {
+    const { SettingsController, SettingsActions } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane' }),
+        expense({ id: 'b', descrizione: 'Latte' }),
+        expense({ id: 'c', descrizione: 'Pane integrale' }),
+        expense({ id: 'manual', descrizione: 'Corrente' })
+    ];
+    const staleCalls = [];
+    const calls = [];
+    let currentIds = ['manual'];
+    let currentFilters = { query: 'latte' };
+    let clickHandler = null;
+    const body = { innerHTML: '' };
+    const fields = {
+        '#export-modal-body': body,
+        '#export-format': { value: 'json' },
+        '#export-include-data': { checked: true },
+        '#export-include-settings': { checked: true },
+        '#export-include-personalizzazioni': { checked: false },
+        '#export-modal-close': null
+    };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: () => false,
+            add() {},
+            remove() {}
+        },
+        querySelector(selector) {
+            return fields[selector] || null;
+        },
+        addEventListener(event, handler) {
+            if (event === 'click') clickHandler = handler;
+        }
+    };
+    const documentLike = {
+        getElementById(id) {
+            return id === 'export-modal-overlay' ? modal : null;
+        }
+    };
+    const staleOptions = {
+        document: documentLike,
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => ['stale-manual'],
+        getCurrentFilters: () => ({ query: 'stale' }),
+        getSelectedSpese: () => [],
+        getFilteredIdsForExportFilters: () => ['stale-target'],
+        applyExportFilters: (filters, selectedIds) => {
+            staleCalls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection: config => {
+            staleCalls.push(['begin-selection', config]);
+        },
+        navigateToTimeline: () => staleCalls.push(['navigate-timeline']),
+        countActiveFilters: () => 0
+    };
+    const currentOptions = {
+        document: documentLike,
+        storage,
+        localStorage,
+        getSpese: () => spese,
+        getTimelineSelectedIds: () => currentIds,
+        getCurrentFilters: () => currentFilters,
+        getSelectedSpese: () => spese.filter(spesa => currentIds.includes(spesa.id)),
+        getFilteredIdsForExportFilters(filters) {
+            const snapshot = SettingsActions.normalizeFilterSnapshot(filters);
+            return spese
+                .filter(spesa => {
+                    const query = snapshot.query.toLowerCase();
+                    return !query || String(spesa.descrizione || '').toLowerCase().includes(query);
+                })
+                .map(spesa => spesa.id);
+        },
+        applyExportFilters(filters, selectedIds) {
+            currentFilters = { ...filters };
+            calls.push(['apply-filters', filters, selectedIds]);
+        },
+        beginExportSelection(config) {
+            currentIds = config.selectedIds.slice();
+            calls.push(['begin-selection', config]);
+        },
+        navigateToTimeline: () => calls.push(['navigate-timeline']),
+        countActiveFilters: () => 0
+    };
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a', 'c'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    SettingsController.bindExportModal(staleOptions);
+    SettingsController.bindExportModal(currentOptions);
+    SettingsController.openExportModal(currentOptions, { keepCurrentSelection: true });
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(currentFilters, {
+        query: 'pane',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['a', 'c']);
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(currentFilters, {
+        query: 'latte',
+        categories: [],
+        methods: [],
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false
+    });
+    assert.deepEqual(currentIds, ['manual']);
+
+    clickHandler({ target: { id: 'export-toggle-last-filters' } });
+    clickHandler({ target: { id: 'btn-export-filters' } });
+    assert.deepEqual(staleCalls, []);
+    assert.deepEqual(calls.slice(-2), [
+        ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
+        ['navigate-timeline']
+    ]);
 });
 
 test('Controller impostazioni crea snapshot e sostituisce pagina prima del cambio versione', () => {
@@ -5425,6 +6745,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second._suppressPopstateCount, 0);
     assert.equal(second.timelineSelectionActive, false);
     assert.equal(second.timelineSelectedIds.size, 0);
     assert.equal(second.timelineSelectionDeletePending, false);
@@ -5466,6 +6787,7 @@ test('Wiring modale centralizza opzioni mobile, dropdown e tag fuori da app-wiri
             handleViewportChange: () => calls.push('viewport-change'),
             ensureInteractionState: () => calls.push('ensure-interaction'),
             releaseInteractionState: () => calls.push('release-interaction'),
+            restoreRevealScroll: () => calls.push('restore-reveal-scroll'),
             getOpenDropdown: () => null
         },
         ExpenseStore: { getSpese: () => [] },
@@ -5728,6 +7050,560 @@ test('Wiring app centralizza history e opzioni controller fuori da app.js', () =
     ]);
 });
 
+test('Wiring app sopprime tutti i popstate programmati prima di resettare i filtri', () => {
+    const { AppWiring, AppState, UIStackController } = loadUiViews();
+    const calls = [];
+    const app = {
+        ...AppState.create(),
+        _activeFiltersHistory: true,
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'caffe';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        FilterController: {
+            resetFilters() {
+                app.filters.query = '';
+                calls.push('reset-filters');
+            },
+            updateFilterBadge() {},
+            syncFilterUI() {}
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        }
+    });
+
+    wiring.consumeUiState();
+    wiring.consumeUiState();
+    assert.equal(app._suppressPopstateCount, 2);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, 'caffe');
+    assert.equal(app._suppressPopstateCount, 1);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, 'caffe');
+    assert.equal(app._suppressPopstateCount, 0);
+
+    UIStackController.handlePopstate(wiring.uiStackOptions());
+    assert.equal(app.filters.query, '');
+    assert.deepEqual(calls, ['reset-filters']);
+});
+
+test('Wiring app chiude il pannello filtri prima delle azioni selezione', () => {
+    const { AppWiring, AppState } = loadUiViews();
+    const calls = [];
+    const app = {
+        ...AppState.create(),
+        filterOpen: false
+    };
+    const wiring = AppWiring.create(app, {
+        document: { body: {} },
+        window: {},
+        history: {},
+        setTimeout: (callback, delay) => {
+            calls.push(['timeout', delay]);
+            callback();
+            return null;
+        },
+        FilterController: {
+            closeFilterPanel: () => {
+                app.filterOpen = false;
+                calls.push('close-filter');
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        }
+    });
+
+    let continued = 0;
+
+    assert.equal(wiring.timelineSelectionOptions().closeFiltersForSelectionAction(() => {
+        continued += 1;
+    }), false);
+    assert.equal(continued, 0);
+
+    app.filterOpen = true;
+
+    assert.equal(wiring.timelineSelectionOptions().closeFiltersForSelectionAction(() => {
+        continued += 1;
+        calls.push('continue');
+    }), true);
+    assert.deepEqual(calls, [
+        'close-filter',
+        ['timeout', 0],
+        ['timeout', 0],
+        'continue'
+    ]);
+    assert.equal(continued, 1);
+});
+
+test('Wiring app ripristina i filtri precedenti quando termina la selezione', () => {
+    const { AppWiring, AppState, TimelineSelectionController, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    const app = {
+        ...AppState.create(),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'pane';
+    app.filters.categories = new Set(['alimentari']);
+    app.filters.methods = new Set(['carta']);
+    app.filters.amountMin = 2;
+    app.filters.amountMax = 20;
+    app.filters.dateFrom = '2026-06-01';
+    app.filters.dateTo = '2026-06-10';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action) {
+                historyActions.push(action);
+                return true;
+            }
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        },
+        ExpenseStore: {
+            getSpese: () => [
+                expense({ id: 'a', descrizione: 'Pane', categoria: 'alimentari', metodo: 'carta', importo: 5, data: '2026-06-05T10:00:00' }),
+                expense({ id: 'b', descrizione: 'Bus', categoria: 'trasporti', metodo: 'contanti', importo: 3, data: '2026-06-05T10:00:00' })
+            ]
+        }
+    });
+    const options = wiring.timelineSelectionOptions();
+
+    TimelineSelectionController.enter(options, 'a');
+    app.filters.query = 'bus';
+    app.filters.categories = new Set(['trasporti']);
+    app.filters.methods = new Set(['contanti']);
+    app.filters.amountMin = 0;
+    app.filters.amountMax = 10;
+    app.filters.dateFrom = '';
+    app.filters.dateTo = '';
+
+    TimelineSelectionController.exit(options);
+
+    assert.equal(app.filters.query, 'pane');
+    assert.deepEqual(Array.from(app.filters.categories), ['alimentari']);
+    assert.deepEqual(Array.from(app.filters.methods), ['carta']);
+    assert.equal(app.filters.amountMin, 2);
+    assert.equal(app.filters.amountMax, 20);
+    assert.equal(app.filters.dateFrom, '2026-06-01');
+    assert.equal(app.filters.dateTo, '2026-06-10');
+    assert.equal(app.filters.selectedOnly, false);
+    assert.equal(app.timelineSelectionBaseFilters, null);
+    assert.deepEqual(
+        historyActions.map(action => action.type),
+        [
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.BACK
+        ]
+    );
+});
+
+test('Wiring app conserva i filtri precedenti aprendo export custom dalle impostazioni', () => {
+    const { AppWiring, AppState, SettingsController, SettingsActions, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    const classes = new Set(['hidden']);
+    const body = { innerHTML: '' };
+    const filterBtn = { innerHTML: '' };
+    const modal = {
+        dataset: {},
+        classList: {
+            contains: cls => classes.has(cls),
+            add: cls => classes.add(cls),
+            remove: cls => classes.delete(cls)
+        },
+        querySelector(selector) {
+            if (selector === '#export-modal-body') return body;
+            if (selector === '#btn-export-filters') return filterBtn;
+            return null;
+        }
+    };
+    const localStorage = createLocalStorage();
+    const storage = { KEY: 'spese-test' };
+    const spese = [
+        expense({ id: 'a', descrizione: 'Pane', importo: 5 }),
+        expense({ id: 'b', descrizione: 'Latte', importo: 4 })
+    ];
+    const app = {
+        ...AppState.create(),
+        currentPage: 'settings',
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    app.filters.query = 'latte';
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById(id) {
+                if (id === 'export-modal-overlay') return modal;
+                if (id === 'settings-content') return {};
+                return null;
+            }
+        },
+        window: {
+            navigator: {},
+            localStorage
+        },
+        history: {},
+        Storage: storage,
+        HistoryController: {
+            run(action) {
+                historyActions.push(action);
+                return true;
+            }
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        },
+        ExpenseStore: {
+            getSpese: () => spese
+        }
+    });
+
+    SettingsActions.saveExportPreferences(localStorage, storage, {
+        lastExport: {
+            selectedIds: ['a'],
+            filters: { query: 'pane' }
+        }
+    });
+
+    const options = wiring.settingsOptions();
+    SettingsController.openExportModal(options);
+
+    assert.equal(app.timelineSelectionActive, true);
+    assert.equal(app.filters.query, 'pane');
+    assert.deepEqual(Array.from(app.timelineSelectedIds), ['a']);
+    assert.equal(app.timelineSelectionBaseFilters.query, 'latte');
+
+    SettingsController.closeExportModal(options);
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filters.query, 'latte');
+    assert.equal(app.timelineSelectionBaseFilters, null);
+    assert.deepEqual(
+        historyActions.map(action => action.type),
+        [
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.PUSH,
+            UIStack.HISTORY_ACTIONS.GO
+        ]
+    );
+});
+
+test('Wiring app chiede conferma prima delle impostazioni con selezione attiva', () => {
+    const { AppWiring, AppState } = loadUiViews();
+    const calls = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        timelineSelectionActive: true,
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: { body: {} },
+        window: {},
+        history: {},
+        setTimeout: callback => callback(),
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                calls.push(['confirm', options.message, options.choices.map(choice => choice.text)]);
+                return true;
+            }
+        },
+        TimelineSelectionController: {
+            syncHeader() {},
+            exit(_options, fromPopstate) {
+                app.timelineSelectionActive = false;
+                calls.push(['exit-selection', fromPopstate]);
+                return true;
+            }
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    assert.equal(navOptions.shouldConfirmSettingsNavigation(), true);
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+
+    assert.deepEqual(calls[0], ['confirm', 'Uscire da Selezione?', ['Annulla', 'Esci']]);
+    assert.equal(confirmPayload.choices[0].onClick, undefined);
+
+    confirmPayload.choices[1].onClick();
+
+    assert.deepEqual(calls.slice(1), [
+        ['exit-selection', true]
+    ]);
+
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
+    assert.deepEqual(calls.slice(1), [
+        ['exit-selection', true],
+        'continue'
+    ]);
+    assert.equal(app.timelineSelectionActive, false);
+});
+
+test('Wiring app consuma history selezione prima di andare alle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        setTimeout: callback => callback(),
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.deepEqual(historyActions.map(action => action.type), [
+        UIStack.HISTORY_ACTIONS.BACK
+    ]);
+    assert(!calls.includes('continue'));
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
+    assert.deepEqual(calls.slice(-2), [
+        'timeline',
+        'continue'
+    ]);
+});
+
+test('Wiring app consuma history filtri e selezione prima di andare alle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        filterOpen: true,
+        advancedFiltersOpen: true,
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        setTimeout: callback => callback(),
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            closeFilterPanel(_options, fromPopstate) {
+                calls.push(['close-filter', fromPopstate]);
+                app.filterOpen = false;
+                app.advancedFiltersOpen = false;
+            },
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filterOpen, false);
+    assert.equal(app.advancedFiltersOpen, false);
+    assert.deepEqual(historyActions.map(action => [action.type, action.delta]), [
+        [UIStack.HISTORY_ACTIONS.GO, -3]
+    ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'close-filter' && call[1] === true));
+    assert(!calls.includes('continue'));
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
+    assert.deepEqual(calls.slice(-2), [
+        'timeline',
+        'continue'
+    ]);
+});
+
+test('Wiring app consuma history pannello filtri semiaperto prima delle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        filterOpen: true,
+        advancedFiltersOpen: false,
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        setTimeout: callback => callback(),
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            closeFilterPanel(_options, fromPopstate) {
+                app.filterOpen = false;
+                assert.equal(fromPopstate, true);
+            },
+            updateFilterBadge: () => {},
+            syncFilterUI: () => {}
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => {});
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filterOpen, false);
+    assert.deepEqual(historyActions.map(action => [action.type, action.delta]), [
+        [UIStack.HISTORY_ACTIONS.GO, -2]
+    ]);
+});
+
 test('Controller tema mantiene separati tema persistente e toggle temporaneo', () => {
     const { ThemeController } = loadUiViews();
     const attrs = {};
@@ -5868,6 +7744,10 @@ test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
     assert.equal(
         UIStack.getPopstateAction({ confirmOpen: true, modalOpen: true }),
         UIStack.ACTIONS.CLOSE_CONFIRM
+    );
+    assert.equal(
+        UIStack.getPopstateAction({ exportFormatDropdownOpen: true, exportModalOpen: true }),
+        UIStack.ACTIONS.CLEAR_EXPORT_INTERACTION
     );
     assert.equal(
         UIStack.getPopstateAction({ exportModalOpen: true, releaseModalOpen: true }),
@@ -6123,6 +8003,7 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     const state = {
         suppress: false,
         confirmOpen: false,
+        exportDropdownOpen: false,
         exportModalOpen: false,
         releaseModalOpen: false,
         modalOpen: false,
@@ -6148,6 +8029,11 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
         },
         isConfirmOpen: () => state.confirmOpen,
         closeConfirm: fromPopstate => calls.push(['close-confirm', fromPopstate]),
+        isExportFormatDropdownOpen: () => state.exportDropdownOpen,
+        clearExportModalInteraction: fromPopstate => {
+            state.exportDropdownOpen = false;
+            calls.push(['clear-export-interaction', fromPopstate]);
+        },
         isExportModalOpen: () => state.exportModalOpen,
         closeExportModal: fromPopstate => calls.push(['close-export-modal', fromPopstate]),
         isReleaseModalOpen: () => state.releaseModalOpen,
@@ -6235,6 +8121,15 @@ test('UI stack controller applica popstate e modale tramite hook App sottili', (
     assert.deepEqual(calls[calls.length - 1], ['suppress', false]);
 
     state.suppress = false;
+    state.exportDropdownOpen = true;
+    state.exportModalOpen = true;
+    assert.equal(
+        UIStackController.handlePopstate(options),
+        UIStack.ACTIONS.CLEAR_EXPORT_INTERACTION
+    );
+    assert.deepEqual(calls[calls.length - 1], ['clear-export-interaction', true]);
+
+    state.exportDropdownOpen = false;
     state.exportModalOpen = true;
     assert.equal(
         UIStackController.handlePopstate(options),

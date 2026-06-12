@@ -3,6 +3,9 @@
    ============================================ */
 
 const NavigationController = (() => {
+    const TAP_MOVE_LIMIT = 10;
+    const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
+
     function noop() { }
 
     function getDocument(options) {
@@ -61,11 +64,55 @@ const NavigationController = (() => {
         return UIStack.getNavigationHistoryAction(payload);
     }
 
+    function bindImmediateTap(button, handler) {
+        if (!button || typeof button.addEventListener !== 'function') return;
+
+        let touchStart = null;
+        let lastImmediateTap = 0;
+
+        button.addEventListener('click', event => {
+            if (
+                event &&
+                lastImmediateTap > 0 &&
+                Date.now() - lastImmediateTap < SYNTHETIC_CLICK_SUPPRESS_MS
+            ) {
+                if (typeof event.preventDefault === 'function') event.preventDefault();
+                return;
+            }
+
+            handler(event);
+        });
+
+        button.addEventListener('touchstart', event => {
+            const touch = event.touches && event.touches[0];
+            touchStart = touch
+                ? { x: touch.clientX, y: touch.clientY }
+                : null;
+        }, { passive: true });
+
+        button.addEventListener('touchend', event => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touchStart || !touch) return;
+
+            const moved = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
+            touchStart = null;
+            if (moved > TAP_MOVE_LIMIT || button.disabled) return;
+
+            lastImmediateTap = Date.now();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+            handler(event);
+        }, { passive: false });
+
+        button.addEventListener('touchcancel', () => {
+            touchStart = null;
+        }, { passive: true });
+    }
+
     function init(options = {}) {
         const doc = getDocument(options);
 
         doc.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => navigateTo(options, btn.dataset.page));
+            bindImmediateTap(btn, () => navigateTo(options, btn.dataset.page));
         });
 
         setupPageScrollTracking(options);
@@ -164,8 +211,27 @@ const NavigationController = (() => {
         return action;
     }
 
-    function navigateTo(options = {}, page, fromPopstate = false) {
+    function shouldConfirmSettingsNavigation(options = {}, page, fromPopstate = false, config = {}) {
+        if (config.skipSelectionConfirm) return false;
+        if (fromPopstate || page !== 'settings') return false;
+        if (page === getCurrentPage(options)) return false;
+
+        return typeof options.shouldConfirmSettingsNavigation === 'function' &&
+            options.shouldConfirmSettingsNavigation(page);
+    }
+
+    function navigateTo(options = {}, page, fromPopstate = false, config = {}) {
         if (!page) return null;
+
+        if (shouldConfirmSettingsNavigation(options, page, fromPopstate, config)) {
+            if (typeof options.confirmSettingsNavigation === 'function') {
+                options.confirmSettingsNavigation(() => navigateTo(options, page, fromPopstate, {
+                    ...config,
+                    skipSelectionConfirm: true
+                }));
+            }
+            return null;
+        }
 
         rememberCurrentPageScroll(options);
         const action = updateNavigationHistory(options, page, fromPopstate);

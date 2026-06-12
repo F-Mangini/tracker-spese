@@ -1,8 +1,11 @@
 /* ============================================
-   MODAL MOBILE CONTROLLER - focus/picker/viewport
+   MODAL MOBILE CONTROLLER - focus/picker/back
    ============================================ */
 
 const ModalMobileController = (() => {
+    const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
+    const KEYBOARD_TRANSITION_THRESHOLD = 100;
+
     function noop() { }
 
     function getDocument(options) {
@@ -30,6 +33,7 @@ const ModalMobileController = (() => {
 
     function getOpenDropdown(options = {}) {
         const doc = getDocument(options);
+        if (!doc || typeof doc.querySelector !== 'function') return null;
         return doc.querySelector('#edit-modal .searchable-dropdown.open');
     }
 
@@ -47,6 +51,13 @@ const ModalMobileController = (() => {
 
     function blur(el) {
         try { el.blur(); } catch (_) { }
+    }
+
+    function clearPickerVisuals(doc) {
+        PICKER_FIELD_IDS.forEach(id => {
+            const el = doc.getElementById(id);
+            if (el) el.classList.remove('picker-open');
+        });
     }
 
     function bindNonStickyNativePicker(el, options = {}) {
@@ -98,7 +109,9 @@ const ModalMobileController = (() => {
         };
 
         doc.addEventListener('pointerdown', closeVisuals, { passive: true });
-        win.addEventListener('focus', () => el.classList.remove('picker-open'));
+        win.addEventListener('focus', () => {
+            el.classList.remove('picker-open');
+        });
 
         el.addEventListener('focus', () => {
             if (!openedProgrammatically) {
@@ -110,6 +123,14 @@ const ModalMobileController = (() => {
             defer(() => {
                 if (doc.activeElement === el) blur(el);
             }, 0);
+        });
+
+        el.addEventListener('change', () => {
+            el.classList.remove('picker-open');
+        });
+
+        el.addEventListener('blur', () => {
+            el.classList.remove('picker-open');
         });
 
         el.addEventListener('keydown', e => {
@@ -186,10 +207,7 @@ const ModalMobileController = (() => {
         const active = getActivePlainField(options);
         if (active) blur(active);
 
-        ['edit-data', 'edit-ora'].forEach(id => {
-            const el = doc.getElementById(id);
-            if (el) el.classList.remove('picker-open');
-        });
+        clearPickerVisuals(doc);
 
         const sel = win.getSelection ? win.getSelection() : null;
         if (sel && sel.rangeCount > 0) {
@@ -198,7 +216,7 @@ const ModalMobileController = (() => {
     }
 
     function shouldBlurForViewportChange(el, delta) {
-        if (!el || delta <= 100) return false;
+        if (!el || delta <= KEYBOARD_TRANSITION_THRESHOLD) return false;
 
         const type = (el.type || '').toLowerCase();
         const isTextLike =
@@ -220,19 +238,22 @@ const ModalMobileController = (() => {
         if (prevHeight > 0) {
             if (isModalOpen(options)) {
                 const active = getActivePlainField(options);
-                if (shouldBlurForViewportChange(active, delta)) blur(active);
+
+                if (shouldBlurForViewportChange(active, delta)) {
+                    blur(active);
+                }
             }
 
             if (options.isFilterOpen && options.isFilterOpen()) {
                 const searchInput = doc.getElementById('search-input');
-                if (searchInput && doc.activeElement === searchInput && delta > 100) {
+                if (searchInput && doc.activeElement === searchInput && delta > KEYBOARD_TRANSITION_THRESHOLD) {
                     blur(searchInput);
                 }
             }
 
             if (options.getCurrentPage && options.getCurrentPage() === 'timeline') {
                 const expenseInput = doc.getElementById('expense-input');
-                if (expenseInput && doc.activeElement === expenseInput && delta > 100) {
+                if (expenseInput && doc.activeElement === expenseInput && delta > KEYBOARD_TRANSITION_THRESHOLD) {
                     blur(expenseInput);
                 }
             }

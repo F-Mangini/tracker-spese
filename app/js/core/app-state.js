@@ -32,6 +32,7 @@ const AppState = (() => {
             timelineSelectionActive: false,
             timelineSelectedIds: new Set(),
             timelineSelectionDeletePending: false,
+            timelineSelectionBaseFilters: null,
 
             statsPeriod: 'month',
             statsOffset: 0,
@@ -49,6 +50,7 @@ const AppState = (() => {
 
             _modalInteractionActive: false,
             _suppressNextPopstate: false,
+            _suppressPopstateCount: 0,
             _suspendInteractionRelease: false,
             _keyboardWatchTimer: null,
             _expenseInputActive: false,

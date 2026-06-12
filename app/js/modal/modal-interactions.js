@@ -28,6 +28,17 @@ const ModalInteractions = (() => {
         return !!document.querySelector(`${modalSelector} .searchable-dropdown.open`);
     }
 
+    function getDocument(options = {}) {
+        if (options.document) return options.document;
+        if (typeof document !== 'undefined') return document;
+        return null;
+    }
+
+    function getDefer(options = {}) {
+        return options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
+    }
+
     function ensureInteraction(options, wasClosed) {
         if (wasClosed) call(options.ensureInteractionState);
     }
@@ -45,6 +56,7 @@ const ModalInteractions = (() => {
     function createSearchableDropdown(options = {}) {
         if (typeof document === 'undefined') return null;
 
+        const activeDocument = getDocument(options);
         const container = options.container || document.getElementById(options.containerId);
         const items = Array.isArray(options.items) ? options.items : [];
         if (!container) return null;
@@ -58,6 +70,9 @@ const ModalInteractions = (() => {
         const list = container.querySelector('.sd-list');
         let highlightIdx = -1;
         let isEditable = false;
+        let ignoreNextBlurClose = false;
+        let handledMouseDown = false;
+        let suppressNextFocusOpen = false;
 
         const findItem = id => items.find(item => item.id === id);
         const getSelectedItem = () => findItem(input.dataset.value) || items[0] || {};
@@ -112,27 +127,70 @@ const ModalInteractions = (() => {
             renderList();
         };
 
+        const ignoreInternalBlurOnce = () => {
+            const defer = getDefer(options);
+            ignoreNextBlurClose = true;
+            handledMouseDown = true;
+            defer(() => {
+                ignoreNextBlurClose = false;
+                handledMouseDown = false;
+            }, 0);
+        };
+
+        const suppressFocusOpenOnce = () => {
+            const defer = getDefer(options);
+            suppressNextFocusOpen = true;
+            defer(() => {
+                suppressNextFocusOpen = false;
+            }, 0);
+        };
+
+        const focusWithoutOpening = () => {
+            suppressFocusOpenOnce();
+            input.focus();
+        };
+
+        const closeAfterBlur = () => {
+            const defer = getDefer(options);
+            const ignoreBlur = ignoreNextBlurClose;
+            ignoreNextBlurClose = false;
+            defer(() => {
+                if (ignoreBlur) return;
+                if (activeDocument && activeDocument.activeElement === input) return;
+                close();
+            }, 0);
+        };
+
         input.addEventListener('mousedown', e => {
+            ignoreInternalBlurOnce();
+
             if (!container.classList.contains('open')) {
                 e.preventDefault();
-                input.focus();
+                focusWithoutOpening();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                input.focus();
+                focusWithoutOpening();
+            } else {
+                suppressFocusOpenOnce();
+            }
+        });
 
-                setTimeout(() => {
-                    if (typeof container.scrollIntoView === 'function') {
-                        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }, 300);
+        input.addEventListener('click', e => {
+            if (handledMouseDown) {
+                handledMouseDown = false;
             }
         });
 
         input.addEventListener('focus', () => {
+            if (suppressNextFocusOpen) {
+                suppressNextFocusOpen = false;
+                return;
+            }
+
             if (!container.classList.contains('open')) {
                 open();
             }
@@ -145,9 +203,7 @@ const ModalInteractions = (() => {
             renderList(input.value);
         });
 
-        input.addEventListener('blur', () => {
-            close();
-        });
+        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             const itemsInList = list.querySelectorAll('.sd-item');
@@ -190,6 +246,7 @@ const ModalInteractions = (() => {
     function createTagInput(options = {}) {
         if (typeof document === 'undefined') return null;
 
+        const activeDocument = getDocument(options);
         const container = options.container || document.getElementById(options.containerId || 'sd-tags');
         const chipsEl = options.chipsEl || document.getElementById(options.chipsId || 'tag-chips');
         if (!container || !chipsEl) return null;
@@ -199,6 +256,9 @@ const ModalInteractions = (() => {
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
         let isEditable = false;
+        let ignoreNextBlurClose = false;
+        let handledMouseDown = false;
+        let suppressNextFocusOpen = false;
 
         const getCurrentTags = () => {
             const tags = call(options.getTags);
@@ -285,7 +345,43 @@ const ModalInteractions = (() => {
             releaseInteractionAfterClose(options, wasOpen);
         };
 
+        const closeAfterBlur = () => {
+            const defer = getDefer(options);
+            const ignoreBlur = ignoreNextBlurClose;
+            ignoreNextBlurClose = false;
+            defer(() => {
+                if (ignoreBlur) return;
+                if (activeDocument && activeDocument.activeElement === input) return;
+                close();
+            }, 0);
+        };
+
+        const ignoreInternalBlurOnce = () => {
+            const defer = getDefer(options);
+            ignoreNextBlurClose = true;
+            handledMouseDown = true;
+            defer(() => {
+                ignoreNextBlurClose = false;
+                handledMouseDown = false;
+            }, 0);
+        };
+
+        const suppressFocusOpenOnce = () => {
+            const defer = getDefer(options);
+            suppressNextFocusOpen = true;
+            defer(() => {
+                suppressNextFocusOpen = false;
+            }, 0);
+        };
+
+        const focusWithoutOpening = () => {
+            suppressFocusOpenOnce();
+            input.focus();
+        };
+
         input.addEventListener('mousedown', e => {
+            ignoreInternalBlurOnce();
+
             const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
 
             if (!container.classList.contains('open')) {
@@ -297,23 +393,38 @@ const ModalInteractions = (() => {
                     input.value = '';
                 }
 
-                input.focus();
+                focusWithoutOpening();
                 open();
             } else if (!isEditable) {
                 e.preventDefault();
                 isEditable = true;
                 input.readOnly = false;
                 input.value = '';
-                input.focus();
+                focusWithoutOpening();
+            } else {
+                suppressFocusOpenOnce();
+            }
+        });
+
+        input.addEventListener('click', e => {
+            if (handledMouseDown) {
+                handledMouseDown = false;
             }
         });
 
         input.addEventListener('focus', () => {
+            if (suppressNextFocusOpen) {
+                suppressNextFocusOpen = false;
+                return;
+            }
+
             if (!container.classList.contains('open')) open();
         });
 
-        input.addEventListener('input', () => renderList(input.value));
-        input.addEventListener('blur', () => close());
+        input.addEventListener('input', () => {
+            renderList(input.value);
+        });
+        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;

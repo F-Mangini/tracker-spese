@@ -18,6 +18,16 @@ const StatsCharts = (() => {
         grid: '#e2e8f0'
     };
 
+    function formatMoney(value) {
+        if (typeof AppUI !== 'undefined' && AppUI && typeof AppUI.money === 'function') {
+            return AppUI.money(value);
+        }
+
+        const amount = Number(value || 0);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+        return `\u20ac${safeAmount.toFixed(2)}`;
+    }
+
     function getThemeColors(root) {
         if (typeof getComputedStyle !== 'function') {
             return { ...DEFAULT_THEME };
@@ -79,7 +89,7 @@ const StatsCharts = (() => {
                             label: context => {
                                 const total = context.dataset.data.reduce((sum, value) => sum + value, 0);
                                 const percent = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                                return ` \u20ac${context.parsed.toFixed(2)} (${percent}%)`;
+                                return ` ${formatMoney(context.parsed)} (${percent}%)`;
                             }
                         }
                     }
@@ -121,7 +131,7 @@ const StatsCharts = (() => {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: context => ` \u20ac${context.parsed.y.toFixed(2)}`
+                            label: context => ` ${formatMoney(context.parsed.y)}`
                         }
                     }
                 },

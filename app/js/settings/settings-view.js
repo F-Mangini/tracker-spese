@@ -167,7 +167,7 @@ const SettingsView = (() => {
                 <span class="sd-arrow">▼</span>
                 <div class="sd-list">
                     ${formats.map(format => `
-                        <div class="sd-item" data-format="${AppUI.escapeHtml(format.value)}" data-current="${selected.value === format.value ? 'true' : 'false'}">
+                        <div class="sd-item${selected.value === format.value ? ' selected' : ''}" data-format="${AppUI.escapeHtml(format.value)}">
                             <span>${AppUI.escapeHtml(format.label)}</span>
                         </div>
                     `).join('')}
@@ -200,9 +200,9 @@ const SettingsView = (() => {
                 <p class="settings-hint">Scarica un backup JSON o nel formato che preferisci.</p>
                 <div class="settings-buttons">
                     <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
-                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Esporta</button>
+                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Custom</button>
                 </div>
-                <h3>\uD83D\uDCE5 Importa Dati</h3>
+                <h3 class="settings-import-title">\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
                 <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
                 <button id="btn-import" class="btn btn-secondary btn-block">\uD83D\uDCC1 Scegli file...</button>

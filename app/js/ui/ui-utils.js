@@ -6,7 +6,16 @@ const AppUI = (() => {
     function money(value) {
         const amount = Number(value || 0);
         const safeAmount = Number.isFinite(amount) ? amount : 0;
-        return `\u20ac${safeAmount.toFixed(2)}`;
+        if (Math.abs(safeAmount) >= 100) {
+            return `\u20ac${Math.round(safeAmount)}`;
+        }
+
+        const roundedCents = Math.round(safeAmount * 100) / 100;
+        if (Number.isInteger(roundedCents)) {
+            return `\u20ac${roundedCents}`;
+        }
+
+        return `\u20ac${roundedCents.toFixed(2)}`;
     }
 
     function escapeHtml(value) {

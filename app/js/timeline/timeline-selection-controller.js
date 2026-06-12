@@ -6,6 +6,9 @@ const TimelineSelectionController = (() => {
     const NAV_SET_ACTIONS = 'actions';
     const NAV_SET_MAIN = 'main';
     const NAV_SWIPE_THRESHOLD = 42;
+    const NAV_WHEEL_THRESHOLD = 8;
+    const TAP_MOVE_LIMIT = 10;
+    const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
 
     function noop() { }
 
@@ -111,6 +114,62 @@ const TimelineSelectionController = (() => {
         }
 
         (options.renderTimeline || noop)();
+    }
+
+    function bindImmediateTap(button, handler) {
+        if (!button || typeof button.addEventListener !== 'function') return;
+
+        let touchStart = null;
+        let lastImmediateTap = 0;
+
+        button.addEventListener('click', event => {
+            if (
+                event &&
+                lastImmediateTap > 0 &&
+                Date.now() - lastImmediateTap < SYNTHETIC_CLICK_SUPPRESS_MS
+            ) {
+                if (typeof event.preventDefault === 'function') event.preventDefault();
+                return;
+            }
+
+            handler(event);
+        });
+
+        button.addEventListener('touchstart', event => {
+            const touch = event.touches && event.touches[0];
+            touchStart = touch
+                ? { x: touch.clientX, y: touch.clientY }
+                : null;
+        }, { passive: true });
+
+        button.addEventListener('touchend', event => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touchStart || !touch) return;
+
+            const moved = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
+            touchStart = null;
+            if (moved > TAP_MOVE_LIMIT || button.disabled) return;
+
+            lastImmediateTap = Date.now();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+            handler(event);
+        }, { passive: false });
+
+        button.addEventListener('touchcancel', () => {
+            touchStart = null;
+        }, { passive: true });
+    }
+
+    function rememberFiltersBeforeSelection(options = {}, wasActive = isActive(options)) {
+        if (wasActive || typeof options.rememberFiltersBeforeSelection !== 'function') return;
+
+        options.rememberFiltersBeforeSelection();
+    }
+
+    function restoreFiltersAfterSelection(options = {}) {
+        if (typeof options.restoreFiltersAfterSelection === 'function') {
+            options.restoreFiltersAfterSelection();
+        }
     }
 
     function getSelectedSpese(options = {}, spese = null) {
@@ -272,6 +331,7 @@ const TimelineSelectionController = (() => {
 
         if (id) ids.add(id);
 
+        rememberFiltersBeforeSelection(options, wasActive);
         setActive(options, true);
         setSelectedIds(options, ids);
         setDeletePending(options, false);
@@ -294,11 +354,12 @@ const TimelineSelectionController = (() => {
         if (typeof options.setSelectedOnlyFilter === 'function') {
             options.setSelectedOnlyFilter(false);
         }
+        restoreFiltersAfterSelection(options);
         syncHeader(options, { active: false, selectedCount: 0, visibleCount: 0 });
         notifySelectionChanged(options);
 
         if (!fromPopstate && typeof options.consumeUiState === 'function') {
-            options.consumeUiState();
+            options.consumeUiState(1);
         }
 
         return true;
@@ -332,6 +393,7 @@ const TimelineSelectionController = (() => {
         const shouldDeselectVisible = visibleIds.length > 0 && visibleIds.every(id => ids.has(id));
 
         if (!isActive(options)) {
+            rememberFiltersBeforeSelection(options, false);
             setActive(options, true);
             if (typeof options.pushUiState === 'function') {
                 options.pushUiState({ panel: 'timeline-selection' });
@@ -368,6 +430,7 @@ const TimelineSelectionController = (() => {
             : new Set(visibleIds);
         const wasActive = isActive(options);
 
+        rememberFiltersBeforeSelection(options, wasActive);
         setActive(options, true);
         setSelectedIds(options, nextIds);
         setDeletePending(options, false);
@@ -403,6 +466,29 @@ const TimelineSelectionController = (() => {
         ];
     }
 
+    function afterFilterPanelClosed(options = {}, callback = noop) {
+        if (typeof options.closeFiltersForSelectionAction !== 'function') {
+            callback();
+            return false;
+        }
+
+        const deferred = options.closeFiltersForSelectionAction(callback);
+        if (!deferred) callback();
+        return !!deferred;
+    }
+
+    function openExportChoices(options = {}, selected = []) {
+        if (typeof options.openCustomExportModal === 'function') {
+            options.openCustomExportModal();
+            return;
+        }
+
+        (options.showChoices || noop)(
+            `Esportare ${selected.length} spese selezionate?`,
+            getExportChoices(options)
+        );
+    }
+
     function showExportChoices(options = {}) {
         const selected = getSelectedSpese(options);
         if (selected.length === 0) {
@@ -410,15 +496,7 @@ const TimelineSelectionController = (() => {
             return false;
         }
 
-        if (typeof options.openCustomExportModal === 'function') {
-            options.openCustomExportModal();
-            return true;
-        }
-
-        (options.showChoices || noop)(
-            `Esportare ${selected.length} spese selezionate?`,
-            getExportChoices(options)
-        );
+        afterFilterPanelClosed(options, () => openExportChoices(options, selected));
 
         return true;
     }
@@ -530,13 +608,7 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
-    function showDeleteConfirm(options = {}) {
-        const selected = getSelectedSpese(options);
-        if (selected.length === 0) {
-            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
-            return false;
-        }
-
+    function openDeleteConfirm(options = {}, selected = []) {
         setDeletePending(options, true);
         (options.renderTimeline || noop)();
 
@@ -555,6 +627,16 @@ const TimelineSelectionController = (() => {
                 }
             ]
         );
+    }
+
+    function showDeleteConfirm(options = {}) {
+        const selected = getSelectedSpese(options);
+        if (selected.length === 0) {
+            (options.showToast || noop)('Seleziona almeno una spesa.', 'error');
+            return false;
+        }
+
+        afterFilterPanelClosed(options, () => openDeleteConfirm(options, selected));
 
         return true;
     }
@@ -584,9 +666,10 @@ const TimelineSelectionController = (() => {
             options.setSelectedOnlyFilter(false);
         }
         if (wasActive && typeof options.consumeUiState === 'function') {
-            options.consumeUiState();
+            options.consumeUiState(1);
         }
         (options.refreshAfterDataChange || noop)();
+        restoreFiltersAfterSelection(options);
         syncHeader(options, { active: false, selectedCount: 0, visibleCount: 0 });
         (options.showToast || noop)(`${result.count} spese eliminate`, 'info');
         return true;
@@ -609,22 +692,22 @@ const TimelineSelectionController = (() => {
 
         if (selectAllButton && selectAllButton.dataset.selectionBound !== 'true') {
             selectAllButton.dataset.selectionBound = 'true';
-            selectAllButton.addEventListener('click', () => selectVisible(options));
+            bindImmediateTap(selectAllButton, () => selectVisible(options));
         }
 
         if (copyButton && copyButton.dataset.selectionBound !== 'true') {
             copyButton.dataset.selectionBound = 'true';
-            copyButton.addEventListener('click', () => copySelected(options));
+            bindImmediateTap(copyButton, () => copySelected(options));
         }
 
         if (exportButton && exportButton.dataset.selectionBound !== 'true') {
             exportButton.dataset.selectionBound = 'true';
-            exportButton.addEventListener('click', () => showExportChoices(options));
+            bindImmediateTap(exportButton, () => showExportChoices(options));
         }
 
         if (deleteButton && deleteButton.dataset.selectionBound !== 'true') {
             deleteButton.dataset.selectionBound = 'true';
-            deleteButton.addEventListener('click', () => showDeleteConfirm(options));
+            bindImmediateTap(deleteButton, () => showDeleteConfirm(options));
         }
 
         bindBottomNavPager(options);
@@ -653,10 +736,10 @@ const TimelineSelectionController = (() => {
             )
         );
 
-        const applyDelta = (deltaX, deltaY = 0) => {
+        const applyDelta = (deltaX, deltaY = 0, threshold = NAV_SWIPE_THRESHOLD) => {
             const absX = Math.abs(deltaX);
             const absY = Math.abs(deltaY);
-            if (!canPage() || absX < NAV_SWIPE_THRESHOLD || absX < absY * 1.2) return false;
+            if (!canPage() || absX < threshold || absX < absY * 1.2) return false;
 
             setBottomNavSet(bottomNav, deltaX < 0 ? NAV_SET_MAIN : NAV_SET_ACTIONS);
             return true;
@@ -672,13 +755,18 @@ const TimelineSelectionController = (() => {
         bottomNav.addEventListener('touchend', event => {
             const touch = event.changedTouches && event.changedTouches[0];
             if (!touch) return;
-            applyDelta(touch.clientX - startX, touch.clientY - startY);
-        }, { passive: true });
+            const applied = applyDelta(touch.clientX - startX, touch.clientY - startY);
+            if (applied && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+        }, { passive: false });
 
         bottomNav.addEventListener('wheel', event => {
             const deltaX = Number(event.deltaX || 0);
-            const deltaY = event.shiftKey ? Number(event.deltaY || 0) : 0;
-            const applied = applyDelta(deltaX || deltaY, 0);
+            const deltaY = Number(event.deltaY || 0);
+            const dominantDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+            const perpendicularDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaY : deltaX;
+            const applied = applyDelta(dominantDelta, perpendicularDelta, NAV_WHEEL_THRESHOLD);
             if (applied && typeof event.preventDefault === 'function') {
                 event.preventDefault();
             }

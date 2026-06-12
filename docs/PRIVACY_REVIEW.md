@@ -58,7 +58,8 @@ File e aree considerate:
 | Snapshot locali | `localStorage`, chiave `${Storage.KEY}:snapshot` | No | Proteggono da perdita dati e sono ripristinabili dalle impostazioni, ma possono mantenere una copia dopo sostituzione, cancellazione multipla o cancellazione completa. |
 | Preferenza release installata | `localStorage`, `spesa-tracker-launch-target` | No | Contiene solo un path tipo `releases/vYYYY.MM.DD/`. |
 | Cache service worker | Cache Storage browser | No | Contiene asset statici dell'app, non dati utente. |
-| Export JSON/CSV/raw e selezioni timeline | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. Gli export da selezione contengono solo le spese selezionate; il JSON mantiene anche la struttura backup con impostazioni correnti. |
+| Export JSON/CSV/raw e selezioni timeline | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. Gli export da selezione contengono solo le spese selezionate; il JSON custom puo includere o escludere impostazioni e future personalizzazioni, mentre il CSV resta solo dati. |
+| Preferenze export custom | `localStorage`, chiave `${Storage.KEY}:export-custom` | No | Contengono formato, checklist, id selezionati e filtri dell'ultimo export custom riuscito per riprendere la configurazione e alimentare i toggle `Ultima Selezione` / `Ultimi Filtri`. Non contengono importi o note, ma gli id e i filtri possono rivelare indirettamente quali spese erano state scelte su quel dispositivo. |
 | Copia spese selezionate | Clipboard del sistema | Solo su azione utente | La copia usa contenuto CSV delle sole spese selezionate. Non invia dati in rete, ma dopo la copia la protezione dipende dagli appunti del sistema e dalle app in cui l'utente incolla. |
 | Import JSON/CSV | File scelto dall'utente, letto con `FileReader` | No | Il contenuto viene validato localmente prima del commit. |
 | Dettatura vocale | API `SpeechRecognition` / `webkitSpeechRecognition` del browser | Potenzialmente si | Dipende dal browser/OS: puo usare servizi esterni del provider. La funzione e opzionale e attivata dall'utente. |
@@ -119,11 +120,11 @@ Il ripristino snapshot sostituisce i dati correnti con quelli dello snapshot e s
 
 Gli export sono avviati localmente tramite `Blob` e object URL temporaneo, poi l'object URL viene revocato. Non c'e upload automatico.
 
-JSON e raw sono backup completi e possono contenere descrizioni, note, tag, timestamp e impostazioni. CSV e piu limitato ma resta un file in chiaro. Dalla timeline e possibile esportare anche solo le spese selezionate in JSON o CSV, oppure copiarle negli appunti come CSV: il contenuto e piu ristretto, ma resta comunque in chiaro dopo il download o nella clipboard. Il rischio principale e successivo all'azione utente: cartella Download condivisa, sincronizzazioni cloud del device, appunti di sistema, invio manuale a terzi o salvataggio in aree non protette.
+JSON e raw possono essere backup completi e contenere descrizioni, note, tag, timestamp e impostazioni. L'export JSON custom permette di scegliere se includere impostazioni e un segnaposto per future personalizzazioni; i dati restano comunque in chiaro. CSV e piu limitato, esporta solo dati tabellari e resta un file in chiaro. Dalla timeline e possibile esportare anche solo le spese selezionate in JSON o CSV, oppure copiarle negli appunti come CSV: il contenuto e piu ristretto, ma resta comunque in chiaro dopo il download o nella clipboard. Il rischio principale e successivo all'azione utente: cartella Download condivisa, sincronizzazioni cloud del device, appunti di sistema, invio manuale a terzi o salvataggio in aree non protette.
 
 Gli import sono letti con `FileReader` e validati localmente. In sostituzione viene creato uno snapshot locale prima del commit.
 
-Miglioria consigliata prima di allargare l'uso oltre il maintainer: rendere piu esplicito in UI che JSON, CSV e raw sono file in chiaro.
+Miglioria da rivalutare prima di allargare l'uso oltre il maintainer: decidere dove spiegare che JSON, CSV e raw sono file in chiaro senza appesantire i flussi quotidiani con disclaimer ripetuti.
 
 ## Rendering e Dati Utente
 
@@ -222,6 +223,6 @@ Checklist minima per ogni modifica privacy-sensitive:
 
 Non bloccanti per l'uso attuale:
 
-- chiarire nella UI export che JSON/CSV/raw sono file in chiaro;
+- rivalutare dove chiarire che JSON/CSV/raw sono file in chiaro se l'app verra condivisa oltre l'uso personale;
 - aggiungere una nota breve sulla dettatura vocale se l'app viene condivisa con altri utenti;
 - mantenere `docs/PRIVACY_REVIEW.md` aggiornato quando entrano feature con API esterne o nuovi dati.

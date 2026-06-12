@@ -21,6 +21,8 @@ const UIStackController = (() => {
         return {
             suppressNextPopstate: !!(options.getSuppressNextPopstate && options.getSuppressNextPopstate()),
             confirmOpen: !!(options.isConfirmOpen && options.isConfirmOpen()),
+            exportFormatDropdownOpen: !!(options.isExportFormatDropdownOpen && options.isExportFormatDropdownOpen()),
+            exportModalOpen: !!(options.isExportModalOpen && options.isExportModalOpen()),
             releaseModalOpen: !!(options.isReleaseModalOpen && options.isReleaseModalOpen()),
             modalOpen: !!(options.isModalOpen && options.isModalOpen()),
             filterSearchActive: !!(options.isFilterSearchActive && options.isFilterSearchActive()),
@@ -43,6 +45,16 @@ const UIStackController = (() => {
 
         if (action === stack.ACTIONS.CLOSE_CONFIRM) {
             (options.closeConfirm || noop)(true);
+            return action;
+        }
+
+        if (action === stack.ACTIONS.CLEAR_EXPORT_INTERACTION) {
+            (options.clearExportModalInteraction || noop)(true);
+            return action;
+        }
+
+        if (action === stack.ACTIONS.CLOSE_EXPORT_MODAL) {
+            (options.closeExportModal || noop)(true);
             return action;
         }
 

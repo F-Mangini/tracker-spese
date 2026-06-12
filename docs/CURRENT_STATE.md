@@ -18,7 +18,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Inserimento e spese | `domain/parser.js`, `domain/expense-actions.js`, `input/expense-submit-controller.js`, `input/expense-input-controller.js`, `input/input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
 | Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `timeline/timeline-selection-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/filter-controller.js` | Rendering timeline, selezione multipla volatile, modello filtrato, pannello filtri, slider, badge e ricerca. |
 | Statistiche | `domain/stats.js`, `stats/stats-view.js`, `stats/stats-charts.js`, `stats/stats-controller.js` | Periodi, aggregazioni, template statistiche e configurazione Chart.js. |
-| Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, focus/picker mobile, viewport/tastiera e lifecycle modale. |
+| Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, picker mobile, focus/blur e lifecycle modale. |
 | Navigazione e stack UI | `navigation/navigation-controller.js`, `navigation/ui-stack.js`, `navigation/history-controller.js`, `navigation/ui-stack-effects.js`, `navigation/ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
 | Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
 | Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
@@ -60,11 +60,13 @@ Una spesa contiene normalmente:
 
 `data/storage.js` normalizza letture e import: importi numerici, date valide, tag senza `#`, impostazioni con fallback e id duplicati rigenerati. Le scritture ritornano risultati espliciti `{ success, ... }`.
 
+Gli importi vengono salvati come numeri ma visualizzati con una regola compatta: senza centesimi quando l'importo e intero, con due decimali sotto 100 quando servono, e arrotondati all'intero piu vicino da 100 in su.
+
 Se il JSON locale e corrotto o incompatibile, i nuovi salvataggi vengono bloccati per evitare perdita dati silenziosa. La pagina impostazioni permette l'export del raw.
 
 La cancellazione multipla dalla timeline crea uno snapshot locale prima del commit. JSON e CSV possono essere generati anche da un subset temporaneo di spese selezionate senza cambiare schema dati.
 
-JSON e il backup completo. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
+L'export Default genera un backup JSON completo. L'export configurabile, aperto dalle impostazioni con il pulsante `Custom` e mostrato come finestra `Esporta`, salva preferenze locali dedicate per formato, contenuti e ultimo export riuscito: al primo uso seleziona automaticamente tutte le spese, poi riapplica gli ultimi filtri esportati e seleziona tutte le spese filtrate da quello snapshot. Nella finestra dedicata i toggle `Ultima Selezione` e `Ultimi Filtri` permettono di riapplicare rispettivamente gli id esportati o il risultato dei filtri salvati nell'ultimo export riuscito; lo stato dei toggle e derivato dalla selezione corrente e non salva bozze. Se `Dati` e disattivato il conteggio mostra 0 spese selezionate. JSON puo includere o escludere impostazioni e il segnaposto delle future personalizzazioni, mentre CSV esporta solo dati tabellari e forza temporaneamente la checklist ai soli dati; tornando da CSV a JSON vengono ripristinati i contenuti selezionati prima del passaggio a CSV. CSV e supportato per interoperabilita con fogli di calcolo e preserva i campi principali attuali, ma resta meno adatto a futuri dati complessi.
 
 ## Funzioni Implementate
 
@@ -78,7 +80,7 @@ Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri
 
 La timeline mostra spese raggruppate per giorno, ordinate dalla piu recente. Il riepilogo mostra totali di oggi, settimana corrente e mese; il totale settimanale considera solo il periodo lunedi-domenica della settimana corrente, senza includere settimane future. Con filtri attivi mostra anche il riepilogo filtrato. Le card aprono la modale di modifica.
 
-Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il titolo dell'header resta invariato, il pulsante cerca resta nella posizione normale e il toggle tema dell'header viene sostituito dal toggle `Seleziona tutte`. Le azioni copia negli appunti, export JSON/CSV ed eliminazione con conferma vivono nella bottom nav come set dedicato disponibile solo in timeline; i pulsanti Timeline, Statistiche e Impostazioni restano raggiungibili con uno swipe orizzontale che cambia l'intero set di tre bottoni, senza scroll parziale. In statistiche e impostazioni resta disponibile solo il set principale della bottom nav; tornando da quelle pagine alla timeline il set principale resta visibile finche l'utente non richiede di nuovo il set azioni con lo swipe. La modalita resta visibile anche passando alle statistiche, con header e barra pagine evidenziati, ma `Seleziona tutte` resta disponibile solo in timeline. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, disponibile in timeline e statistiche, che limita le viste allo snapshot di spese selezionate nel momento in cui il filtro viene attivato; se una spesa viene poi deselezionata resta nel filtrato finche il filtro non viene spento e riacceso.
+Una pressione lunga su una card entra in modalita selezione e seleziona quella spesa. In modalita selezione il click sulle card alterna selezionata/non selezionata, il riepilogo mostra numero e totale delle spese selezionate, il titolo dell'header resta invariato, il pulsante cerca resta nella posizione normale e il toggle tema dell'header viene sostituito dal toggle `Seleziona tutte`. Le azioni copia negli appunti, export configurabile ed eliminazione con conferma vivono nella bottom nav come set dedicato disponibile solo in timeline; il pulsante `Esporta` apre la finestra `Esporta` sopra la timeline conservando la selezione corrente. Se il pannello filtri e semi-aperto o completamente aperto, i pulsanti `Esporta` ed `Elimina` lo chiudono completamente prima di aprire la finestra o la conferma, consumando gli stati history dei filtri prima del nuovo stato UI. I pulsanti Timeline, Statistiche e Impostazioni restano raggiungibili con uno swipe orizzontale che cambia l'intero set di tre bottoni, senza scroll parziale; su desktop lo stesso cambio set e disponibile con hover sulla bottom nav e rotellina verticale. Se la modalita selezione e attiva e l'utente prova ad aprire Impostazioni dalla bottom nav, l'app chiede `Uscire da Selezione?`: `Annulla` resta nella pagina corrente, `Esci` annulla la selezione e poi apre Impostazioni. Se filtri, ricerca filtri o selezione hanno stati history gia aperti, la navigazione a Impostazioni viene rimandata finche i popstate programmati per chiuderli sono rientrati; cosi il back successivo da Impostazioni torna alla Timeline invece di chiudere l'app. In statistiche resta disponibile solo il set principale della bottom nav; tornando da quella pagina alla timeline il set principale resta visibile finche l'utente non richiede di nuovo il set azioni con lo swipe. La modalita resta visibile anche passando alle statistiche, con header e barra pagine evidenziati, ma `Seleziona tutte` resta disponibile solo in timeline. `Seleziona tutte` lavora come toggle sul filtrato corrente: aggiunge le spese filtrate non ancora selezionate, oppure deseleziona solo quelle filtrate quando sono gia tutte selezionate, senza toccare eventuali spese selezionate fuori filtro. Durante la modalita selezione il pannello filtri include anche il filtro speciale `Selezionate`, disponibile in timeline e statistiche, che limita le viste allo snapshot di spese selezionate nel momento in cui il filtro viene attivato; se una spesa viene poi deselezionata resta nel filtrato finche il filtro non viene spento e riacceso.
 
 ### Filtri
 
@@ -103,7 +105,7 @@ La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e not
 
 Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 
-I workaround mobile su focus, picker nativi, selection cleanup, viewport e tastiera sono isolati nei moduli modale/mobile e vanno trattati con cautela.
+I workaround mobile rimasti per la modale riguardano picker nativi, cleanup della selezione, blur su ritorno/chiusura tastiera e stack history delle interazioni interne. Gli auto-scroll e gli allineamenti automatici di campi, label, tendine, header e footer nella finestra `Modifica spesa` sono stati rimossi per riprogettarli da zero.
 
 ### Navigazione e Mobile
 
@@ -112,6 +114,8 @@ Le pagine principali sono Timeline, Statistiche e Impostazioni. Lo scroll e rico
 Il back button chiude, in ordine di priorita:
 
 - conferma aperta;
+- interazione interna della finestra `Esporta`;
+- finestra `Esporta`;
 - finestra versioni aperta;
 - interazione interna della modale;
 - modale;
@@ -125,6 +129,8 @@ Il back button chiude, in ordine di priorita:
 
 Le decisioni sono in `ui-stack.js`; l'esecuzione concreta di push/back/go/replace e in `history-controller.js`.
 
+Quando un'azione chiude piu livelli UI programmando uno o piu `back()`/`go()`, eventuali navigazioni successive devono aspettare il rientro dei popstate soppressi. Il caso coperto oggi e l'uscita da modalita selezione verso Impostazioni: selezione e filtri vengono chiusi prima, poi la pagina Impostazioni viene aperta solo quando la history si e stabilizzata.
+
 ### Statistiche
 
 Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche.
@@ -136,7 +142,9 @@ La pagina statistiche e di sola lettura: oggi non apre direttamente la modifica 
 La pagina impostazioni include:
 
 - tema chiaro, scuro o automatico;
-- export JSON/CSV;
+- card unica per import/export dati;
+- export Default con conferma semplice e JSON completo;
+- export configurabile con finestra dedicata `Esporta`, scelta formato, checklist contenuti, selezione tramite timeline e preferenze locali salvate;
 - import JSON/CSV con preview;
 - finestra versioni alimentata da `releases.json`, con installazione manuale di `stable/latest` o della release scelta;
 - scelta esplicita tra aggiungere e sostituire;
@@ -148,6 +156,8 @@ La pagina impostazioni include:
 - versione/canale corrente visibili nel footer delle impostazioni;
 - cancellazione completa con conferma.
 - opzione nella conferma di cancellazione completa per rimuovere anche lo snapshot locale.
+
+La finestra `Esporta` entra nello stack UI: il back la chiude prima di finestre e pannelli sottostanti. Se la tendina formato e aperta, il back chiude solo quella interazione e lascia aperta `Esporta`. All'apertura dalle impostazioni seleziona automaticamente tutte le spese se non esiste ancora un export configurabile riuscito; dagli ingressi successivi applica gli ultimi filtri usati in un export riuscito e seleziona tutte le spese filtrate da quello snapshot. Se `Esporta` viene chiusa mentre l'utente resta nella pagina Impostazioni, la selezione temporanea usata dalla finestra viene annullata automaticamente. Quando viene aperta dal pulsante `Esporta` della modalita selezione timeline, resta sulla timeline e conserva la selezione corrente invece di ripristinare l'ultimo export. I toggle `Ultima Selezione` e `Ultimi Filtri` riapplicano l'ultima selezione esportata o tutte le spese corrispondenti agli ultimi filtri salvati; `Ultimi Filtri` sostituisce subito tutti i filtri correnti con lo snapshot dell'ultimo export, resta attivo solo quando i filtri correnti corrispondono a quello snapshot e tutte le spese filtrate da quello snapshot sono selezionate, e quando viene spento ripristina sia la selezione sia i filtri precedenti alla sua attivazione. Cosi una modifica manuale dei filtri o della selezione lo deseleziona. Se i due insiemi coincidono possono risultare attivi insieme, altrimenti l'uno esclude l'altro. Il pulsante `Seleziona` chiude la finestra e porta alla timeline in modalita selezione, conservando esattamente la selezione corrente della finestra, anche quando e vuota; quando ci sono filtri attivi mostra il badge rosso con il conteggio. Gli auto-scroll e gli allineamenti automatici della tendina `Formato` in `Esporta` sono stati rimossi per riprogettarli da zero.
 
 Il toggle tema nell'header resta temporaneo; il tema persistente si cambia nelle impostazioni.
 
@@ -169,7 +179,7 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 - Le cache offline versionate esistono in cartelle release immutabili, oggi `releases/v2026.05.30/` e `releases/v2026.06.03/`; ogni nuova release richiede una nuova cartella e un nuovo cache namespace.
 - La UI versioni copre il flusso guidato minimo; eventuali migrazioni dati tra versioni andranno progettate quando cambiera lo schema.
 - Categorie e metodi sono statici.
-- Non esistono ancora cestino, swipe su card, formati TSV/Markdown per la copia o finestra export custom completa.
+- Non esistono ancora cestino, swipe su card o formati TSV/Markdown per la copia/export.
 - La pagina statistiche non permette ancora di aprire/modificare una spesa.
 - Desktop e iOS sono usabili ma meno rifiniti dell'esperienza Android.
 - Accessibilita e semantica dei controlli custom sono migliorabili.

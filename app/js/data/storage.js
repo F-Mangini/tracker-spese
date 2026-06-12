@@ -484,9 +484,25 @@ const Storage = {
     exportJSON(options = {}) {
         const current = this._resolveExportData(options);
         if (!current.success) return current;
+
+        const includeSettings = options.includeSettings !== false;
+        const includePersonalizzazioni = options.includePersonalizzazioni === true;
+        const data = {
+            schemaVersion: this.SCHEMA_VERSION,
+            spese: options.includeData === false ? [] : current.data.spese
+        };
+
+        if (includeSettings) {
+            data.impostazioni = current.data.impostazioni;
+        }
+
+        if (includePersonalizzazioni) {
+            data.personalizzazioni = {};
+        }
+
         return this._ok({
-            content: JSON.stringify(current.data, null, 2),
-            count: current.data.spese.length
+            content: JSON.stringify(data, null, 2),
+            count: data.spese.length
         });
     },
 

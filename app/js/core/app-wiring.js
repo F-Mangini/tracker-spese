@@ -58,6 +58,7 @@ const AppWiring = (() => {
             ModalMobileController: typeof ModalMobileController === 'undefined' ? null : ModalMobileController,
             ModalInteractions: typeof ModalInteractions === 'undefined' ? null : ModalInteractions,
             ModalController: typeof ModalController === 'undefined' ? null : ModalController,
+            SettingsActions: typeof SettingsActions === 'undefined' ? null : SettingsActions,
             SettingsController: typeof SettingsController === 'undefined' ? null : SettingsController,
             UIStack: typeof UIStack === 'undefined' ? null : UIStack,
             HistoryController: typeof HistoryController === 'undefined' ? null : HistoryController,
@@ -137,12 +138,32 @@ const AppWiring = (() => {
             return {
                 stack: deps.UIStack,
                 history: deps.history,
-                setSuppressPopstate: value => { app._suppressNextPopstate = value; }
+                setSuppressPopstate
             };
         }
 
         function runHistoryAction(action) {
             return deps.HistoryController.run(action, historyOptions());
+        }
+
+        function hasSuppressedPopstate() {
+            return !!app._suppressNextPopstate || Number(app._suppressPopstateCount || 0) > 0;
+        }
+
+        function setSuppressPopstate(value) {
+            if (value) {
+                app._suppressPopstateCount = Number(app._suppressPopstateCount || 0) + 1;
+            } else if (Number(app._suppressPopstateCount || 0) > 0) {
+                app._suppressPopstateCount -= 1;
+            } else {
+                app._suppressNextPopstate = false;
+            }
+
+            app._suppressNextPopstate = Number(app._suppressPopstateCount || 0) > 0;
+
+            if (!app._suppressNextPopstate) {
+                flushAfterSuppressedPopstates();
+            }
         }
 
         function pushUiState(state) {
@@ -161,6 +182,84 @@ const AppWiring = (() => {
             return deps.FilterController.releaseFilterSearchInteraction(filterOptions(), {
                 consumeHistory: false
             });
+        }
+
+        function afterSuppressedPopstates(callback) {
+            if (typeof callback !== 'function') return;
+
+            if (!hasSuppressedPopstate()) {
+                callback();
+                return;
+            }
+
+            if (!Array.isArray(app._afterSuppressedPopstates)) {
+                app._afterSuppressedPopstates = [];
+            }
+
+            app._afterSuppressedPopstates.push(callback);
+        }
+
+        function flushAfterSuppressedPopstates() {
+            if (!Array.isArray(app._afterSuppressedPopstates) || app._afterSuppressedPopstates.length === 0) {
+                return;
+            }
+
+            const callbacks = app._afterSuppressedPopstates.slice();
+            app._afterSuppressedPopstates = [];
+            deps.setTimeout(() => {
+                callbacks.forEach(callback => callback());
+            }, 0);
+        }
+
+        function exitSelectionForSettingsNavigation() {
+            let steps = 0;
+            const hadFilterSearch = !!app._filterSearchActive;
+            const hadAdvancedFilters = !!app.advancedFiltersOpen;
+            const hadFilterPanel = !!app.filterOpen;
+
+            if (
+                hadFilterSearch &&
+                deps.FilterController &&
+                typeof deps.FilterController.releaseFilterSearchInteraction === 'function'
+            ) {
+                const released = deps.FilterController.releaseFilterSearchInteraction(filterOptions(), {
+                    consumeHistory: false
+                });
+
+                if (released) {
+                    app._releasedFilterSearchHistory = false;
+                    steps += 1;
+                }
+            }
+
+            if (
+                hadFilterPanel &&
+                deps.FilterController &&
+                typeof deps.FilterController.closeFilterPanel === 'function'
+            ) {
+                deps.FilterController.closeFilterPanel(filterOptions(), true);
+                steps += hadAdvancedFilters ? 2 : 1;
+            } else if (
+                hadAdvancedFilters &&
+                deps.FilterController &&
+                typeof deps.FilterController.closeAdvancedFilters === 'function'
+            ) {
+                deps.FilterController.closeAdvancedFilters(filterOptions(), true);
+                steps += 1;
+            }
+
+            if (
+                app.timelineSelectionActive &&
+                deps.TimelineSelectionController &&
+                typeof deps.TimelineSelectionController.exit === 'function'
+            ) {
+                deps.TimelineSelectionController.exit(timelineSelectionOptions(), true);
+                steps += 1;
+            }
+
+            if (steps > 0) {
+                consumeUiState(steps);
+            }
         }
 
         function getTimelineSelectedIdsForFilters() {
@@ -204,6 +303,59 @@ const AppWiring = (() => {
             if (app.currentPage === 'stats') app.renderStats(model);
         }
 
+        function applyFilterSnapshot(snapshot = {}, selectedIds = []) {
+            const filters = deps.SettingsActions && typeof deps.SettingsActions.normalizeFilterSnapshot === 'function'
+                ? deps.SettingsActions.normalizeFilterSnapshot(snapshot)
+                : snapshot;
+
+            app.filters.query = filters.query || '';
+            app.filters.categories = new Set(filters.categories || []);
+            app.filters.methods = new Set(filters.methods || []);
+            app.filters.amountMin = Number(filters.amountMin || 0);
+            app.filters.amountMax = filters.amountMax === Infinity
+                ? Infinity
+                : Number(filters.amountMax);
+            app.filters.dateFrom = filters.dateFrom || '';
+            app.filters.dateTo = filters.dateTo || '';
+            app.filters.selectedOnly = !!filters.selectedOnly;
+            app.filters.selectedOnlyIds = filters.selectedOnly
+                ? new Set(selectedIds || [])
+                : new Set();
+
+            syncFiltersAndViews();
+        }
+
+        function createCurrentFilterSnapshot() {
+            if (deps.SettingsActions && typeof deps.SettingsActions.createExportFilterSnapshot === 'function') {
+                return deps.SettingsActions.createExportFilterSnapshot(app.filters);
+            }
+
+            return {
+                query: app.filters.query || '',
+                categories: Array.from(app.filters.categories || []),
+                methods: Array.from(app.filters.methods || []),
+                amountMin: Number(app.filters.amountMin || 0),
+                amountMax: app.filters.amountMax === Infinity ? Infinity : Number(app.filters.amountMax),
+                dateFrom: app.filters.dateFrom || '',
+                dateTo: app.filters.dateTo || '',
+                selectedOnly: !!app.filters.selectedOnly
+            };
+        }
+
+        function rememberFiltersBeforeSelection() {
+            if (app.timelineSelectionActive || app.timelineSelectionBaseFilters) return;
+
+            app.timelineSelectionBaseFilters = createCurrentFilterSnapshot();
+        }
+
+        function restoreFiltersAfterSelection() {
+            const snapshot = app.timelineSelectionBaseFilters;
+            app.timelineSelectionBaseFilters = null;
+            if (!snapshot) return;
+
+            applyFilterSnapshot(snapshot, []);
+        }
+
         function themeOptions() {
             return {
                 storage: deps.Storage,
@@ -232,6 +384,24 @@ const AppWiring = (() => {
                 syncTimelineSelectionHeader: () => deps.TimelineSelectionController.syncHeader(
                     timelineSelectionOptions()
                 ),
+                shouldConfirmSettingsNavigation: () => app.timelineSelectionActive,
+                confirmSettingsNavigation: continueNavigation => deps.ConfirmController.showChoices({
+                    ...confirmOptions(),
+                    message: 'Uscire da Selezione?',
+                    choices: [
+                        { text: 'Annulla', className: 'btn-secondary' },
+                        {
+                            text: 'Esci',
+                            className: 'btn-primary',
+                            onClick: () => {
+                                exitSelectionForSettingsNavigation();
+                                if (typeof continueNavigation === 'function') {
+                                    afterSuppressedPopstates(continueNavigation);
+                                }
+                            }
+                        }
+                    ]
+                }),
                 renderTimeline: () => app.renderTimeline(),
                 renderStats: () => app.renderStats(),
                 renderSettings: () => app.renderSettings(),
@@ -413,8 +583,10 @@ const AppWiring = (() => {
                     app.filters.selectedOnly = !!value;
                     app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
                 },
+                rememberFiltersBeforeSelection,
+                restoreFiltersAfterSelection,
                 pushUiState,
-                consumeUiState: () => consumeUiState(),
+                consumeUiState: steps => consumeUiState(steps),
                 renderTimeline: () => app.renderTimeline(),
                 onSelectionChange: () => syncFiltersAndViews(),
                 refreshAfterDataChange: () => app.refreshExpenseViews({
@@ -427,6 +599,24 @@ const AppWiring = (() => {
                     URL: deps.URL,
                     Blob: deps.Blob
                 }),
+                openCustomExportModal: () => {
+                    const options = settingsOptions();
+                    deps.SettingsController.bindExportModal(options);
+                    deps.SettingsController.openExportModal(options, {
+                        keepCurrentSelection: true
+                    });
+                },
+                closeFiltersForSelectionAction: continueAction => {
+                    if (!app.filterOpen) return false;
+
+                    deps.FilterController.closeFilterPanel(filterOptions());
+                    deps.setTimeout(() => {
+                        deps.setTimeout(() => {
+                            if (typeof continueAction === 'function') continueAction();
+                        }, 0);
+                    }, 0);
+                    return true;
+                },
                 navigatorLike: deps.window.navigator,
                 showToast: (message, type) => app.showToast(message, type),
                 showChoices: (message, choices) => deps.ConfirmController.showChoices({
@@ -442,8 +632,8 @@ const AppWiring = (() => {
                 document: deps.document,
                 stack: deps.UIStack,
                 effects: deps.UIStackEffects,
-                getSuppressNextPopstate: () => app._suppressNextPopstate,
-                setSuppressNextPopstate: value => { app._suppressNextPopstate = value; },
+                getSuppressNextPopstate: hasSuppressedPopstate,
+                setSuppressNextPopstate: setSuppressPopstate,
                 isConfirmOpen: () => deps.ConfirmController.isOpen(confirmOptions()),
                 closeConfirm: fromPopstate => {
                     const result = deps.ConfirmController.close({
@@ -457,6 +647,16 @@ const AppWiring = (() => {
 
                     return result;
                 },
+                isExportModalOpen: () => deps.SettingsController.isExportModalOpen(settingsOptions()),
+                isExportFormatDropdownOpen: () => deps.SettingsController.isExportFormatDropdownOpen(settingsOptions()),
+                clearExportModalInteraction: fromPopstate => deps.SettingsController.clearExportModalInteraction(
+                    settingsOptions(),
+                    fromPopstate
+                ),
+                closeExportModal: fromPopstate => deps.SettingsController.closeExportModal(
+                    settingsOptions(),
+                    fromPopstate
+                ),
                 isReleaseModalOpen: () => deps.SettingsController.isReleaseModalOpen(settingsOptions()),
                 closeReleaseModal: fromPopstate => deps.SettingsController.closeReleaseModal(
                     settingsOptions(),
@@ -574,6 +774,38 @@ const AppWiring = (() => {
                 appConfig: deps.window.SPESA_TRACKER_CONFIG || {},
                 localStorage: deps.window.localStorage,
                 getCurrentPage: () => app.currentPage,
+                getTimelineSelectedIds: () => app.timelineSelectedIds,
+                getCurrentFilters: () => app.filters,
+                applyExportFilters: applyFilterSnapshot,
+                getFilteredIdsForExportFilters: (filters, selectedIds = []) => deps.ExpenseFilters
+                    .apply(deps.ExpenseStore.getSpese(), filters, {
+                        selectedIds,
+                        selectedOnlyIds: selectedIds
+                    })
+                    .map(spesa => spesa && spesa.id)
+                    .filter(Boolean),
+                getSelectedSpese: () => deps.TimelineSelectionController.getSelectedSpese(
+                    timelineSelectionOptions()
+                ),
+                countActiveFilters: () => deps.ExpenseFilters.countActive(app.filters),
+                rememberFiltersBeforeSelection,
+                beginExportSelection: config => deps.TimelineSelectionController.beginExportSelection(
+                    timelineSelectionOptions(),
+                    config
+                ),
+                isTimelineSelectionActive: () => app.timelineSelectionActive,
+                exitTimelineSelection: fromPopstate => deps.TimelineSelectionController.exit(
+                    timelineSelectionOptions(),
+                    fromPopstate
+                ),
+                navigateToTimeline: () => {
+                    consumeUiState(app.currentPage === 'timeline' ? 1 : 2);
+                    deps.NavigationController.navigateTo(
+                        navigationOptions(),
+                        'timeline',
+                        true
+                    );
+                },
                 pushUiState,
                 consumeUiState: steps => consumeUiState(steps),
                 dateStamp: () => deps.AppUI.dateStamp(),

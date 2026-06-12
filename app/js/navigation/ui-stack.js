@@ -6,6 +6,8 @@ const UIStack = (() => {
     const ACTIONS = Object.freeze({
         IGNORE: 'ignore',
         CLOSE_CONFIRM: 'close-confirm',
+        CLEAR_EXPORT_INTERACTION: 'clear-export-interaction',
+        CLOSE_EXPORT_MODAL: 'close-export-modal',
         CLOSE_RELEASE_MODAL: 'close-release-modal',
         HANDLE_MODAL: 'handle-modal',
         CLOSE_FILTER_SEARCH: 'close-filter-search',
@@ -44,6 +46,8 @@ const UIStack = (() => {
     function getPopstateAction(state = {}) {
         if (state.suppressNextPopstate) return ACTIONS.IGNORE;
         if (state.confirmOpen) return ACTIONS.CLOSE_CONFIRM;
+        if (state.exportFormatDropdownOpen) return ACTIONS.CLEAR_EXPORT_INTERACTION;
+        if (state.exportModalOpen) return ACTIONS.CLOSE_EXPORT_MODAL;
         if (state.releaseModalOpen) return ACTIONS.CLOSE_RELEASE_MODAL;
         if (state.modalOpen) return ACTIONS.HANDLE_MODAL;
         if (state.filterSearchActive) return ACTIONS.CLOSE_FILTER_SEARCH;

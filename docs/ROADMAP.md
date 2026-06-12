@@ -18,18 +18,56 @@ Da qui in avanti le modifiche dovrebbero essere trattate come manutenzione, hard
 ## Prossime Priorita
 
 1. Affrontare piccoli bug UX rimasti, soprattutto desktop, gesture Android e flussi import/export.
-2. Solo dopo, riprendere personalizzazioni e feature dati piu grandi.
+2. Stabilizzare visibilita di campi selezionati e tendine sopra la tastiera mobile, soprattutto nelle finestre `Modifica spesa` ed `Esporta`.
+3. Migliorare statistiche e visualizzazioni quando i flussi UX vicini sono stabili.
+4. Solo dopo, riprendere personalizzazioni, ordinamenti alternativi e feature dati piu grandi.
 
 Completato il 2026-06-01:
 
 - Review privacy esplicita documentata in `docs/PRIVACY_REVIEW.md`, ora che asset locali, service worker e aggiornamenti sono piu chiari.
-- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, export JSON/CSV della selezione, eliminazione bulk con snapshot e back button dedicato.
+- Primo nucleo UX della modalita selezione timeline: pressione lunga su card, selezione multipla volatile, seleziona tutte le spese filtrate, riepilogo selezionate, copia negli appunti, apertura export custom dalla selezione, eliminazione bulk con snapshot e back button dedicato.
 
 Completato il 2026-06-03:
 
 - Fix del totale `Settimana` nel riepilogo timeline e nella barra del pannello filtri: ora conta solo la settimana corrente lunedi-domenica e non include settimane future.
 - Fix del parser categorie/metodi: le keyword vengono riconosciute solo come termini interi, cosi `bus` non viene letto dentro `busta`.
 - Nuova release statica `releases/v2026.06.03/` creata e segnalata come consigliata in `releases.json`; la precedente `v2026.05.30` resta disponibile come release stabile storica.
+
+Aggiunte dagli appunti del 2026-06-03 e 2026-06-04:
+
+- Comportamento del tasto filtri configurabile, con modalita `adattivo`.
+- Pulsante `+` nella barra di inserimento per scegliere data e ora della nuova spesa.
+- Parsing `.<categoria>` per forzare la categoria dall'inserimento rapido.
+- Animazioni verticali del banner riassuntivo quando si disattivano i filtri e quando si entra/esce dalla modalita selezione.
+- Import ed export da rendere piu coerenti nella pagina impostazioni, possibilmente nella stessa card.
+- Statistiche per categoria e dettaglio categorie da unificare in una sezione con piu viste selezionabili via swipe.
+- Nuove aggregazioni statistiche trasversali, per esempio distribuzione delle spese nei giorni della settimana calcolata su tutte le settimane nel periodo filtrato.
+
+Completato su `codex/ux-export`:
+
+- Import ed export riuniti nella stessa card impostazioni.
+- Export Default con JSON completo e conferma semplice.
+- Prima finestra `Esporta` configurabile con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, toggle `Ultima Selezione` / `Ultimi Filtri`, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
+- JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
+
+Completato nella stabilizzazione export/selezione su `dev`:
+
+- Finestra `Esporta` rifinita con checklist contenuti tematizzata, formattazione importi compatta e default coerenti tra apertura da Impostazioni e apertura dalla timeline.
+- Toggle `Ultimi Filtri` stabilizzato: sostituisce i filtri correnti con quelli dell'ultimo export riuscito, resta attivo solo quando filtri e selezione corrispondono, e ripristina filtri/selezione precedenti quando viene spento.
+- Modalita selezione e bottom nav stabilizzate: cambio set piu reattivo, supporto rotellina desktop, chiusura completa dei filtri prima di export/eliminazione e conferma per uscire verso Impostazioni.
+- History corretta nei flussi selezione/export: uscire da Selezione verso Impostazioni aspetta la chiusura degli stati UI programmati, cosi il back successivo torna alla Timeline.
+
+Step roadmap completato il 2026-06-12:
+
+- Rendere piu chiari export/import e preparare il futuro export custom senza cambiare schema dati.
+- La parte export dello step e chiusa: `Default` produce un JSON completo con conferma semplice; `Custom` apre la finestra `Esporta` con formato JSON/CSV, checklist dei contenuti, memoria dell'ultimo export riuscito, riapplicazione di ultima selezione o ultimi filtri e integrazione con la modalita selezione timeline.
+- Il preparatorio per dati futuri e presente senza cambio schema: il JSON custom puo includere impostazioni e segnaposto per personalizzazioni future, mentre il CSV resta limitato ai dati tabellari.
+- Restano lavori separati sull'import: dialog piu curato, scelta su impostazioni/personalizzazioni diverse e gestione esplicita di possibili duplicati in aggiunta.
+
+Aggiunte dagli appunti del 2026-06-12:
+
+- Sistemare la visibilita mobile di campi selezionati e tendine quando si apre la tastiera, in particolare nei dropdown di `Modifica spesa` e `Esporta`.
+- Valutare ordinamenti alternativi della timeline, a partire dall'ordinamento opzionale per valore della spesa invece che solo cronologico.
 
 ## Repository e Canali
 
@@ -55,22 +93,24 @@ Completati nella tranche di stabilizzazione dev del 2026-05-24:
 
 Ancora da affrontare:
 
+- Sistemare la visibilita sopra tastiera di campi selezionati e tendine nelle finestre `Modifica spesa` ed `Esporta`; oggi il comportamento e parziale e fragile.
 - Comportamento del tasto filtri personalizzabile, inclusa modalita `adattivo` che decide se aprire automaticamente la tastiera in base alla dimensione del pannello semi-aperto.
 - Fix animazione quando si fa swipe indietro dal lato sinistro su alcuni Android.
 - Rifinire animazione e posizione della barra di inserimento durante apertura/chiusura tastiera.
+- Animazione verticale del banner riassuntivo quando si disattivano filtri e quando si entra o esce dalla modalita selezione.
 - Evitare, dove possibile, che l'app si chiuda completamente con back invece di restare nei recenti.
 
 ## Dati, Privacy e Import/Export
 
 - Review privacy completata in `docs/PRIVACY_REVIEW.md`: dati nel browser, asset caricati da rete, backup esportati, device condivisi, service worker e cifratura locale.
 - Ripristino dall'ultimo snapshot locale e opzione per eliminare anche lo snapshot nella cancellazione completa aggiunti alle impostazioni; lo snapshot viene creato anche prima di import in aggiunta, cambio versione e cancellazione multipla dalla timeline.
-- Chiarire nella UI export che JSON/CSV/raw sono file in chiaro.
+- Rivalutare dove spiegare che JSON/CSV/raw sono file in chiaro se l'app verra condivisa oltre l'uso personale del maintainer, evitando disclaimer ripetuti nei flussi quotidiani.
 - Valutare strutture dati future prima di introdurre categorie custom, ricorrenze, cestino o multi-account.
-- Completato primo export rapido per spese selezionate: JSON e CSV dalla modalita selezione timeline.
+- Completato primo export rapido per spese selezionate: la modalita selezione timeline apre la finestra `Esporta` conservando la selezione corrente.
 - Aggiungere altri formati per spese selezionate o filtrate: TSV e tabella Markdown.
-- Rendere piu chiara la scelta export/import con dialog dedicati e meno grezzi.
-- Separare export rapido e custom: export default JSON completo con conferma semplice; export custom con formato, checklist contenuti e filtri/selezione.
-- Il JSON deve poter includere dati, impostazioni e future personalizzazioni; CSV/TSV restano formati solo dati.
+- Export rapido e configurabile completati come prima versione: Default JSON completo; finestra `Esporta` con formato, checklist contenuti, filtri/selezione, ripristino dell'ultimo export riuscito e toggle per riapplicare ultima selezione o ultimi filtri.
+- Il JSON custom puo includere dati, impostazioni e segnaposto per future personalizzazioni; CSV resta formato solo dati.
+- Rendere piu chiara la scelta import con dialog dedicato e meno grezzo.
 - In import, se impostazioni o personalizzazioni del backup differiscono da quelle locali, chiedere se mantenere la configurazione attuale o applicare quella del backup.
 - Durante import in aggiunta, trattare id duplicati come possibile spesa gia presente e offrire una scelta chiara invece di rigenerare sempre in modo opaco.
 - Definire eventuali migrazioni schema in modo idempotente.
@@ -141,15 +181,17 @@ Da riprendere solo quando servira:
 - Swipe orizzontale su singola spesa con azione elimina da un lato e copia dall'altro, lasciando la card parzialmente visibile.
 - Modalita selezione base completata: pressione lunga, evidenza verde, evidenza rossa durante conferma eliminazione, header con cerca e seleziona filtrate, bottom nav con copia/export/elimina, riepilogo con conteggio e valore totale selezionato, seleziona tutte come toggle sul filtrato corrente e filtro speciale `Selezionate` attivo solo in modalita selezione.
 - Azioni bulk ancora da completare: formati TSV/tabella Markdown.
-- Rendere la modalita selezione riusabile dal futuro export custom: primo ingresso seleziona tutto il filtrato, ingressi successivi riusano la selezione precedente quando sensato.
+- Modalita selezione riusata dall'export configurabile: primo ingresso da impostazioni seleziona tutte le spese, ingressi successivi riusano l'ultimo export riuscito, mentre l'apertura dalla timeline conserva la selezione corrente e la finestra permette di tornare a ultima selezione o ultimi filtri.
 - Modifica spesa anche dalla pagina statistiche.
 
 ## Statistiche e Grafici
 
+- Unificare `Per categoria` e `Dettaglio categorie` in una sola sezione con viste alternative selezionabili via swipe: torta, barre, elenco/dettaglio e future varianti.
+- Nel grafico a torta mostrare label o percentuali per le categorie principali e spostare le quote minori in un elenco sotto la visualizzazione, riusando l'attuale dettaglio categorie come una delle viste.
+- Aggiungere aggregazioni statistiche trasversali al periodo filtrato, per esempio distribuzione delle spese nei giorni della settimana considerando tutte le settimane incluse.
 - Grafico spese nel tempo colorato per categorie.
 - Barre divise per categoria.
 - Soglia indicativa per mostrare contributi categoria dentro una barra.
-- Grafico a torta con label principali e percentuali minori in elenco.
 - Linee verticali tratteggiate per settimane, mesi o anni.
 - Eventuale segnale visivo per sforamento budget.
 
@@ -157,6 +199,7 @@ Da riprendere solo quando servira:
 
 - Pulsante `+` a sinistra nella barra di inserimento per selezionare data e ora della nuova spesa.
 - Parsing di `.<categoria>` nella barra di inserimento per forzare una categoria; se il pattern compare piu volte, usare l'ultima occorrenza.
+- Ordinamento opzionale della timeline per valore della spesa, e valutazione di altre modalita di ordinamento.
 - Spese ricorrenti.
 - Backup schedulato.
 - Accrediti oltre alle spese.

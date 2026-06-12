@@ -79,6 +79,8 @@ Queste parti possono essere considerate chiuse per la fase di refactor struttura
 
 ## Cosa Resta Fuori Da Questa Fase
 
+Questa lista descrive cio che era fuori dallo scopo del refactor strutturale chiuso a maggio 2026. Alcuni punti sono poi stati affrontati in fasi successive e il loro stato aggiornato vive in `docs/CURRENT_STATE.md` e `docs/ROADMAP.md`.
+
 - PWA/offline: service worker, cache versionata, Chart.js locale e strategia update.
 - Versioni controllate dall'utente: lista release, scelta versione e compatibilita dati tra versioni.
 - Review privacy esplicita.

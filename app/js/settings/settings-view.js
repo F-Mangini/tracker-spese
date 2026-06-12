@@ -157,6 +157,25 @@ const SettingsView = (() => {
         `;
     }
 
+    function renderExportFormatDropdown(formats, selectedValue) {
+        const selected = formats.find(format => format.value === selectedValue) || formats[0] || {};
+
+        return `
+            <input type="hidden" id="export-format" value="${AppUI.escapeHtml(selected.value || 'json')}">
+            <div class="searchable-dropdown export-format-dropdown" id="export-format-dropdown">
+                <textarea rows="1" class="sd-input" autocomplete="nope" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" enterkeyhint="done" readonly data-value="${AppUI.escapeHtml(selected.value || '')}">${AppUI.escapeHtml(selected.label || '')}</textarea>
+                <span class="sd-arrow">▼</span>
+                <div class="sd-list">
+                    ${formats.map(format => `
+                        <div class="sd-item${selected.value === format.value ? ' selected' : ''}" data-format="${AppUI.escapeHtml(format.value)}">
+                            <span>${AppUI.escapeHtml(format.label)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     function renderPage(options = {}) {
         const settings = options.settings || {};
         const spese = Array.isArray(options.spese) ? options.spese : [];
@@ -177,15 +196,13 @@ const SettingsView = (() => {
             </div>
 
             <div class="settings-section">
-                <h3>\uD83D\uDCE4 Esporta dati</h3>
-                <p class="settings-hint">Scegli JSON per backup completo o CSV per fogli di calcolo.</p>
+                <h3>\uD83D\uDCE4 Esporta Dati</h3>
+                <p class="settings-hint">Scarica un backup JSON o nel formato che preferisci.</p>
                 <div class="settings-buttons">
-                    <button id="btn-export" class="btn btn-secondary btn-block">Scegli formato...</button>
+                    <button id="btn-export-default" class="btn btn-primary btn-block">Default</button>
+                    <button id="btn-export-custom" class="btn btn-secondary btn-block">Custom</button>
                 </div>
-            </div>
-
-            <div class="settings-section">
-                <h3>\uD83D\uDCE5 Importa dati</h3>
+                <h3 class="settings-import-title">\uD83D\uDCE5 Importa Dati</h3>
                 <p class="settings-hint">Prima del salvataggio puoi scegliere se aggiungere o sostituire.</p>
                 <input type="file" id="import-file" accept=".json,application/json,.csv,text/csv,application/csv,text/comma-separated-values" hidden>
                 <button id="btn-import" class="btn btn-secondary btn-block">\uD83D\uDCC1 Scegli file...</button>
@@ -223,6 +240,70 @@ const SettingsView = (() => {
         `;
     }
 
+    function renderExportModal(model = {}) {
+        const prefs = SettingsActions.normalizeExportPreferences(model.preferences || {});
+        const formats = SettingsActions.getExportFormats();
+        const rawSelectedCount = Number(model.selectedCount || 0);
+        const selectedCount = prefs.includeData ? rawSelectedCount : 0;
+        const selectedLabel = selectedCount === 1
+            ? '1 spesa selezionata'
+            : `${selectedCount} spese selezionate`;
+        const csvMode = prefs.format === 'csv';
+        const memory = model.memory || {};
+        const lastSelectionClass = memory.lastSelectionActive ? ' active' : '';
+        const lastFiltersClass = memory.lastFiltersActive ? ' active' : '';
+        const memoryDisabled = memory.hasLastExport ? '' : ' disabled';
+
+        return `
+            <div class="export-config-grid">
+                <div class="form-group export-config-field">
+                    <label>Contenuti</label>
+                    <div class="export-checklist">
+                        <label class="export-check-row">
+                            <input type="checkbox" id="export-include-data" ${prefs.includeData ? 'checked' : ''} ${csvMode ? 'checked disabled' : ''}>
+                            <span>Dati</span>
+                        </label>
+                        <label class="export-check-row ${csvMode ? 'disabled' : ''}">
+                            <input type="checkbox" id="export-include-settings" ${prefs.includeSettings && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
+                            <span>Impostazioni</span>
+                        </label>
+                        <label class="export-check-row ${csvMode ? 'disabled' : ''}">
+                            <input type="checkbox" id="export-include-personalizzazioni" ${prefs.includePersonalizzazioni && !csvMode ? 'checked' : ''} ${csvMode ? 'disabled' : ''}>
+                            <span>Personalizzazioni</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group export-config-field">
+                    <label>Formato</label>
+                    ${renderExportFormatDropdown(formats, prefs.format)}
+                </div>
+            </div>
+
+            <div class="export-selection-summary">
+                <strong>${AppUI.escapeHtml(selectedLabel)}</strong>
+                <div class="export-memory-toggles" role="group">
+                    <button
+                        type="button"
+                        id="export-toggle-last-selection"
+                        class="export-memory-toggle${lastSelectionClass}"
+                        aria-pressed="${memory.lastSelectionActive ? 'true' : 'false'}"${memoryDisabled}
+                    >
+                        Ultima Selezione
+                    </button>
+                    <button
+                        type="button"
+                        id="export-toggle-last-filters"
+                        class="export-memory-toggle${lastFiltersClass}"
+                        aria-pressed="${memory.lastFiltersActive ? 'true' : 'false'}"${memoryDisabled}
+                    >
+                        Ultimi Filtri
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     function renderImportPreviewMessage(preview = {}, hasSpese = false) {
         const format = preview.format === 'json' ? 'JSON' : 'CSV';
         const settings = preview.settingsIncluded ? ' con impostazioni' : '';
@@ -240,6 +321,7 @@ const SettingsView = (() => {
     return {
         getDateRange,
         renderPage,
+        renderExportModal,
         renderReleaseList,
         renderImportPreviewMessage
     };

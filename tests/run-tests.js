@@ -7381,7 +7381,7 @@ test('Wiring app chiede conferma prima delle impostazioni con selezione attiva',
     confirmPayload.choices[1].onClick();
 
     assert.deepEqual(calls.slice(1), [
-        ['exit-selection', false],
+        ['exit-selection', true],
         'continue'
     ]);
     assert.equal(app.timelineSelectionActive, false);
@@ -7448,6 +7448,146 @@ test('Wiring app consuma history selezione prima di andare alle impostazioni', (
     assert.deepEqual(calls.slice(-2), [
         'timeline',
         'continue'
+    ]);
+});
+
+test('Wiring app consuma history filtri e selezione prima di andare alle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const calls = [];
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        filterOpen: true,
+        advancedFiltersOpen: true,
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => calls.push('timeline'),
+        renderStats: () => calls.push('stats'),
+        renderSettings: () => calls.push('settings'),
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            closeFilterPanel(_options, fromPopstate) {
+                calls.push(['close-filter', fromPopstate]);
+                app.filterOpen = false;
+                app.advancedFiltersOpen = false;
+            },
+            updateFilterBadge: () => calls.push('badge'),
+            syncFilterUI: () => calls.push('sync-filter-ui')
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => calls.push('continue'));
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filterOpen, false);
+    assert.equal(app.advancedFiltersOpen, false);
+    assert.deepEqual(historyActions.map(action => [action.type, action.delta]), [
+        [UIStack.HISTORY_ACTIONS.GO, -3]
+    ]);
+    assert(calls.some(call => Array.isArray(call) && call[0] === 'close-filter' && call[1] === true));
+    assert.deepEqual(calls.slice(-2), [
+        'timeline',
+        'continue'
+    ]);
+});
+
+test('Wiring app consuma history pannello filtri semiaperto prima delle impostazioni', () => {
+    const { AppWiring, AppState, UIStack } = loadUiViews();
+    const historyActions = [];
+    let confirmPayload = null;
+    const app = {
+        ...AppState.create(),
+        currentPage: 'timeline',
+        filterOpen: true,
+        advancedFiltersOpen: false,
+        timelineSelectionActive: true,
+        timelineSelectedIds: new Set(['a']),
+        renderTimeline: () => {},
+        renderStats: () => {},
+        renderSettings: () => {},
+        showToast: () => {},
+        submitExpense: () => {},
+        refreshExpenseViews: () => {}
+    };
+    const wiring = AppWiring.create(app, {
+        document: {
+            body: {},
+            getElementById() {
+                return null;
+            }
+        },
+        window: { navigator: {} },
+        history: {},
+        HistoryController: {
+            run(action, options) {
+                historyActions.push(action);
+                if (action && action.suppressPopstate) {
+                    options.setSuppressPopstate(true);
+                }
+                return true;
+            }
+        },
+        ConfirmController: {
+            showChoices(options) {
+                confirmPayload = options;
+                return true;
+            }
+        },
+        ExpenseStore: {
+            getSpese: () => []
+        },
+        FilterController: {
+            closeFilterPanel(_options, fromPopstate) {
+                app.filterOpen = false;
+                assert.equal(fromPopstate, true);
+            },
+            updateFilterBadge: () => {},
+            syncFilterUI: () => {}
+        }
+    });
+    const navOptions = wiring.navigationOptions();
+
+    navOptions.confirmSettingsNavigation(() => {});
+    confirmPayload.choices[1].onClick();
+
+    assert.equal(app.timelineSelectionActive, false);
+    assert.equal(app.filterOpen, false);
+    assert.deepEqual(historyActions.map(action => [action.type, action.delta]), [
+        [UIStack.HISTORY_ACTIONS.GO, -2]
     ]);
 });
 

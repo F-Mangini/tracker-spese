@@ -180,6 +180,57 @@ const AppWiring = (() => {
             });
         }
 
+        function exitSelectionForSettingsNavigation() {
+            let steps = 0;
+            const hadFilterSearch = !!app._filterSearchActive;
+            const hadAdvancedFilters = !!app.advancedFiltersOpen;
+            const hadFilterPanel = !!app.filterOpen;
+
+            if (
+                hadFilterSearch &&
+                deps.FilterController &&
+                typeof deps.FilterController.releaseFilterSearchInteraction === 'function'
+            ) {
+                const released = deps.FilterController.releaseFilterSearchInteraction(filterOptions(), {
+                    consumeHistory: false
+                });
+
+                if (released) {
+                    app._releasedFilterSearchHistory = false;
+                    steps += 1;
+                }
+            }
+
+            if (
+                hadFilterPanel &&
+                deps.FilterController &&
+                typeof deps.FilterController.closeFilterPanel === 'function'
+            ) {
+                deps.FilterController.closeFilterPanel(filterOptions(), true);
+                steps += hadAdvancedFilters ? 2 : 1;
+            } else if (
+                hadAdvancedFilters &&
+                deps.FilterController &&
+                typeof deps.FilterController.closeAdvancedFilters === 'function'
+            ) {
+                deps.FilterController.closeAdvancedFilters(filterOptions(), true);
+                steps += 1;
+            }
+
+            if (
+                app.timelineSelectionActive &&
+                deps.TimelineSelectionController &&
+                typeof deps.TimelineSelectionController.exit === 'function'
+            ) {
+                deps.TimelineSelectionController.exit(timelineSelectionOptions(), true);
+                steps += 1;
+            }
+
+            if (steps > 0) {
+                consumeUiState(steps);
+            }
+        }
+
         function getTimelineSelectedIdsForFilters() {
             return app.timelineSelectionActive ? app.timelineSelectedIds : new Set();
         }
@@ -312,7 +363,7 @@ const AppWiring = (() => {
                             text: 'Esci',
                             className: 'btn-primary',
                             onClick: () => {
-                                deps.TimelineSelectionController.exit(timelineSelectionOptions(), false);
+                                exitSelectionForSettingsNavigation();
                                 if (typeof continueNavigation === 'function') {
                                     continueNavigation();
                                 }

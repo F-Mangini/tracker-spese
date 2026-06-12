@@ -160,6 +160,10 @@ const AppWiring = (() => {
             }
 
             app._suppressNextPopstate = Number(app._suppressPopstateCount || 0) > 0;
+
+            if (!app._suppressNextPopstate) {
+                flushAfterSuppressedPopstates();
+            }
         }
 
         function pushUiState(state) {
@@ -178,6 +182,33 @@ const AppWiring = (() => {
             return deps.FilterController.releaseFilterSearchInteraction(filterOptions(), {
                 consumeHistory: false
             });
+        }
+
+        function afterSuppressedPopstates(callback) {
+            if (typeof callback !== 'function') return;
+
+            if (!hasSuppressedPopstate()) {
+                callback();
+                return;
+            }
+
+            if (!Array.isArray(app._afterSuppressedPopstates)) {
+                app._afterSuppressedPopstates = [];
+            }
+
+            app._afterSuppressedPopstates.push(callback);
+        }
+
+        function flushAfterSuppressedPopstates() {
+            if (!Array.isArray(app._afterSuppressedPopstates) || app._afterSuppressedPopstates.length === 0) {
+                return;
+            }
+
+            const callbacks = app._afterSuppressedPopstates.slice();
+            app._afterSuppressedPopstates = [];
+            deps.setTimeout(() => {
+                callbacks.forEach(callback => callback());
+            }, 0);
         }
 
         function exitSelectionForSettingsNavigation() {
@@ -365,7 +396,7 @@ const AppWiring = (() => {
                             onClick: () => {
                                 exitSelectionForSettingsNavigation();
                                 if (typeof continueNavigation === 'function') {
-                                    continueNavigation();
+                                    afterSuppressedPopstates(continueNavigation);
                                 }
                             }
                         }

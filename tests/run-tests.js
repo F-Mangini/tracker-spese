@@ -7353,6 +7353,7 @@ test('Wiring app chiede conferma prima delle impostazioni con selezione attiva',
         document: { body: {} },
         window: {},
         history: {},
+        setTimeout: callback => callback(),
         ConfirmController: {
             showChoices(options) {
                 confirmPayload = options;
@@ -7380,6 +7381,11 @@ test('Wiring app chiede conferma prima delle impostazioni con selezione attiva',
 
     confirmPayload.choices[1].onClick();
 
+    assert.deepEqual(calls.slice(1), [
+        ['exit-selection', true]
+    ]);
+
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
     assert.deepEqual(calls.slice(1), [
         ['exit-selection', true],
         'continue'
@@ -7413,6 +7419,7 @@ test('Wiring app consuma history selezione prima di andare alle impostazioni', (
         },
         window: { navigator: {} },
         history: {},
+        setTimeout: callback => callback(),
         HistoryController: {
             run(action, options) {
                 historyActions.push(action);
@@ -7445,6 +7452,8 @@ test('Wiring app consuma history selezione prima di andare alle impostazioni', (
     assert.deepEqual(historyActions.map(action => action.type), [
         UIStack.HISTORY_ACTIONS.BACK
     ]);
+    assert(!calls.includes('continue'));
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
     assert.deepEqual(calls.slice(-2), [
         'timeline',
         'continue'
@@ -7479,6 +7488,7 @@ test('Wiring app consuma history filtri e selezione prima di andare alle imposta
         },
         window: { navigator: {} },
         history: {},
+        setTimeout: callback => callback(),
         HistoryController: {
             run(action, options) {
                 historyActions.push(action);
@@ -7519,6 +7529,8 @@ test('Wiring app consuma history filtri e selezione prima di andare alle imposta
         [UIStack.HISTORY_ACTIONS.GO, -3]
     ]);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'close-filter' && call[1] === true));
+    assert(!calls.includes('continue'));
+    wiring.uiStackOptions().setSuppressNextPopstate(false);
     assert.deepEqual(calls.slice(-2), [
         'timeline',
         'continue'
@@ -7552,6 +7564,7 @@ test('Wiring app consuma history pannello filtri semiaperto prima delle impostaz
         },
         window: { navigator: {} },
         history: {},
+        setTimeout: callback => callback(),
         HistoryController: {
             run(action, options) {
                 historyActions.push(action);

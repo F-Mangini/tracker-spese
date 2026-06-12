@@ -1,0 +1,41 @@
+{
+    "name": "Where's My Money?",
+    "short_name": "WMM",
+    "description": "Traccia le tue spese quotidiane",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "background_color": "#f0f2f5",
+    "theme_color": "#10b981",
+    "orientation": "portrait",
+    "categories": [
+        "finance"
+    ],
+    "lang": "it",
+    "icons": [
+        {
+            "src": "icons/stable/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/stable/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/stable/maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/stable/maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

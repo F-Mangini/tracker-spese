@@ -33,6 +33,11 @@ Completato il 2026-06-03:
 - Fix del parser categorie/metodi: le keyword vengono riconosciute solo come termini interi, cosi `bus` non viene letto dentro `busta`.
 - Nuova release statica `releases/v2026.06.03/` creata e segnalata come consigliata in `releases.json`; la precedente `v2026.05.30` resta disponibile come release stabile storica.
 
+Completato il 2026-06-12:
+
+- Promosse le modifiche di `dev` su `main`, aggiornando `stable/latest`.
+- Nuova release statica `releases/v2026.06.12/` creata e segnalata come consigliata in `releases.json`; le release `v2026.06.03` e `v2026.05.30` restano disponibili come stabili storiche.
+
 Aggiunte dagli appunti del 2026-06-03 e 2026-06-04:
 
 - Comportamento del tasto filtri configurabile, con modalita `adattivo`.
@@ -125,7 +130,7 @@ Completato:
 
 - Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 - `releases.json` e la cartella sorgente `releases/v2026.05.30/` definiscono la prima baseline versionata.
-- `releases/v2026.06.03/` definisce la release consigliata corrente.
+- `releases/v2026.06.12/` definisce la release consigliata corrente.
 - i manifest dichiarano `scope` esplicito.
 - `releases/v2026.05.30/` registra un service worker con scope limitato alla singola release e cache offline degli asset locali.
 - le impostazioni leggono `releases.json` e mostrano una finestra versioni per installare `stable/latest` o la release consigliata, con badge `Installata` e senza applicare update automatici.
@@ -150,7 +155,7 @@ Da riprendere solo quando servira:
 
 - procedura di pubblicazione delle release successive;
 - compatibilita dati tra versioni se cambiera lo schema;
-- gestione di ulteriori release reali oltre a `v2026.05.30` e `v2026.06.03`.
+- gestione di ulteriori release reali successive a `v2026.06.12`.
 
 ## Filtri e Ricerca
 

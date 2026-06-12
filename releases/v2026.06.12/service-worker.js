@@ -1,11 +1,12 @@
-const CACHE_PREFIX = "wmm-stable-launch-";
-const STATIC_CACHE = `${CACHE_PREFIX}static-v8`;
+const RELEASE_ID = "v2026.06.12";
+const CACHE_PREFIX = `wmm-${RELEASE_ID}-`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v1`;
 
 const PRECACHE_URLS = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./stable-launch-service-worker.js",
+  "./service-worker.js",
   "./css/style.css",
   "./vendor/chart.umd.min.js",
   "./icons/stable/favicon-16.png",
@@ -61,7 +62,7 @@ const PRECACHE_URLS = [
   "./js/core/app.js"
 ];
 
-function isStableRequest(request) {
+function isReleaseRequest(request) {
   const url = new URL(request.url);
 
   return (
@@ -116,7 +117,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  if (!isStableRequest(request)) {
+  if (!isReleaseRequest(request)) {
     return;
   }
 

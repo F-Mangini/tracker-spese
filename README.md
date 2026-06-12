@@ -28,7 +28,7 @@ L'app e gia utilizzabile per l'uso quotidiano e include:
 - manifest web app per installazione base;
 - baseline PWA/offline con Chart.js locale, release versionata e aggiornamenti scelti dall'utente.
 
-La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso localmente, le release versionate sotto `releases/` registrano service worker con scope limitato alla singola release, `/stable/` registra un launcher offline scoped e le impostazioni mostrano una finestra versioni alimentata da `releases.json`. La release consigliata corrente e `releases/v2026.06.03/`; `/` e `/dev/` non registrano service worker.
+La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso localmente, le release versionate sotto `releases/` registrano service worker con scope limitato alla singola release, `/stable/` registra un launcher offline scoped e le impostazioni mostrano una finestra versioni alimentata da `releases.json`. La release consigliata corrente e `releases/v2026.06.12/`; `/` e `/dev/` non registrano service worker.
 
 ## Struttura
 
@@ -40,6 +40,7 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 +-- releases/
 |   +-- v2026.05.30/
 |   +-- v2026.06.03/
+|   +-- v2026.06.12/
 +-- docs/
 |   +-- CODE_REVIEW.md
 |   +-- CURRENT_STATE.md

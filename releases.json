@@ -1,11 +1,19 @@
 {
-    "recommended": "v2026.06.03",
+    "recommended": "v2026.06.12",
     "releases": [
+        {
+            "id": "v2026.06.12",
+            "path": "releases/v2026.06.12/",
+            "date": "2026-06-12",
+            "status": "recommended",
+            "notes": "Stable con export custom stabilizzato, roadmap aggiornata e backlog del 12/06 recepito.",
+            "schemaVersion": 1
+        },
         {
             "id": "v2026.06.03",
             "path": "releases/v2026.06.03/",
             "date": "2026-06-03",
-            "status": "recommended",
+            "status": "stable",
             "notes": "Stable con fix riepilogo settimana, keyword parser a termini interi e backlog aggiornato.",
             "schemaVersion": 1
         },

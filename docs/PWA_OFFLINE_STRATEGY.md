@@ -10,7 +10,7 @@ La fase non deve cambiare lo schema dati corrente. Eventuali modifiche future a 
 
 Il codice sorgente `app/` registra un service worker leggero solo quando viene servito da `/stable/`: e un launcher offline scoped alla stable, utile a riaprire la release scelta anche se lo start URL della PWA installata resta `/stable/`. `/` e `/dev/` restano entrypoint senza controllo offline diretto. Chart.js 4.4.7 e incluso localmente in `app/vendor/chart.umd.min.js`.
 
-La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI nelle impostazioni per aprire una finestra alimentata da `releases.json`, installazione manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata, launcher offline scoped per `/stable/` e versione/canale visibili nel footer impostazioni. La verifica Android pubblica e stata completata dal maintainer; il flusso guidato minimo e ora presente. La release consigliata corrente e `releases/v2026.06.03/`, creata dalla nuova stable/latest e pubblicata accanto alla baseline storica.
+La prima release sorgente e `releases/v2026.05.30/`: contiene Chart.js locale, manifest scoped al proprio path e `service-worker.js` registrato solo dalla pagina della release con scope `./`. Questa baseline introduce la cache offline della singola release, una UI nelle impostazioni per aprire una finestra alimentata da `releases.json`, installazione manuale di `stable/latest` o della release consigliata, preferenza locale per riaprire la release scelta dalla PWA installata, launcher offline scoped per `/stable/` e versione/canale visibili nel footer impostazioni. La verifica Android pubblica e stata completata dal maintainer; il flusso guidato minimo e ora presente. La release consigliata corrente e `releases/v2026.06.12/`, creata dalla nuova stable/latest e pubblicata accanto alle release storiche.
 
 ## Obiettivo
 
@@ -33,7 +33,7 @@ Usare cartelle release immutabili su hosting statico:
 /releases/vYYYY.MM.DD/ -> release installabile immutabile
 ```
 
-`/` e `/stable/` restano entrypoint comodi verso l'ultima stabile. Le PWA installabili/offline devono invece vivere dentro path versionati, per esempio `/releases/v2026.06.03/`, cosi una versione installata non cambia comportamento solo perche `main` viene aggiornato.
+`/` e `/stable/` restano entrypoint comodi verso l'ultima stabile. Le PWA installabili/offline devono invece vivere dentro path versionati, per esempio `/releases/v2026.06.12/`, cosi una versione installata non cambia comportamento solo perche `main` viene aggiornato.
 
 Il canale `/dev/` resta separato e non deve condividere storage key con la stabile. La storage key stabile resta `spesa-tracker-data`; la dev resta su `spesa-tracker-data-dev`.
 
@@ -89,14 +89,22 @@ Forma logica prevista:
 
 ```json
 {
-  "recommended": "v2026.06.03",
+  "recommended": "v2026.06.12",
   "releases": [
+    {
+      "id": "v2026.06.12",
+      "path": "releases/v2026.06.12/",
+      "date": "2026-06-12",
+      "status": "recommended",
+      "notes": "Release stabile consigliata corrente.",
+      "schemaVersion": 1
+    },
     {
       "id": "v2026.06.03",
       "path": "releases/v2026.06.03/",
       "date": "2026-06-03",
-      "status": "recommended",
-      "notes": "Release stabile consigliata corrente.",
+      "status": "stable",
+      "notes": "Release stabile storica.",
       "schemaVersion": 1
     },
     {
@@ -113,7 +121,7 @@ Forma logica prevista:
 
 Il file serve alla UI delle impostazioni per mostrare le versioni disponibili e consigliare l'ultima stabile senza installarla automaticamente.
 
-La prima release sorgente e `releases/v2026.05.30/`: e una baseline stabile con Chart.js locale, manifest scoped al proprio path e primo service worker release-scoped. La release consigliata corrente e `releases/v2026.06.03/`.
+La prima release sorgente e `releases/v2026.05.30/`: e una baseline stabile con Chart.js locale, manifest scoped al proprio path e primo service worker release-scoped. La release consigliata corrente e `releases/v2026.06.12/`.
 
 ## Baseline Completata
 
@@ -121,7 +129,7 @@ La baseline PWA/offline e considerata completata per lo stato attuale dell'app:
 
 1. Chart.js e servito localmente.
 2. `releases.json` elenca le versioni disponibili.
-3. `releases/v2026.05.30/` e la prima release installabile con service worker scoped e cache offline; `releases/v2026.06.03/` e la release consigliata corrente.
+3. `releases/v2026.05.30/` e la prima release installabile con service worker scoped e cache offline; `releases/v2026.06.12/` e la release consigliata corrente.
 4. `/stable/` ha un launcher offline scoped per riaprire la release scelta dalla PWA installata.
 5. Le impostazioni mostrano una sezione `Versioni` con finestra dedicata, stato installato e installazione esplicita.
 6. La verifica pubblica su Android e stata eseguita dal maintainer.
@@ -139,7 +147,7 @@ La procedura sotto resta come checklist di regressione per future release o modi
 URL consigliato dopo deploy:
 
 ```text
-https://f-mangini.github.io/tracker-spese/releases/v2026.06.03/
+https://f-mangini.github.io/tracker-spese/releases/v2026.06.12/
 ```
 
 Prima del test pubblico fare sempre export JSON dalla stabile. Il test pubblico condivide l'origine `https://f-mangini.github.io` e la storage key stabile `spesa-tracker-data`.
@@ -152,14 +160,14 @@ Procedura consigliata:
 
 1. Aprire la stabile o la release pubblica da Chrome Android.
 2. Entrare in Impostazioni e controllare la sezione `Versioni`.
-3. Aprire la release consigliata `v2026.06.03`; dalla release verificare anche che `stable/latest` riporti alla stabile.
+3. Aprire la release consigliata `v2026.06.12`; dalla release verificare anche che `stable/latest` riporti alla stabile.
 4. Caricare la pagina una volta online e verificare che timeline, statistiche e impostazioni si aprano.
 5. Installare l'app da Chrome usando `Aggiungi a schermata Home` o `Installa app`, se disponibile.
 6. Aprire l'app installata almeno una volta mentre il telefono e ancora online, cosi il launcher offline di `/stable/` e/o il service worker della release possono completare la cache.
 7. Attivare modalita aereo.
 8. Riaprire l'app installata e fare refresh della pagina.
 9. Verificare che CSS, JS, icone e grafici Chart.js restino disponibili offline.
-10. Chiudere e riaprire l'app installata: se dalla stable era stata scelta `v2026.06.03`, deve riaprire quella release.
+10. Chiudere e riaprire l'app installata: se dalla stable era stata scelta `v2026.06.12`, deve riaprire quella release.
 11. Tornare online e controllare che `https://f-mangini.github.io/tracker-spese/dev/` continui a caricare senza essere controllata dal service worker della release.
 
 Nota installazione: il launcher offline della stable funziona per app installate da `https://f-mangini.github.io/tracker-spese/stable/`. Se l'icona era stata installata da `/` prima di questa fase, lo start URL puo restare root e non essere coperto dal launcher scoped; in quel caso reinstallare dalla stable scoped o installare direttamente dalla release versionata.
@@ -197,7 +205,7 @@ adb reverse tcp:28575 tcp:28575
 3. Aprire in Chrome Android:
 
 ```text
-http://localhost:28575/releases/v2026.06.03/
+http://localhost:28575/releases/v2026.06.12/
 ```
 
 4. Caricare la pagina una volta online e verificare che timeline, statistiche e impostazioni si aprano.

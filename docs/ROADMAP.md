@@ -50,6 +50,13 @@ Completato su `codex/ux-export`:
 - Prima finestra `Esporta` configurabile con formato JSON/CSV, checklist contenuti, selezione automatica iniziale di tutte le spese, memoria dell'ultimo export riuscito, toggle `Ultima Selezione` / `Ultimi Filtri`, conteggio selezione e collegamento ai filtri tramite modalita selezione timeline.
 - JSON custom configurabile per impostazioni e segnaposto personalizzazioni; CSV resta solo dati.
 
+Completato nella stabilizzazione export/selezione su `dev`:
+
+- Finestra `Esporta` rifinita con checklist contenuti tematizzata, formattazione importi compatta e default coerenti tra apertura da Impostazioni e apertura dalla timeline.
+- Toggle `Ultimi Filtri` stabilizzato: sostituisce i filtri correnti con quelli dell'ultimo export riuscito, resta attivo solo quando filtri e selezione corrispondono, e ripristina filtri/selezione precedenti quando viene spento.
+- Modalita selezione e bottom nav stabilizzate: cambio set piu reattivo, supporto rotellina desktop, chiusura completa dei filtri prima di export/eliminazione e conferma per uscire verso Impostazioni.
+- History corretta nei flussi selezione/export: uscire da Selezione verso Impostazioni aspetta la chiusura degli stati UI programmati, cosi il back successivo torna alla Timeline.
+
 ## Repository e Canali
 
 Stato: completato. La dev refactor e stata promossa a stabile; la baseline della nuova fase PWA/offline e stata pubblicata su `main` per i test reali.

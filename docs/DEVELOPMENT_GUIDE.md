@@ -85,6 +85,7 @@ Se in futuro vengono aggiunte icone, immagini o colori personalizzabili per cate
 - Modali, filtri e tastiera devono convivere senza scroll strani o chiusure impreviste.
 - Su desktop e accettabile una UI semplice, ma non devono esserci blocchi evidenti come scroll impossibile o azioni da tastiera mancanti.
 - Prima di sostituire emoji con icone, definire una strategia unica e coerente.
+- Quando una nuova azione chiude piu stati UI e poi naviga, per esempio filtri + selezione + Impostazioni, non concatenare subito `back()`/`go()` e `pushState`: attendere il rientro dei popstate soppressi e coprire il flusso con test di history.
 
 ## Documentazione Durante le Modifiche
 

@@ -118,7 +118,7 @@ body {
     -webkit-user-select: none;
     transform-origin: left center;
     border-radius: 6px;
-    transition: opacity 140ms ease;
+    transition: opacity 90ms ease;
 }
 
 #app-header h1:focus-visible {

@@ -201,11 +201,15 @@ const NavigationController = (() => {
         targetElement.classList.add('page-swipe-layer', 'page-swipe-preview');
 
         if (targetElement.style) {
-            targetElement.style.top = `${main.scrollTop || 0}px`;
+            const targetScrollTop = getPageScrollTop(options)[targetPage] || 0;
+            const previewTop = (main.scrollTop || 0) - targetScrollTop;
+            const previewHeight = (main.clientHeight || 0) + targetScrollTop;
+
+            targetElement.style.top = `${previewTop}px`;
             targetElement.style.left = '0';
             targetElement.style.width = '100%';
-            targetElement.style.height = `${main.clientHeight || 0}px`;
-            targetElement.style.minHeight = `${main.clientHeight || 0}px`;
+            targetElement.style.height = `${previewHeight}px`;
+            targetElement.style.minHeight = `${previewHeight}px`;
         }
 
         if (main.classList) main.classList.add('page-swipe-active');

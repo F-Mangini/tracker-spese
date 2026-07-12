@@ -682,7 +682,7 @@ test('Titolo header alterna nome app e data odierna con fade e accessibilita tas
     listeners.click();
     assert.equal(title.dataset.showingDate, 'false');
     assert(classes.has('header-title-fade-out'));
-    assert.equal(timers[0].delay, 140);
+    assert.equal(timers[0].delay, 90);
 
     timers.shift().callback();
     assert.equal(title.textContent, '12 luglio 2026');
@@ -3317,6 +3317,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!pages.stats.classList.contains('hidden'));
     assert.equal(pages.timeline.style.transform, 'translate3d(-80px, 0, 0)');
     assert.equal(pages.stats.style.transform, 'translate3d(313px, 0, 0)');
+    assert.equal(pages.stats.style.top, '57px');
+    assert.equal(pages.stats.style.height, '742px');
 
     main.listeners.touchend({
         changedTouches: [{ clientX: 180, clientY: 205 }],

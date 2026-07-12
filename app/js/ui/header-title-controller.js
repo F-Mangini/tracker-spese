@@ -3,6 +3,8 @@
    ============================================ */
 
 const HeaderTitleController = (() => {
+    const FADE_DURATION_MS = 90;
+
     function getDocument(options) {
         return options.document || document;
     }
@@ -79,8 +81,8 @@ const HeaderTitleController = (() => {
 
                 setTimer(() => {
                     animating = false;
-                }, 140);
-            }, 140);
+                }, FADE_DURATION_MS);
+            }, FADE_DURATION_MS);
         };
 
         title.addEventListener('click', toggle);

@@ -111,7 +111,7 @@ I workaround mobile rimasti per la modale riguardano picker nativi, cleanup dell
 
 ### Navigazione e Mobile
 
-Le pagine principali sono Timeline, Statistiche e Impostazioni. Lo scroll e ricordato separatamente per pagina. Durante uno swipe orizzontale la pagina corrente e quella adiacente seguono il dito gia prima del rilascio; superata la soglia lo slide viene completato, altrimenti torna elasticamente alla pagina iniziale. Verso sinistra si avanza e verso destra si torna indietro; gesture prevalentemente verticali o iniziate su controlli interattivi vengono ignorate, mentre ai bordi viene applicata una lieve resistenza.
+Le pagine principali sono Timeline, Statistiche e Impostazioni. Lo scroll e ricordato separatamente per pagina. Durante uno swipe orizzontale la pagina corrente e quella adiacente seguono il dito gia prima del rilascio; superata la soglia lo slide viene completato, altrimenti torna elasticamente alla pagina iniziale. Verso sinistra si avanza e verso destra si torna indietro; gesture prevalentemente verticali o iniziate su controlli interattivi vengono ignorate, mentre ai bordi viene applicata una lieve resistenza. Il cambio tramite bottom nav usa una classe di ingresso dedicata; lo swipe rimuove quella classe e conclude esclusivamente lo slide, evitando che il fade verticale standard riparta durante il cleanup.
 
 Il titolo dell'header alterna al click il nome dell'app e la data odierna in formato italiano, con dissolvenza in uscita e in entrata e supporto anche a Invio/Spazio da tastiera. Il toggle resta temporaneo e non viene salvato.
 

@@ -3257,6 +3257,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert(pages.timeline.classList.contains('hidden'));
     assert(!pages.stats.classList.contains('hidden'));
+    assert(pages.stats.classList.contains('page-nav-enter'));
     assert(!navTimeline.classList.contains('active'));
     assert(navStats.classList.contains('active'));
     assert(inputBar.classList.contains('hidden'));
@@ -3315,6 +3316,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(preventedSwipe, 1);
     assert.equal(state.currentPage, 'timeline');
     assert(!pages.stats.classList.contains('hidden'));
+    assert(!pages.timeline.classList.contains('page-nav-enter'));
+    assert(!pages.stats.classList.contains('page-nav-enter'));
     assert.equal(pages.timeline.style.transform, 'translate3d(-80px, 0, 0)');
     assert.equal(pages.stats.style.transform, 'translate3d(313px, 0, 0)');
     assert.equal(pages.stats.style.top, '57px');
@@ -3326,6 +3329,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     });
     assert.equal(state.currentPage, 'stats');
     assert.equal(pages.stats.style.transform, '');
+    assert(!pages.stats.classList.contains('page-nav-enter'));
     main.listeners.touchstart({
         touches: [{ clientX: 180, clientY: 200 }],
         target: { closest: () => null }
@@ -3346,6 +3350,17 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert(pages.timeline.classList.contains('hidden'));
     assert.equal(pages.stats.style.transform, '');
+});
+
+test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
+    const css = readAppFile('css/style.css');
+    const basePageRule = css.match(/\.page\s*\{([^}]*)\}/);
+    const navEnterRule = css.match(/\.page\.page-nav-enter\s*\{([^}]*)\}/);
+
+    assert(basePageRule, 'Regola base .page non trovata');
+    assert(navEnterRule, 'Regola .page.page-nav-enter non trovata');
+    assert(!/\banimation\s*:/.test(basePageRule[1]));
+    assert(/animation\s*:\s*fadeIn/.test(navEnterRule[1]));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {

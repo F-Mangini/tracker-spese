@@ -196,6 +196,8 @@ const NavigationController = (() => {
         if (!currentElement || !targetElement) return;
 
         syncPageContent(options, targetPage);
+        currentElement.classList.remove('page-nav-enter');
+        targetElement.classList.remove('page-nav-enter');
         targetElement.classList.remove('hidden');
         currentElement.classList.add('page-swipe-layer', 'page-swipe-current');
         targetElement.classList.add('page-swipe-layer', 'page-swipe-preview');
@@ -275,7 +277,7 @@ const NavigationController = (() => {
         setTimer(() => {
             let navigated = false;
             if (shouldComplete) {
-                navigateTo(options, targetPage);
+                navigateTo(options, targetPage, false, { animatePage: false });
                 navigated = getCurrentPage(options) === targetPage;
             }
             cleanupSwipe(main, state, navigated);
@@ -388,13 +390,22 @@ const NavigationController = (() => {
         });
     }
 
-    function syncPageDom(options = {}, page) {
+    function syncPageDom(options = {}, page, config = {}) {
         const doc = getDocument(options);
 
-        doc.querySelectorAll('.page').forEach(section => section.classList.add('hidden'));
+        doc.querySelectorAll('.page').forEach(section => {
+            section.classList.add('hidden');
+            section.classList.remove('page-nav-enter');
+        });
 
         const pageEl = doc.getElementById(`page-${page}`);
-        if (pageEl) pageEl.classList.remove('hidden');
+        if (pageEl) {
+            pageEl.classList.remove('hidden');
+            if (config.animatePage !== false) {
+                void pageEl.offsetWidth;
+                pageEl.classList.add('page-nav-enter');
+            }
+        }
 
         doc.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -467,7 +478,7 @@ const NavigationController = (() => {
         rememberCurrentPageScroll(options);
         const action = updateNavigationHistory(options, page, fromPopstate);
         setCurrentPage(options, page);
-        syncPageDom(options, page);
+        syncPageDom(options, page, config);
 
         const shouldCloseFilter = page === 'settings' &&
             typeof options.isFilterOpen === 'function' &&

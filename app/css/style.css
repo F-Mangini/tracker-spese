@@ -633,6 +633,9 @@ body {
 
 .page {
     padding: 12px 12px 0;
+}
+
+.page.page-nav-enter {
     animation: fadeIn 0.2s ease;
 }
 

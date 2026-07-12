@@ -1893,7 +1893,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
-        lastViewportHeight: 0
+        lastViewportHeight: 0,
+        timelineFilterScrollCompensation: 0,
+        pageScrollTop: { timeline: 200 }
     };
     const spese = [
         expense({ id: 'bar', importo: 120, categoria: 'bar' }),
@@ -1906,6 +1908,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             matchMedia: () => ({ matches: true })
         },
         body: doc.body,
+        pageScrollTop: state.pageScrollTop,
         filters,
         categories: [{ id: 'bar', emoji: 'B', nome: 'Bar' }, { id: 'casa', emoji: 'C', nome: 'Casa' }],
         methods: [{ id: 'carta', emoji: 'M', nome: 'Carta' }],
@@ -1928,6 +1931,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         getQuickTotals: () => ({ todayTotal: 1, weekTotal: 2, monthTotal: 3, monthNameCapitalized: 'Maggio' }),
         getFilterOpen: () => state.filterOpen,
         setFilterOpen: value => { state.filterOpen = value; },
+        getTimelineFilterScrollCompensation: () => state.timelineFilterScrollCompensation,
+        setTimelineFilterScrollCompensation: value => { state.timelineFilterScrollCompensation = value; },
         getAdvancedFiltersOpen: () => state.advancedFiltersOpen,
         setAdvancedFiltersOpen: value => { state.advancedFiltersOpen = value; },
         getFilterSearchActive: () => state.filterSearchActive,
@@ -1984,7 +1989,11 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.query, 'caffe');
     assert(calls.includes('filter-change'));
 
+    elements['app-main'].scrollTop = 200;
     FilterController.openFilterPanel(options);
+    assert.equal(elements['app-main'].scrollTop, 80);
+    assert.equal(state.pageScrollTop.timeline, 80);
+    assert.equal(state.timelineFilterScrollCompensation, 120);
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     assert.equal(elements['btn-advanced-toggle'].title, 'Espandi pannello filtri');
     elements['search-input'].listeners.focus();
@@ -2070,6 +2079,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
     assert(!elements['app-main'].classList.contains('no-input-bar'));
+    assert.equal(elements['app-main'].scrollTop, 200);
+    assert.equal(state.pageScrollTop.timeline, 200);
+    assert.equal(state.timelineFilterScrollCompensation, 0);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
     FilterController.openFilterPanel(options);
@@ -3378,6 +3390,14 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(inputBar.classList.contains('hidden'));
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
+});
+
+test('CSS impedisce il collasso dell offset verticale del contenuto', () => {
+    const css = readAppFile('css/style.css');
+    const bodyRule = css.match(/body\s*\{([^}]*)\}/);
+
+    assert(bodyRule, 'Regola body non trovata');
+    assert(/display\s*:\s*flow-root/.test(bodyRule[1]));
 });
 
 test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
@@ -6968,6 +6988,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
+    assert.equal(second.timelineFilterScrollCompensation, 0);
     assert.equal(second._suppressPopstateCount, 0);
     assert.equal(second.timelineSelectionActive, false);
     assert.equal(second.timelineSelectedIds.size, 0);

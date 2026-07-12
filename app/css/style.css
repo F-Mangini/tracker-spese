@@ -662,6 +662,10 @@ body {
     pointer-events: none;
 }
 
+.page-swipe-banner {
+    will-change: transform;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1008,6 +1012,13 @@ body.expense-input-active #input-bar {
     transition: none;
     transform: none !important;
     will-change: bottom;
+}
+
+#input-bar.page-swipe-input,
+body.expense-input-active #input-bar.page-swipe-input {
+    transition: var(--page-swipe-input-transition, none) !important;
+    transform: translate3d(var(--page-swipe-input-x, 0px), 0, 0) !important;
+    will-change: transform;
 }
 
 .input-wrapper {

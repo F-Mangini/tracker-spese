@@ -157,7 +157,138 @@ const NavigationController = (() => {
         });
     }
 
+    function setStyleProperty(element, name, value) {
+        if (!element || !element.style) return;
+        if (typeof element.style.setProperty === 'function') {
+            element.style.setProperty(name, value);
+        } else {
+            element.style[name] = value;
+        }
+    }
+
+    function clearStyleProperty(element, name) {
+        if (!element || !element.style) return;
+        if (typeof element.style.removeProperty === 'function') {
+            element.style.removeProperty(name);
+        } else {
+            element.style[name] = '';
+        }
+    }
+
+    function setElementHidden(element, hidden) {
+        if (!element || !element.classList) return;
+        if (hidden) element.classList.add('hidden');
+        else element.classList.remove('hidden');
+    }
+
+    function resetSwipeBanners(state) {
+        (state.bannerRecords || []).forEach(record => {
+            const { element, transform, transition } = record;
+            if (!element || !element.style) return;
+            element.classList.remove('page-swipe-banner');
+            element.style.transform = transform;
+            element.style.transition = transition;
+        });
+        state.bannerRecords = [];
+    }
+
+    function alignSwipeBanner(state, main, pageElement) {
+        if (!pageElement || typeof pageElement.querySelector !== 'function') return;
+
+        const banner = pageElement.querySelector('#timeline-summary, .stats-sticky-header');
+        if (!banner || !banner.style || typeof banner.getBoundingClientRect !== 'function') return;
+        if ((state.bannerRecords || []).some(record => record.element === banner)) return;
+
+        const mainRect = typeof main.getBoundingClientRect === 'function'
+            ? main.getBoundingClientRect()
+            : { top: 0 };
+        const bannerRect = banner.getBoundingClientRect();
+        const offsetY = (Number(mainRect.top) || 0) + 12 - (Number(bannerRect.top) || 0);
+
+        state.bannerRecords.push({
+            element: banner,
+            transform: banner.style.transform || '',
+            transition: banner.style.transition || ''
+        });
+        banner.classList.add('page-swipe-banner');
+        banner.style.transition = 'none';
+        banner.style.transform = `translate3d(0, ${offsetY}px, 0)`;
+    }
+
+    function resetSwipeInput(state, keepNavigationVisibility = false) {
+        const inputBar = state.inputBar;
+        if (!inputBar) return;
+
+        inputBar.classList.remove('page-swipe-input');
+        clearStyleProperty(inputBar, '--page-swipe-input-x');
+        clearStyleProperty(inputBar, '--page-swipe-input-transition');
+
+        if (!keepNavigationVisibility) {
+            setElementHidden(inputBar, !!state.inputWasHidden);
+        }
+
+        state.inputBar = null;
+        state.inputWasHidden = false;
+        state.inputRole = null;
+    }
+
+    function updateSwipeInput(options, state, currentPage, targetPage, currentX, targetX) {
+        const inputBar = getDocument(options).getElementById('input-bar');
+        if (!inputBar) return;
+
+        if (!state.inputBar) {
+            state.inputBar = inputBar;
+            state.inputWasHidden = inputBar.classList.contains('hidden');
+        }
+
+        const timelineInputVisible = !(
+            typeof options.shouldHideTimelineInputBar === 'function' &&
+            options.shouldHideTimelineInputBar()
+        );
+        const role = timelineInputVisible && currentPage === 'timeline'
+            ? 'current'
+            : (timelineInputVisible && targetPage === 'timeline' ? 'target' : null);
+
+        if (!role) {
+            inputBar.classList.remove('page-swipe-input');
+            clearStyleProperty(inputBar, '--page-swipe-input-x');
+            clearStyleProperty(inputBar, '--page-swipe-input-transition');
+            setElementHidden(inputBar, !!state.inputWasHidden);
+            state.inputRole = null;
+            return;
+        }
+
+        state.inputRole = role;
+        inputBar.classList.remove('hidden');
+        inputBar.classList.add('page-swipe-input');
+        setStyleProperty(inputBar, '--page-swipe-input-transition', 'none');
+        setStyleProperty(inputBar, '--page-swipe-input-x', `${role === 'current' ? currentX : targetX}px`);
+    }
+
+    function finishSwipeInput(state, width, shouldComplete) {
+        if (!state.inputBar || !state.inputRole) return;
+
+        const currentEnd = shouldComplete
+            ? (state.deltaX < 0 ? -width : width)
+            : 0;
+        const targetEnd = shouldComplete
+            ? 0
+            : (state.deltaX < 0 ? width : -width);
+
+        setStyleProperty(
+            state.inputBar,
+            '--page-swipe-input-x',
+            `${state.inputRole === 'current' ? currentEnd : targetEnd}px`
+        );
+        setStyleProperty(
+            state.inputBar,
+            '--page-swipe-input-transition',
+            'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
+        );
+    }
+
     function hidePreview(state) {
+        resetSwipeBanners(state);
         if (!state.targetElement) return;
         resetSwipeElement(state.targetElement);
         state.targetElement.classList.add('hidden');
@@ -167,6 +298,8 @@ const NavigationController = (() => {
 
     function cleanupSwipe(main, state, keepTargetVisible = false) {
         if (main.classList) main.classList.remove('page-swipe-active');
+        resetSwipeBanners(state);
+        resetSwipeInput(state, keepTargetVisible);
         resetSwipeElement(state.currentElement);
 
         if (state.targetElement) {
@@ -183,6 +316,9 @@ const NavigationController = (() => {
         state.vertical = false;
         state.deltaX = 0;
         state.transitioning = false;
+        if (state.preparedPages && typeof state.preparedPages.clear === 'function') {
+            state.preparedPages.clear();
+        }
     }
 
     function prepareSwipePreview(options, main, state, targetPage) {
@@ -195,7 +331,6 @@ const NavigationController = (() => {
         const targetElement = doc.getElementById(`page-${targetPage}`);
         if (!currentElement || !targetElement) return;
 
-        syncPageContent(options, targetPage);
         currentElement.classList.remove('page-nav-enter');
         targetElement.classList.remove('page-nav-enter');
         targetElement.classList.remove('hidden');
@@ -214,10 +349,17 @@ const NavigationController = (() => {
             targetElement.style.minHeight = `${previewHeight}px`;
         }
 
+        if (!state.preparedPages.has(targetPage)) {
+            syncPageContent(options, targetPage);
+            state.preparedPages.add(targetPage);
+        }
+
         if (main.classList) main.classList.add('page-swipe-active');
         state.currentElement = currentElement;
         state.targetElement = targetElement;
         state.targetPage = targetPage;
+        alignSwipeBanner(state, main, currentElement);
+        alignSwipeBanner(state, main, targetElement);
     }
 
     function updateSwipePreview(options, main, state, deltaX, deltaY, event) {
@@ -241,14 +383,33 @@ const NavigationController = (() => {
             const currentElement = getDocument(options).getElementById(`page-${getCurrentPage(options)}`);
             state.currentElement = currentElement;
             if (currentElement) currentElement.classList.add('page-swipe-layer', 'page-swipe-current');
-            setSwipeTransform(currentElement, deltaX * 0.18);
+            const resistedX = deltaX * 0.18;
+            setSwipeTransform(currentElement, resistedX);
+            alignSwipeBanner(state, main, currentElement);
+            updateSwipeInput(
+                options,
+                state,
+                getCurrentPage(options),
+                null,
+                resistedX,
+                resistedX
+            );
             return true;
         }
 
         prepareSwipePreview(options, main, state, targetPage);
         const width = main.clientWidth || 360;
+        const targetX = deltaX + (deltaX < 0 ? width : -width);
         setSwipeTransform(state.currentElement, deltaX);
-        setSwipeTransform(state.targetElement, deltaX + (deltaX < 0 ? width : -width));
+        setSwipeTransform(state.targetElement, targetX);
+        updateSwipeInput(
+            options,
+            state,
+            getCurrentPage(options),
+            targetPage,
+            deltaX,
+            targetX
+        );
         return true;
     }
 
@@ -270,6 +431,7 @@ const NavigationController = (() => {
         setSwipeTransform(state.targetElement, shouldComplete
             ? 0
             : (state.deltaX < 0 ? width : -width), true);
+        finishSwipeInput(state, width, shouldComplete);
 
         const setTimer = options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : (callback => callback()));
@@ -277,7 +439,10 @@ const NavigationController = (() => {
         setTimer(() => {
             let navigated = false;
             if (shouldComplete) {
-                navigateTo(options, targetPage, false, { animatePage: false });
+                navigateTo(options, targetPage, false, {
+                    animatePage: false,
+                    skipPageRender: true
+                });
                 navigated = getCurrentPage(options) === targetPage;
             }
             cleanupSwipe(main, state, navigated);
@@ -297,7 +462,12 @@ const NavigationController = (() => {
             horizontal: false,
             vertical: false,
             deltaX: 0,
-            transitioning: false
+            transitioning: false,
+            bannerRecords: [],
+            preparedPages: new Set(),
+            inputBar: null,
+            inputWasHidden: false,
+            inputRole: null
         };
 
         main.addEventListener('touchstart', event => {
@@ -486,7 +656,9 @@ const NavigationController = (() => {
         if (shouldCloseFilter) (options.closeFilterPanel || noop)();
 
         (options.updateAppMainPadding || noop)();
-        syncPageContent(options, page);
+        if (!config.skipPageRender) {
+            syncPageContent(options, page);
+        }
         restorePageScroll(options, page);
 
         return action;

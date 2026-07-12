@@ -3134,6 +3134,13 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         stats: makeElement('page-stats', ['hidden']),
         settings: makeElement('page-settings', ['hidden'])
     };
+    const timelineBanner = makeElement('timeline-summary');
+    timelineBanner.getBoundingClientRect = () => ({ top: 68 });
+    const statsBanner = makeElement('stats-sticky-header');
+    statsBanner.getBoundingClientRect = () => ({ top: 90 });
+    pages.timeline.querySelector = selector => selector.includes('timeline-summary') ? timelineBanner : null;
+    pages.stats.querySelector = selector => selector.includes('stats-sticky-header') ? statsBanner : null;
+    pages.settings.querySelector = () => null;
     const navTimeline = makeElement('nav-timeline', ['active']);
     navTimeline.dataset.page = 'timeline';
     const navStats = makeElement('nav-stats');
@@ -3145,6 +3152,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     main.clientWidth = 393;
     main.clientHeight = 700;
     main.scrollTop = 17;
+    main.getBoundingClientRect = () => ({ top: 56 });
     const inputBar = makeElement('input-bar');
     const filterToggle = makeElement('btn-filter-toggle');
 
@@ -3306,6 +3314,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     });
 
     let preventedSwipe = 0;
+    const statsRendersBeforeSwipe = calls.filter(call => call === 'render-stats').length;
     main.listeners.touchmove({
         touches: [{ clientX: 220, clientY: 205 }],
         preventDefault: () => {
@@ -3322,6 +3331,10 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(pages.stats.style.transform, 'translate3d(313px, 0, 0)');
     assert.equal(pages.stats.style.top, '57px');
     assert.equal(pages.stats.style.height, '742px');
+    assert.equal(statsBanner.style.transform, 'translate3d(0, -22px, 0)');
+    assert(inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '-80px');
+    assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
 
     main.listeners.touchend({
         changedTouches: [{ clientX: 180, clientY: 205 }],
@@ -3330,6 +3343,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
+    assert.equal(statsBanner.style.transform, '');
+    assert(inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
+    assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
     main.listeners.touchstart({
         touches: [{ clientX: 180, clientY: 200 }],
         target: { closest: () => null }
@@ -3342,6 +3360,9 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert(!pages.timeline.classList.contains('hidden'));
     assert.equal(pages.stats.style.transform, 'translate3d(40px, 0, 0)');
+    assert(!inputBar.classList.contains('hidden'));
+    assert(inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '-353px');
 
     main.listeners.touchend({
         changedTouches: [{ clientX: 220, clientY: 202 }],
@@ -3350,6 +3371,9 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert(pages.timeline.classList.contains('hidden'));
     assert.equal(pages.stats.style.transform, '');
+    assert(inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
 });
 
 test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
@@ -3361,6 +3385,8 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     assert(navEnterRule, 'Regola .page.page-nav-enter non trovata');
     assert(!/\banimation\s*:/.test(basePageRule[1]));
     assert(/animation\s*:\s*fadeIn/.test(navEnterRule[1]));
+    assert(css.includes('#input-bar.page-swipe-input'));
+    assert(css.includes('--page-swipe-input-x'));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {

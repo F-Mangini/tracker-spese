@@ -32,14 +32,18 @@ const HeaderTitleController = (() => {
             title.setAttribute('aria-label', 'Mostra la data di oggi');
         }
 
-        const animate = () => {
-            if (!title.classList) return;
-            title.classList.remove('header-title-swap');
-            void title.offsetWidth;
-            title.classList.add('header-title-swap');
-        };
+        const activeWindow = options.window ||
+            (typeof window !== 'undefined' ? window : null);
+        const setTimer = options.setTimeout ||
+            (activeWindow && typeof activeWindow.setTimeout === 'function'
+                ? activeWindow.setTimeout.bind(activeWindow)
+                : setTimeout);
+        const reducedMotion = activeWindow &&
+            typeof activeWindow.matchMedia === 'function' &&
+            activeWindow.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let animating = false;
 
-        const toggle = () => {
+        const applyToggle = () => {
             const showingDate = dataset.showingDate === 'true';
 
             if (showingDate) {
@@ -56,8 +60,27 @@ const HeaderTitleController = (() => {
                     title.setAttribute('aria-label', "Mostra il nome dell'app");
                 }
             }
+        };
 
-            animate();
+        const toggle = () => {
+            if (animating) return;
+
+            if (reducedMotion || !title.classList) {
+                applyToggle();
+                return;
+            }
+
+            animating = true;
+            title.classList.add('header-title-fade-out');
+
+            setTimer(() => {
+                applyToggle();
+                title.classList.remove('header-title-fade-out');
+
+                setTimer(() => {
+                    animating = false;
+                }, 140);
+            }, 140);
         };
 
         title.addEventListener('click', toggle);
@@ -65,9 +88,6 @@ const HeaderTitleController = (() => {
             if (event.key !== 'Enter' && event.key !== ' ') return;
             if (typeof event.preventDefault === 'function') event.preventDefault();
             toggle();
-        });
-        title.addEventListener('animationend', () => {
-            if (title.classList) title.classList.remove('header-title-swap');
         });
 
         return { toggle, title };

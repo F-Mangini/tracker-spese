@@ -648,16 +648,16 @@ test('Parser forza la categoria esplicita usando l ultima occorrenza', () => {
     assert.equal(result.descrizione, 'Scarpe');
 });
 
-test('Titolo header alterna nome app e data odierna con accessibilita tastiera', () => {
+test('Titolo header alterna nome app e data odierna con fade e accessibilita tastiera', () => {
     const { HeaderTitleController } = loadUiViews();
     const listeners = {};
     const attributes = {};
     const classes = new Set();
+    const timers = [];
     const title = {
         innerHTML: "Where's My Money?",
         textContent: "Where's My Money?",
         dataset: {},
-        offsetWidth: 120,
         classList: {
             add: value => classes.add(value),
             remove: value => classes.delete(value)
@@ -672,13 +672,23 @@ test('Titolo header alterna nome app e data odierna con accessibilita tastiera',
     const controller = HeaderTitleController.init({
         document: { querySelector: () => title },
         now: () => new Date('2026-07-12T12:00:00'),
-        locale: 'it-IT'
+        locale: 'it-IT',
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        }
     });
 
     listeners.click();
+    assert.equal(title.dataset.showingDate, 'false');
+    assert(classes.has('header-title-fade-out'));
+    assert.equal(timers[0].delay, 140);
+
+    timers.shift().callback();
     assert.equal(title.textContent, '12 luglio 2026');
     assert.equal(title.dataset.showingDate, 'true');
-    assert(classes.has('header-title-swap'));
+    assert(!classes.has('header-title-fade-out'));
+    timers.shift().callback();
 
     let prevented = false;
     listeners.keydown({
@@ -688,8 +698,11 @@ test('Titolo header alterna nome app e data odierna con accessibilita tastiera',
         }
     });
     assert.equal(prevented, true);
+    assert(classes.has('header-title-fade-out'));
+    timers.shift().callback();
     assert.equal(title.innerHTML, "Where's My Money?");
     assert.equal(title.dataset.showingDate, 'false');
+    timers.shift().callback();
     assert.equal(attributes.role, 'button');
     assert.equal(controller.title, title);
 });
@@ -3129,6 +3142,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     navSettings.dataset.page = 'settings';
     const navButtons = [navTimeline, navStats, navSettings];
     const main = makeElement('app-main');
+    main.clientWidth = 393;
+    main.clientHeight = 700;
     main.scrollTop = 17;
     const inputBar = makeElement('input-bar');
     const filterToggle = makeElement('btn-filter-toggle');
@@ -3196,7 +3211,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
             calls.push(['confirm-settings']);
         },
         requestAnimationFrame: callback => callback(),
-        defer: callback => callback()
+        defer: callback => callback(),
+        setTimeout: callback => callback()
     };
 
     NavigationController.init(options);
@@ -3281,15 +3297,53 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!main.classList.contains('no-input-bar'));
 
     assert.equal(typeof main.listeners.touchstart, 'function');
+    assert.equal(typeof main.listeners.touchmove, 'function');
     assert.equal(typeof main.listeners.touchend, 'function');
     main.listeners.touchstart({
         touches: [{ clientX: 300, clientY: 200 }],
         target: { closest: () => null }
     });
+
+    let preventedSwipe = 0;
+    main.listeners.touchmove({
+        touches: [{ clientX: 220, clientY: 205 }],
+        preventDefault: () => {
+            preventedSwipe += 1;
+        }
+    });
+
+    assert.equal(preventedSwipe, 1);
+    assert.equal(state.currentPage, 'timeline');
+    assert(!pages.stats.classList.contains('hidden'));
+    assert.equal(pages.timeline.style.transform, 'translate3d(-80px, 0, 0)');
+    assert.equal(pages.stats.style.transform, 'translate3d(313px, 0, 0)');
+
     main.listeners.touchend({
-        changedTouches: [{ clientX: 180, clientY: 205 }]
+        changedTouches: [{ clientX: 180, clientY: 205 }],
+        preventDefault() {}
     });
     assert.equal(state.currentPage, 'stats');
+    assert.equal(pages.stats.style.transform, '');
+    main.listeners.touchstart({
+        touches: [{ clientX: 180, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        touches: [{ clientX: 220, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert(!pages.timeline.classList.contains('hidden'));
+    assert.equal(pages.stats.style.transform, 'translate3d(40px, 0, 0)');
+
+    main.listeners.touchend({
+        changedTouches: [{ clientX: 220, clientY: 202 }],
+        preventDefault() {}
+    });
+    assert.equal(state.currentPage, 'stats');
+    assert(pages.timeline.classList.contains('hidden'));
+    assert.equal(pages.stats.style.transform, '');
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {

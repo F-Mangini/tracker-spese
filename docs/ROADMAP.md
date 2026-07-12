@@ -154,9 +154,9 @@ Da riprendere solo quando servira:
 
 ## Miglioramenti UX completati il 2026-07-12
 
-- Toggle animato del titolo header con la data odierna, non persistente.
+- Toggle del titolo header con la data odierna, dissolvenza in uscita/entrata e stato non persistente.
 - Parsing di `.<categoria>` per forzare una categoria, con precedenza all'ultima direttiva valida.
-- Swipe orizzontale tra Timeline, Statistiche e Impostazioni.
+- Swipe orizzontale interattivo tra Timeline, Statistiche e Impostazioni: le pagine seguono il dito prima del rilascio e completano o annullano lo slide in base alla soglia.
 - Ricerca tag solo tramite prefisso `#` e confronto per inizio tag.
 - Colori categoria fissi nelle statistiche, mantenendo la palette esistente.
 

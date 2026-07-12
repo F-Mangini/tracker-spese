@@ -123,15 +123,18 @@ const NavigationController = (() => {
         setupPageSwipe(options);
     }
 
-    function getSwipeTargetPage(currentPage, deltaX, deltaY) {
-        if (Math.abs(deltaX) < SWIPE_MIN_DISTANCE) return null;
-        if (Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) return null;
-
+    function getAdjacentPage(currentPage, deltaX) {
         const currentIndex = PAGE_ORDER.indexOf(currentPage);
-        if (currentIndex === -1) return null;
+        if (currentIndex === -1 || deltaX === 0) return null;
 
         const targetIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
         return PAGE_ORDER[targetIndex] || null;
+    }
+
+    function getSwipeTargetPage(currentPage, deltaX, deltaY) {
+        if (Math.abs(deltaX) < SWIPE_MIN_DISTANCE) return null;
+        if (Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) return null;
+        return getAdjacentPage(currentPage, deltaX);
     }
 
     function shouldIgnoreSwipeTarget(target) {
@@ -139,37 +142,206 @@ const NavigationController = (() => {
         return !!target.closest('input, textarea, select, button, a, canvas, [data-page-swipe-ignore]');
     }
 
+    function setSwipeTransform(element, x, animate = false) {
+        if (!element || !element.style) return;
+        element.style.transition = animate ? 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+        element.style.transform = `translate3d(${x}px, 0, 0)`;
+    }
+
+    function resetSwipeElement(element) {
+        if (!element) return;
+        element.classList.remove('page-swipe-layer', 'page-swipe-current', 'page-swipe-preview');
+        if (!element.style) return;
+        ['transform', 'transition', 'top', 'left', 'width', 'height', 'minHeight'].forEach(property => {
+            element.style[property] = '';
+        });
+    }
+
+    function hidePreview(state) {
+        if (!state.targetElement) return;
+        resetSwipeElement(state.targetElement);
+        state.targetElement.classList.add('hidden');
+        state.targetElement = null;
+        state.targetPage = null;
+    }
+
+    function cleanupSwipe(main, state, keepTargetVisible = false) {
+        if (main.classList) main.classList.remove('page-swipe-active');
+        resetSwipeElement(state.currentElement);
+
+        if (state.targetElement) {
+            const targetElement = state.targetElement;
+            resetSwipeElement(targetElement);
+            if (!keepTargetVisible) targetElement.classList.add('hidden');
+        }
+
+        state.touchStart = null;
+        state.currentElement = null;
+        state.targetElement = null;
+        state.targetPage = null;
+        state.horizontal = false;
+        state.vertical = false;
+        state.deltaX = 0;
+        state.transitioning = false;
+    }
+
+    function prepareSwipePreview(options, main, state, targetPage) {
+        if (state.targetPage === targetPage && state.targetElement) return;
+        hidePreview(state);
+
+        const doc = getDocument(options);
+        const currentPage = getCurrentPage(options);
+        const currentElement = doc.getElementById(`page-${currentPage}`);
+        const targetElement = doc.getElementById(`page-${targetPage}`);
+        if (!currentElement || !targetElement) return;
+
+        syncPageContent(options, targetPage);
+        targetElement.classList.remove('hidden');
+        currentElement.classList.add('page-swipe-layer', 'page-swipe-current');
+        targetElement.classList.add('page-swipe-layer', 'page-swipe-preview');
+
+        if (targetElement.style) {
+            targetElement.style.top = `${main.scrollTop || 0}px`;
+            targetElement.style.left = '0';
+            targetElement.style.width = '100%';
+            targetElement.style.height = `${main.clientHeight || 0}px`;
+            targetElement.style.minHeight = `${main.clientHeight || 0}px`;
+        }
+
+        if (main.classList) main.classList.add('page-swipe-active');
+        state.currentElement = currentElement;
+        state.targetElement = targetElement;
+        state.targetPage = targetPage;
+    }
+
+    function updateSwipePreview(options, main, state, deltaX, deltaY, event) {
+        if (state.vertical || state.transitioning) return false;
+
+        if (!state.horizontal) {
+            if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 10) return false;
+            if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+                state.vertical = true;
+                return false;
+            }
+            state.horizontal = true;
+        }
+
+        if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        state.deltaX = deltaX;
+
+        const targetPage = getAdjacentPage(getCurrentPage(options), deltaX);
+        if (!targetPage) {
+            hidePreview(state);
+            const currentElement = getDocument(options).getElementById(`page-${getCurrentPage(options)}`);
+            state.currentElement = currentElement;
+            if (currentElement) currentElement.classList.add('page-swipe-layer', 'page-swipe-current');
+            setSwipeTransform(currentElement, deltaX * 0.18);
+            return true;
+        }
+
+        prepareSwipePreview(options, main, state, targetPage);
+        const width = main.clientWidth || 360;
+        setSwipeTransform(state.currentElement, deltaX);
+        setSwipeTransform(state.targetElement, deltaX + (deltaX < 0 ? width : -width));
+        return true;
+    }
+
+    function finishSwipe(options, main, state, forceCancel = false) {
+        if (!state.horizontal || state.vertical) {
+            cleanupSwipe(main, state);
+            return;
+        }
+
+        const width = main.clientWidth || 360;
+        const targetPage = state.targetPage;
+        const shouldComplete = !forceCancel && !!targetPage &&
+            Math.abs(state.deltaX) >= Math.max(SWIPE_MIN_DISTANCE, width * 0.18);
+        state.transitioning = true;
+
+        setSwipeTransform(state.currentElement, shouldComplete
+            ? (state.deltaX < 0 ? -width : width)
+            : 0, true);
+        setSwipeTransform(state.targetElement, shouldComplete
+            ? 0
+            : (state.deltaX < 0 ? width : -width), true);
+
+        const setTimer = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : (callback => callback()));
+
+        setTimer(() => {
+            let navigated = false;
+            if (shouldComplete) {
+                navigateTo(options, targetPage);
+                navigated = getCurrentPage(options) === targetPage;
+            }
+            cleanupSwipe(main, state, navigated);
+        }, 180);
+    }
+
     function setupPageSwipe(options = {}) {
         const doc = getDocument(options);
         const main = doc.getElementById('app-main');
         if (!main || typeof main.addEventListener !== 'function') return;
 
-        let touchStart = null;
+        const state = {
+            touchStart: null,
+            currentElement: null,
+            targetElement: null,
+            targetPage: null,
+            horizontal: false,
+            vertical: false,
+            deltaX: 0,
+            transitioning: false
+        };
 
         main.addEventListener('touchstart', event => {
+            if (state.transitioning) return;
             const touch = event.touches && event.touches[0];
             if (!touch || shouldIgnoreSwipeTarget(event.target)) {
-                touchStart = null;
+                state.touchStart = null;
                 return;
             }
 
-            touchStart = { x: touch.clientX, y: touch.clientY };
+            state.touchStart = { x: touch.clientX, y: touch.clientY };
+            state.horizontal = false;
+            state.vertical = false;
+            state.deltaX = 0;
         }, { passive: true });
+
+        main.addEventListener('touchmove', event => {
+            const touch = event.touches && event.touches[0];
+            if (!state.touchStart || !touch) return;
+
+            updateSwipePreview(
+                options,
+                main,
+                state,
+                touch.clientX - state.touchStart.x,
+                touch.clientY - state.touchStart.y,
+                event
+            );
+        }, { passive: false });
 
         main.addEventListener('touchend', event => {
             const touch = event.changedTouches && event.changedTouches[0];
-            if (!touchStart || !touch) return;
+            if (!state.touchStart || !touch) return;
 
-            const deltaX = touch.clientX - touchStart.x;
-            const deltaY = touch.clientY - touchStart.y;
-            touchStart = null;
-
-            const targetPage = getSwipeTargetPage(getCurrentPage(options), deltaX, deltaY);
-            if (targetPage) navigateTo(options, targetPage);
-        }, { passive: true });
+            if (!state.horizontal && !state.vertical) {
+                updateSwipePreview(
+                    options,
+                    main,
+                    state,
+                    touch.clientX - state.touchStart.x,
+                    touch.clientY - state.touchStart.y,
+                    event
+                );
+            }
+            finishSwipe(options, main, state);
+        }, { passive: false });
 
         main.addEventListener('touchcancel', () => {
-            touchStart = null;
+            if (!state.touchStart) return;
+            finishSwipe(options, main, state, true);
         }, { passive: true });
     }
 

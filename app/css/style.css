@@ -118,6 +118,7 @@ body {
     -webkit-user-select: none;
     transform-origin: left center;
     border-radius: 6px;
+    transition: opacity 140ms ease;
 }
 
 #app-header h1:focus-visible {
@@ -125,27 +126,13 @@ body {
     outline-offset: 4px;
 }
 
-#app-header h1.header-title-swap {
-    animation: header-title-swap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@keyframes header-title-swap {
-    from {
-        opacity: 0;
-        transform: translateY(-6px) scale(0.98);
-        filter: blur(2px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-    }
+#app-header h1.header-title-fade-out {
+    opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    #app-header h1.header-title-swap {
-        animation: none;
+    #app-header h1 {
+        transition: none;
     }
 }
 
@@ -623,6 +610,7 @@ body {
    MAIN CONTENT
    ============================================ */
 #app-main {
+    position: relative;
     margin-top: var(--header-h);
     height: calc(100vh - var(--header-h));
     height: calc(100dvh - var(--header-h));
@@ -639,6 +627,10 @@ body {
     padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
 }
 
+#app-main.page-swipe-active {
+    overflow-y: hidden;
+}
+
 .page {
     padding: 12px 12px 0;
     animation: fadeIn 0.2s ease;
@@ -646,6 +638,25 @@ body {
 
 .page.hidden {
     display: none;
+}
+
+.page.page-swipe-layer {
+    animation: none;
+    background: var(--bg-primary);
+    backface-visibility: hidden;
+    will-change: transform;
+}
+
+.page.page-swipe-current {
+    position: relative;
+    z-index: 1;
+}
+
+.page.page-swipe-preview {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
 }
 
 @keyframes fadeIn {

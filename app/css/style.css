@@ -666,6 +666,11 @@ body {
     will-change: transform;
 }
 
+.page.page-swipe-mask-aligned::before {
+    transform: translate3d(0, var(--page-swipe-banner-y, 0px), 0);
+    will-change: transform;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

@@ -3332,6 +3332,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(pages.stats.style.top, '57px');
     assert.equal(pages.stats.style.height, '742px');
     assert.equal(statsBanner.style.transform, 'translate3d(0, -22px, 0)');
+    assert(pages.stats.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.stats.style['--page-swipe-banner-y'], '-22px');
     assert(inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '-80px');
     assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
@@ -3344,6 +3346,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
     assert.equal(statsBanner.style.transform, '');
+    assert(!pages.stats.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.stats.style['--page-swipe-banner-y'], '');
     assert(inputBar.classList.contains('hidden'));
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
@@ -3387,6 +3391,8 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     assert(/animation\s*:\s*fadeIn/.test(navEnterRule[1]));
     assert(css.includes('#input-bar.page-swipe-input'));
     assert(css.includes('--page-swipe-input-x'));
+    assert(css.includes('.page.page-swipe-mask-aligned::before'));
+    assert(css.includes('--page-swipe-banner-y'));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {

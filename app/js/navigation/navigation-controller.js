@@ -183,11 +183,15 @@ const NavigationController = (() => {
 
     function resetSwipeBanners(state) {
         (state.bannerRecords || []).forEach(record => {
-            const { element, transform, transition } = record;
+            const { element, pageElement, transform, transition } = record;
             if (!element || !element.style) return;
             element.classList.remove('page-swipe-banner');
             element.style.transform = transform;
             element.style.transition = transition;
+            if (pageElement) {
+                pageElement.classList.remove('page-swipe-mask-aligned');
+                clearStyleProperty(pageElement, '--page-swipe-banner-y');
+            }
         });
         state.bannerRecords = [];
     }
@@ -207,11 +211,14 @@ const NavigationController = (() => {
 
         state.bannerRecords.push({
             element: banner,
+            pageElement,
             transform: banner.style.transform || '',
             transition: banner.style.transition || ''
         });
         banner.classList.add('page-swipe-banner');
         banner.style.transition = 'none';
+        pageElement.classList.add('page-swipe-mask-aligned');
+        setStyleProperty(pageElement, '--page-swipe-banner-y', offsetY + 'px');
         banner.style.transform = `translate3d(0, ${offsetY}px, 0)`;
     }
 

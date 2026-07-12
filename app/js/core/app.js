@@ -54,6 +54,7 @@ const App = {
         ExpenseStore.init({ storage: Storage, window });
         ThemeController.init(wiring.themeOptions());
         NavigationController.init(wiring.navigationOptions());
+        HeaderTitleController.init({ document });
         this.initInput();
         ModalController.init(wiring.modalOptions());
         FilterController.init(wiring.filterOptions());

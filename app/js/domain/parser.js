@@ -16,6 +16,9 @@ const Parser = {
             .replace(/\s+/g, ' ')
             .trim();
 
+        const forcedCategoryInfo = this._extractForcedCategory(descrizione);
+        descrizione = forcedCategoryInfo.text;
+
         const tags = [];
         const tagRegex = /#([\w\u00e0\u00e8\u00e9\u00ec\u00f2\u00f9]+)/gi;
         let tagMatch;
@@ -40,7 +43,7 @@ const Parser = {
         return {
             importo: Math.round(amountMatch.value * 100) / 100,
             descrizione,
-            categoria: this._detectCategory(input.toLowerCase()),
+            categoria: forcedCategoryInfo.category || this._detectCategory(input.toLowerCase()),
             metodo,
             data: new Date().toISOString(),
             tags,
@@ -144,6 +147,40 @@ const Parser = {
             .replace(this._keywordRegex(keyword), (match, prefix) => prefix)
             .replace(/\s+/g, ' ')
             .trim();
+    },
+
+    _normalizeCategoryToken(value) {
+        return String(value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+    },
+
+    _extractForcedCategory(text) {
+        const categoryByToken = new Map();
+
+        for (const category of CATEGORIES) {
+            [category.id, category.nome].forEach(token => {
+                const normalized = this._normalizeCategoryToken(token);
+                if (normalized) categoryByToken.set(normalized, category.id);
+            });
+        }
+
+        let category = null;
+        const categoryRegex = /\.([A-Za-z0-9\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff_-]+)/g;
+        const cleaned = String(text || '').replace(categoryRegex, (match, token) => {
+            const matchedCategory = categoryByToken.get(this._normalizeCategoryToken(token));
+            if (!matchedCategory) return match;
+
+            category = matchedCategory;
+            return ' ';
+        });
+
+        return {
+            category,
+            text: cleaned.replace(/\s+/g, ' ').trim()
+        };
     },
 
     _detectCategory(text) {

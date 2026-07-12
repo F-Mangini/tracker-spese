@@ -59,6 +59,9 @@ const StatsView = (() => {
         const colors = Array.isArray(options.chartColors) ? options.chartColors : [];
         const getCategory = typeof options.getCategory === 'function' ? options.getCategory : () => ({});
 
+        const getCategoryColor = typeof options.getCategoryColor === 'function'
+            ? options.getCategoryColor
+            : ((categoryId, index) => colors.length ? colors[index % colors.length] : 'var(--accent)');
         return `
             <div class="stats-section">
                 <div class="stats-section-title">\uD83D\uDCC2 Dettaglio categorie</div>
@@ -66,7 +69,7 @@ const StatsView = (() => {
             const category = getCategory(categoryId);
             const percent = summary.total > 0 ? ((amount / summary.total) * 100).toFixed(0) : 0;
             const width = summary.maxCategory > 0 ? ((amount / summary.maxCategory) * 100).toFixed(1) : 0;
-            const color = colors.length ? colors[index % colors.length] : 'var(--accent)';
+            const color = getCategoryColor(categoryId, index);
 
             return `
                     <div class="cat-bar-item">

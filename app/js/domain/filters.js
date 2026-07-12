@@ -73,10 +73,16 @@ const ExpenseFilters = (() => {
         const nota = String(spesa.nota || '').toLowerCase();
         const tags = Array.isArray(spesa.tags) ? spesa.tags : [];
 
+        if (q.startsWith('#')) {
+            const tagPrefix = q.slice(1).trim();
+            if (!tagPrefix) return false;
+
+            return tags.some(tag => String(tag || '').toLowerCase().startsWith(tagPrefix));
+        }
+
         return (
             descrizione.includes(q) ||
-            nota.includes(q) ||
-            tags.some(tag => String(tag || '').toLowerCase().includes(q))
+            nota.includes(q)
         );
     }
 

@@ -2,10 +2,14 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 12/07/2026
+
+la data odierna deve comparire al posto del nome dell'app nell'header se si clicca su di esso. (toggle, il titolo torna se si clicca sulla data)
+
 ### Aggiunte del 12/06/2026
 
 BUG: Quando si apre la tastiera per scrivere in uno dei campi a tendina di "modifica spesa" o "esporta" la finestra deve scorrere in modo che tutta la tendina sia visibile sopra la tastiera. Al momento questo è vero solo per "modifica spesa" e solo la prima volta che si apre la tastiera.
-Im generale sistemare visibilità campi selezionati e tendine.
+In generale sistemare visibilità campi selezionati e tendine.
 
 FEAT: opzionalmente ordinamento per valore spesa al posto che cronologico. (In generale valutare altre modalità di ordinamento)
 
@@ -53,7 +57,7 @@ FEAT: Migliorare esteticamente finestra scelta formato di export. E anche quello
 
 FEAT: Gestire import (nel caso di aggiunta) nel caso di id uguali che potrebbero significare che la spesa è già presente.
 
-FEAT:Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
+FEAT: Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
 
 FEAT: nella timeline facendo swipe orizzontale su una singola spesa, devono essere visualizzate, sulla stessa, l'opzione rapida di eliminazione (cestino rosso) e l'opzione per copiare la spesa (copia nella clipboard la spesa con tutte le sue informazioni, da decidere come strutturarla json? tsv? md table?). Queste opzioni devono comparire da destra con animazione a scorrimento coordinata con lo swipe e occupare solo una parte dello spazio della spesa. L'icona, il titolo e l'importo della spesa rimangono visibili a sinistra.
 

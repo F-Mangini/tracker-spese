@@ -21,7 +21,7 @@ Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta
 | Modale modifica | `modal/modal-view.js`, `modal/modal-form-controller.js`, `modal/modal-mobile-controller.js`, `modal/modal-interactions.js`, `modal/modal-controller.js` | Form modifica, dropdown, tag, picker mobile, focus/blur e lifecycle modale. |
 | Navigazione e stack UI | `navigation/navigation-controller.js`, `navigation/ui-stack.js`, `navigation/history-controller.js`, `navigation/ui-stack-effects.js`, `navigation/ui-stack-controller.js` | Navigazione pagine, scroll per pagina, decisioni `popstate`, esecuzione history e cleanup DOM. |
 | Impostazioni e feedback | `settings/settings-view.js`, `settings/settings-actions.js`, `settings/settings-controller.js`, `ui/confirm-dialog.js`, `ui/confirm-controller.js`, `ui/download-controller.js`, `ui/theme-controller.js`, `ui/toast-controller.js` | Import/export, conferme, download, tema, toast e pagina impostazioni. |
-| Helper UI | `ui/ui-utils.js` | Formattazione importi/date, escape HTML e parsing importi nei form. |
+| Helper UI | `ui/ui-utils.js`, `ui/header-title-controller.js` | Formattazione importi/date, escape HTML, parsing importi nei form e toggle titolo/data dell'header. |
 
 Chart.js e incluso localmente in `app/vendor/chart.umd.min.js`. Il codice sorgente `app/` registra `stable-launch-service-worker.js` solo quando e servito da `/stable/`; il service worker ha scope `./`, cachea gli asset della stable scoped e serve a far partire la preferenza di avvio verso una release scelta anche offline. `/` e `/dev/` restano senza controllo offline diretto.
 
@@ -74,6 +74,8 @@ L'export Default genera un backup JSON completo. L'export configurabile, aperto 
 
 L'utente scrive testo libero nella barra inferiore. Il parser estrae importo, tag, metodo e categoria probabile; se la descrizione resta vuota usa `Spesa`. Le keyword di categoria e metodo vengono riconosciute solo come termini interi, quindi una keyword breve come `bus` non viene letta dentro parole piu lunghe come `busta`.
 
+Una direttiva `.<categoria>` senza spazio dopo il punto forza la categoria e viene rimossa dalla descrizione. Sono accettati id o nomi in forma compatta, anche con trattino; se sono presenti piu direttive valide prevale l'ultima.
+
 Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri, per esempio `pizza 4 formaggi 8 euro`. La dettatura vocale usa `SpeechRecognition` o `webkitSpeechRecognition` quando disponibili.
 
 ### Timeline
@@ -86,7 +88,7 @@ Una pressione lunga su una card entra in modalita selezione e seleziona quella s
 
 I filtri sono condivisi tra timeline e statistiche:
 
-- ricerca su descrizione, nota e tag;
+- ricerca testuale su descrizione e nota; una query che inizia con `#` cerca invece i tag che iniziano con il testo successivo;
 - range data;
 - importo minimo/massimo;
 - categorie;
@@ -109,7 +111,9 @@ I workaround mobile rimasti per la modale riguardano picker nativi, cleanup dell
 
 ### Navigazione e Mobile
 
-Le pagine principali sono Timeline, Statistiche e Impostazioni. Lo scroll e ricordato separatamente per pagina.
+Le pagine principali sono Timeline, Statistiche e Impostazioni. Lo scroll e ricordato separatamente per pagina. Uno swipe orizzontale sul contenuto passa alla pagina adiacente: verso sinistra avanza, verso destra torna indietro; gesture corte, prevalentemente verticali o iniziate su controlli interattivi vengono ignorate.
+
+Il titolo dell'header alterna al click il nome dell'app e la data odierna in formato italiano, con una breve animazione e supporto anche a Invio/Spazio da tastiera. Il toggle resta temporaneo e non viene salvato.
 
 Il back button chiude, in ordine di priorita:
 
@@ -133,7 +137,7 @@ Quando un'azione chiude piu livelli UI programmando uno o piu `back()`/`go()`, e
 
 ### Statistiche
 
-Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche.
+Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche. Ogni categoria usa un colore fisso nel grafico a torta e nel dettaglio categorie, indipendentemente dall'ordine dei totali; la palette resta quella gia usata dall'app e `Trasporti` usa il rosso.
 
 La pagina statistiche e di sola lettura: oggi non apre direttamente la modifica di una spesa.
 

@@ -152,6 +152,14 @@ Da riprendere solo quando servira:
 - compatibilita dati tra versioni se cambiera lo schema;
 - gestione di ulteriori release reali oltre a `v2026.05.30` e `v2026.06.03`.
 
+## Miglioramenti UX completati il 2026-07-12
+
+- Toggle animato del titolo header con la data odierna, non persistente.
+- Parsing di `.<categoria>` per forzare una categoria, con precedenza all'ultima direttiva valida.
+- Swipe orizzontale tra Timeline, Statistiche e Impostazioni.
+- Ricerca tag solo tramite prefisso `#` e confronto per inizio tag.
+- Colori categoria fissi nelle statistiche, mantenendo la palette esistente.
+
 ## Filtri e Ricerca
 
 - Pressione prolungata sul tasto filtri dell'header per attivare/disattivare filtri rapidi personalizzabili dalla futura pagina di personalizzazione.
@@ -159,7 +167,6 @@ Da riprendere solo quando servira:
 - Apertura/chiusura pannello tramite swipe su barra inferiore o header.
 - Date range picker custom.
 - Suggerimenti nella ricerca per categorie, metodi e tag.
-- Tag cercabili con prefisso `#`, per esempio `#viaggio`.
 - Filtri negativi con stato includi/escludi/neutro.
 - Filtri tag con selezione tutti, nessun tag e ricerca tag.
 - Filtri preimpostati salvabili.
@@ -198,13 +205,11 @@ Da riprendere solo quando servira:
 ## Funzioni Future
 
 - Pulsante `+` a sinistra nella barra di inserimento per selezionare data e ora della nuova spesa.
-- Parsing di `.<categoria>` nella barra di inserimento per forzare una categoria; se il pattern compare piu volte, usare l'ultima occorrenza.
 - Ordinamento opzionale della timeline per valore della spesa, e valutazione di altre modalita di ordinamento.
 - Spese ricorrenti.
 - Backup schedulato.
 - Accrediti oltre alle spese.
 - Multi-account locale, con isolamento dati da progettare bene.
-- Swipe orizzontale tra timeline, statistiche e impostazioni.
 - Foto scontrini, OCR e parsing automatico.
 - Chatbot per interrogare i dati gia filtrati.
 

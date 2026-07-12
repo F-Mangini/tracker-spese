@@ -6,6 +6,10 @@ const NavigationController = (() => {
     const TAP_MOVE_LIMIT = 10;
     const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
 
+    const PAGE_ORDER = ['timeline', 'stats', 'settings'];
+    const SWIPE_MIN_DISTANCE = 60;
+    const SWIPE_AXIS_RATIO = 1.25;
+
     function noop() { }
 
     function getDocument(options) {
@@ -116,6 +120,57 @@ const NavigationController = (() => {
         });
 
         setupPageScrollTracking(options);
+        setupPageSwipe(options);
+    }
+
+    function getSwipeTargetPage(currentPage, deltaX, deltaY) {
+        if (Math.abs(deltaX) < SWIPE_MIN_DISTANCE) return null;
+        if (Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) return null;
+
+        const currentIndex = PAGE_ORDER.indexOf(currentPage);
+        if (currentIndex === -1) return null;
+
+        const targetIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+        return PAGE_ORDER[targetIndex] || null;
+    }
+
+    function shouldIgnoreSwipeTarget(target) {
+        if (!target || typeof target.closest !== 'function') return false;
+        return !!target.closest('input, textarea, select, button, a, canvas, [data-page-swipe-ignore]');
+    }
+
+    function setupPageSwipe(options = {}) {
+        const doc = getDocument(options);
+        const main = doc.getElementById('app-main');
+        if (!main || typeof main.addEventListener !== 'function') return;
+
+        let touchStart = null;
+
+        main.addEventListener('touchstart', event => {
+            const touch = event.touches && event.touches[0];
+            if (!touch || shouldIgnoreSwipeTarget(event.target)) {
+                touchStart = null;
+                return;
+            }
+
+            touchStart = { x: touch.clientX, y: touch.clientY };
+        }, { passive: true });
+
+        main.addEventListener('touchend', event => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touchStart || !touch) return;
+
+            const deltaX = touch.clientX - touchStart.x;
+            const deltaY = touch.clientY - touchStart.y;
+            touchStart = null;
+
+            const targetPage = getSwipeTargetPage(getCurrentPage(options), deltaX, deltaY);
+            if (targetPage) navigateTo(options, targetPage);
+        }, { passive: true });
+
+        main.addEventListener('touchcancel', () => {
+            touchStart = null;
+        }, { passive: true });
     }
 
     function setupPageScrollTracking(options = {}) {
@@ -253,6 +308,8 @@ const NavigationController = (() => {
     return {
         init,
         setupPageScrollTracking,
+        getSwipeTargetPage,
+        setupPageSwipe,
         rememberCurrentPageScroll,
         restorePageScroll,
         syncPageDom,

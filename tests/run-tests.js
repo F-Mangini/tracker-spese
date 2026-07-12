@@ -167,6 +167,7 @@ function loadUiViews(globals = {}) {
     const inputBarControllerCode = readAppScript('input/input-bar-controller.js');
     const uiCode = readAppScript('ui/ui-utils.js');
     const downloadControllerCode = readAppScript('ui/download-controller.js');
+    const headerTitleControllerCode = readAppScript('ui/header-title-controller.js');
     const filterViewCode = readAppScript('filters/filter-view.js');
     const filterControllerCode = readAppScript('filters/filter-controller.js');
     const timelineViewCode = readAppScript('timeline/timeline-view.js');
@@ -209,6 +210,7 @@ function loadUiViews(globals = {}) {
             inputBarControllerCode,
             uiCode,
             downloadControllerCode,
+            headerTitleControllerCode,
             filterViewCode,
             filterControllerCode,
             timelineViewCode,
@@ -243,6 +245,7 @@ function loadUiViews(globals = {}) {
             'globalThis.AppRefresh = AppRefresh;',
             'globalThis.AppUI = AppUI;',
             'globalThis.DownloadController = DownloadController;',
+            'globalThis.HeaderTitleController = HeaderTitleController;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseSubmitController = ExpenseSubmitController;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
@@ -282,6 +285,7 @@ function loadUiViews(globals = {}) {
     return {
         AppUI: context.AppUI,
         DownloadController: context.DownloadController,
+        HeaderTitleController: context.HeaderTitleController,
         ExpenseStore: context.ExpenseStore,
         ExpenseQuery: context.ExpenseQuery,
         AppRefresh: context.AppRefresh,
@@ -634,6 +638,60 @@ test('Parser riconosce keyword categoria solo come parole intere', () => {
     assert.equal(bus.categoria, 'trasporti');
     assert.equal(busta.categoria, 'altro');
     assert.equal(storeWithSymbol.categoria, 'abbigliamento');
+});
+
+test('Parser forza la categoria esplicita usando l ultima occorrenza', () => {
+    const Parser = loadParser();
+    const result = Parser.parse('scarpe 25 .bar .cura-personale');
+
+    assert.equal(result.categoria, 'cura');
+    assert.equal(result.descrizione, 'Scarpe');
+});
+
+test('Titolo header alterna nome app e data odierna con accessibilita tastiera', () => {
+    const { HeaderTitleController } = loadUiViews();
+    const listeners = {};
+    const attributes = {};
+    const classes = new Set();
+    const title = {
+        innerHTML: "Where's My Money?",
+        textContent: "Where's My Money?",
+        dataset: {},
+        offsetWidth: 120,
+        classList: {
+            add: value => classes.add(value),
+            remove: value => classes.delete(value)
+        },
+        setAttribute: (name, value) => {
+            attributes[name] = value;
+        },
+        addEventListener: (name, handler) => {
+            listeners[name] = handler;
+        }
+    };
+    const controller = HeaderTitleController.init({
+        document: { querySelector: () => title },
+        now: () => new Date('2026-07-12T12:00:00'),
+        locale: 'it-IT'
+    });
+
+    listeners.click();
+    assert.equal(title.textContent, '12 luglio 2026');
+    assert.equal(title.dataset.showingDate, 'true');
+    assert(classes.has('header-title-swap'));
+
+    let prevented = false;
+    listeners.keydown({
+        key: 'Enter',
+        preventDefault: () => {
+            prevented = true;
+        }
+    });
+    assert.equal(prevented, true);
+    assert.equal(title.innerHTML, "Where's My Money?");
+    assert.equal(title.dataset.showingDate, 'false');
+    assert.equal(attributes.role, 'button');
+    assert.equal(controller.title, title);
 });
 
 test('Azioni spesa isolano parser e storage dall input rapido', () => {
@@ -1359,6 +1417,24 @@ test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
     });
 
     assert.deepEqual(result.map(s => s.id), ['match']);
+});
+
+test('Ricerca tag richiede cancelletto e usa il prefisso', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'tag', descrizione: 'Cena', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'text', descrizione: 'Promemoria inviagg', nota: '', tags: [] }),
+        expense({ id: 'middle', descrizione: 'Altro', nota: '', tags: ['preinviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: 'inviagg' }).map(spesa => spesa.id),
+        ['text']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#inviagg' }).map(spesa => spesa.id),
+        ['tag']
+    );
 });
 
 test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () => {
@@ -2996,6 +3072,17 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     assert.deepEqual(calls, [['toggle', 'a']]);
 });
 
+test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
+    const { NavigationController } = loadUiViews();
+
+    assert.equal(NavigationController.getSwipeTargetPage('timeline', -80, 10), 'stats');
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 10), 'settings');
+    assert.equal(NavigationController.getSwipeTargetPage('settings', 80, 10), 'stats');
+    assert.equal(NavigationController.getSwipeTargetPage('timeline', 80, 10), null);
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -40, 5), null);
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 75), null);
+});
+
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
     const { NavigationController } = loadUiViews();
     const calls = [];
@@ -3192,6 +3279,17 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'timeline');
     assert(!inputBar.classList.contains('hidden'));
     assert(!main.classList.contains('no-input-bar'));
+
+    assert.equal(typeof main.listeners.touchstart, 'function');
+    assert.equal(typeof main.listeners.touchend, 'function');
+    main.listeners.touchstart({
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchend({
+        changedTouches: [{ clientX: 180, clientY: 205 }]
+    });
+    assert.equal(state.currentPage, 'stats');
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {
@@ -3220,6 +3318,25 @@ test('Vista statistiche separa template da dati e conserva gli stati vuoti', () 
     assert(html.includes('data-period="month"'));
     assert(html.includes('chart-doughnut'));
     assert(html.includes('Dettaglio categorie'));
+});
+
+test('Colori categoria restano fissi indipendentemente dai totali', () => {
+    const { StatsCharts } = loadUiViews();
+    const transportColor = StatsCharts.getCategoryColor('trasporti');
+    const barColor = StatsCharts.getCategoryColor('bar');
+
+    assert.equal(transportColor, StatsCharts.COLORS[3]);
+    assert.equal(barColor, StatsCharts.COLORS[2]);
+
+    const config = StatsCharts.buildDoughnutConfig([
+        expense({ importo: 100, categoria: 'bar' }),
+        expense({ importo: 10, categoria: 'trasporti' })
+    ], {
+        getCategory: id => ({ nome: id })
+    });
+
+    assert.deepEqual(config.data.labels, ['bar', 'trasporti']);
+    assert.deepEqual(config.data.datasets[0].backgroundColor, [barColor, transportColor]);
 });
 
 test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
@@ -3386,6 +3503,9 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
     }
 
     let period = 'month';
+    const now = new Date();
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 10, 10).toISOString();
+    const olderMonth = new Date(now.getFullYear(), now.getMonth() - 2, 10, 10).toISOString();
     let offset = -1;
     let rerenderCount = 0;
     const result = StatsController.render({
@@ -3398,8 +3518,8 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
         },
         container,
         spese: [
-            expense({ id: 'old', data: '2026-04-10T10:00:00.000Z', importo: 100 }),
-            expense({ id: 'current', data: '2026-05-10T10:00:00.000Z', importo: 12 })
+            expense({ id: 'old', data: olderMonth, importo: 100 }),
+            expense({ id: 'current', data: previousMonth, importo: 12 })
         ],
         period,
         offset,

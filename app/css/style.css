@@ -681,6 +681,16 @@ body {
     will-change: transform;
 }
 
+.page-swipe-banner-overlay {
+    position: fixed !important;
+    z-index: 98 !important;
+    margin: 0 !important;
+    pointer-events: none !important;
+    transition: none !important;
+    transform: none !important;
+    visibility: visible !important;
+}
+
 .page.page-swipe-mask-aligned::before {
     transform: translate3d(0, var(--page-swipe-banner-y, 0px), 0);
     will-change: transform;

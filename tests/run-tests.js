@@ -3180,6 +3180,17 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     const timelineBanner = makeElement('timeline-summary');
     timelineBanner.getBoundingClientRect = () => ({ top: 68, height: 84 });
     const statsBanner = makeElement('stats-sticky-header');
+    const swipeBannerOverlays = [];
+    function makeSwipeBannerOverlay(id) {
+        const overlay = makeElement(id);
+        overlay.removeAttribute = () => {};
+        overlay.setAttribute = (name, value) => { overlay[name] = value; };
+        overlay.remove = () => { overlay.removed = true; };
+        return overlay;
+    }
+    timelineBanner.cloneNode = () => makeSwipeBannerOverlay('timeline-summary-overlay');
+    statsBanner.cloneNode = () => makeSwipeBannerOverlay('stats-sticky-header-overlay');
+
     statsBanner.getBoundingClientRect = () => ({ top: 90, height: 84 });
     pages.timeline.getBoundingClientRect = () => ({ top: -304 });
     pages.timeline.querySelector = selector => selector.includes('timeline-summary') ? timelineBanner : null;
@@ -3235,6 +3246,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     });
 
     const doc = {
+        body: {
+            appendChild(overlay) {
+                swipeBannerOverlays.push(overlay);
+            }
+        },
         getElementById(id) {
             if (id === 'app-main') return main;
             if (id === 'input-bar') return inputBar;
@@ -3392,6 +3408,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         pendingNavigationFrames.push(callback);
         return pendingNavigationFrames.length;
     };
+    const flushNavigationFrame = () => {
+        assert(pendingNavigationFrames.length > 0);
+        const callback = pendingNavigationFrames.shift();
+        callback();
+    };
     main.listeners.touchstart({
         touches: [{ clientX: 300, clientY: 200 }],
         target: { closest: () => null }
@@ -3428,17 +3449,32 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     });
     assert.equal(state.currentPage, 'stats');
     assert.equal(main.scrollTop, 42);
-    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(pendingNavigationFrames.length, 1);
     const completedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
     assert.equal(completedSwipeScroll.value, 42);
     assert.equal(completedSwipeScroll.targetWasPreview, false);
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
+    assert.equal(statsBanner.style.transform, 'translate3d(0, -22px, 0)');
+    assert.equal(statsBanner.style.visibility, 'hidden');
+    const statsBannerOverlay = swipeBannerOverlays[swipeBannerOverlays.length - 1];
+    assert.equal(statsBannerOverlay.style.top, '68px');
+    assert.equal(statsBannerOverlay.removed, undefined);
+    assert(pages.stats.classList.contains('page-swipe-mask-aligned'));
+
+    flushNavigationFrame();
+    assert.equal(pendingNavigationFrames.length, 1);
+    assert.equal(statsBanner.style.visibility, 'hidden');
+    assert.equal(statsBannerOverlay.removed, undefined);
+
+    flushNavigationFrame();
+    assert.equal(pendingNavigationFrames.length, 0);
     assert.equal(statsBanner.style.transform, '');
+    assert.equal(statsBanner.style.visibility, '');
+    assert.equal(statsBannerOverlay.removed, true);
     const completedBannerReset = bannerResetSnapshots[bannerResetSnapshots.length - 1];
     assert.equal(completedBannerReset.scrollTop, 42);
     assert.equal(completedBannerReset.targetWasPreview, false);
-
     assert(!pages.stats.classList.contains('page-swipe-mask-aligned'));
     assert.equal(pages.stats.style['--page-swipe-banner-y'], '');
     assert(inputBar.classList.contains('hidden'));
@@ -3478,6 +3514,9 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
 
+    timelineBanner.classList.remove('hidden');
+    pages.timeline.classList.remove('filter-open');
+    timelineBanner.getBoundingClientRect = () => ({ top: 167, left: 12, width: 369, height: 84 });
     main.listeners.touchstart({
         touches: [{ clientX: 180, clientY: 200 }],
         target: { closest: () => null }
@@ -3495,12 +3534,28 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(main.scrollTop, 99);
     assert.equal(state.pageScrollTop.stats, 42);
     assert.equal(state.pageScrollTop.timeline, 99);
-    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(pendingNavigationFrames.length, 1);
     const returnedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
     assert.equal(returnedSwipeScroll.value, 99);
     assert.equal(returnedSwipeScroll.targetWasPreview, false);
     assert(!pages.timeline.classList.contains('hidden'));
     assert(pages.stats.classList.contains('hidden'));
+    assert.equal(timelineBanner.style.transform, 'translate3d(0, -99px, 0)');
+    assert.equal(timelineBanner.style.visibility, 'hidden');
+    assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
+    const timelineBannerOverlay = swipeBannerOverlays[swipeBannerOverlays.length - 1];
+    assert.equal(timelineBannerOverlay.style.top, '68px');
+    assert.equal(timelineBannerOverlay.removed, undefined);
+
+    flushNavigationFrame();
+    assert.equal(timelineBanner.style.visibility, 'hidden');
+    assert.equal(timelineBannerOverlay.removed, undefined);
+    flushNavigationFrame();
+
+    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(timelineBanner.style.transform, '');
+    assert.equal(timelineBanner.style.visibility, '');
+    assert.equal(timelineBannerOverlay.removed, true);
     assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
     assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
     assert(!inputBar.classList.contains('hidden'));
@@ -3543,6 +3598,7 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     const timelineBannerRule = css.match(/#timeline-summary\s*\{([^}]*)\}/);
     const statsBannerRule = css.match(/\.stats-sticky-header\s*\{([^}]*)\}/);
     const compactFilterFadeRule = css.match(/#page-timeline\.filter-open::before\s*\{([^}]*)\}/);
+    const bannerOverlayRule = css.match(/\.page-swipe-banner-overlay\s*\{([^}]*)\}/);
 
     assert(basePageRule, 'Regola base .page non trovata');
     assert(navEnterRule, 'Regola .page.page-nav-enter non trovata');
@@ -3552,6 +3608,7 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     assert(css.includes('--page-banner-h: 84px'));
     assert(/height\s*:\s*var\(--page-banner-h\)/.test(timelineBannerRule[1]));
     assert(/height\s*:\s*var\(--page-banner-h\)/.test(statsBannerRule[1]));
+    assert(bannerOverlayRule, 'Regola overlay temporaneo banner swipe non trovata');
     assert(/border-radius\s*:\s*var\(--radius\)/.test(timelineBannerRule[1]));
     assert(/border-radius\s*:\s*var\(--radius\)/.test(statsBannerRule[1]));
     assert(/height\s*:\s*10px/.test(compactFilterFadeRule[1]));
@@ -3561,6 +3618,8 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     assert(css.includes('--page-swipe-input-x'));
     assert(css.includes('.page.page-swipe-mask-aligned::before'));
     assert(css.includes('--page-swipe-banner-y'));
+    assert(/position\s*:\s*fixed\s*!important/.test(bannerOverlayRule[1]));
+    assert(/visibility\s*:\s*visible\s*!important/.test(bannerOverlayRule[1]));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {

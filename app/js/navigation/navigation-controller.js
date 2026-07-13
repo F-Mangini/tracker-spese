@@ -182,18 +182,12 @@ const NavigationController = (() => {
     }
 
     function resetSwipeBanners(state) {
-        (state.bannerOverlays || []).forEach(overlay => {
-            if (overlay && typeof overlay.remove === 'function') overlay.remove();
-        });
-        state.bannerOverlays = [];
-
         (state.bannerRecords || []).forEach(record => {
-            const { element, pageElement, transform, transition, visibility } = record;
+            const { element, pageElement, transform, transition } = record;
             if (element && element.style) {
                 element.classList.remove('page-swipe-banner');
                 element.style.transform = transform;
                 element.style.transition = transition;
-                element.style.visibility = visibility;
             }
             if (pageElement) {
                 pageElement.classList.remove('page-swipe-mask-aligned');
@@ -201,58 +195,6 @@ const NavigationController = (() => {
             }
         });
         state.bannerRecords = [];
-    }
-
-    function holdSwipeBannerAtViewportQuota(options, state, main) {
-        const doc = getDocument(options);
-        if (!doc.body || typeof doc.body.appendChild !== 'function') return;
-
-        const view = options.window || doc.defaultView ||
-            (typeof window !== 'undefined' ? window : null);
-        const mainRect = typeof main.getBoundingClientRect === 'function'
-            ? main.getBoundingClientRect()
-            : { top: 0 };
-        const targetTop = (Number(mainRect.top) || 0) + 12;
-
-        (state.bannerRecords || []).forEach(record => {
-            const { element, pageElement, bannerHidden } = record;
-            if (bannerHidden || !element || !element.style ||
-                !pageElement || pageElement.classList.contains('hidden') ||
-                typeof element.cloneNode !== 'function' ||
-                typeof element.getBoundingClientRect !== 'function') return;
-
-            const rect = element.getBoundingClientRect();
-            if ((Number(rect.height) || 0) <= 0) return;
-
-            const overlay = element.cloneNode(true);
-            if (!overlay || !overlay.style || !overlay.classList) return;
-
-            if (view && typeof view.getComputedStyle === 'function') {
-                const computed = view.getComputedStyle(element);
-                if (computed && typeof overlay.style.setProperty === 'function') {
-                    for (let index = 0; index < computed.length; index += 1) {
-                        const property = computed[index];
-                        overlay.style.setProperty(
-                            property,
-                            computed.getPropertyValue(property),
-                            computed.getPropertyPriority(property)
-                        );
-                    }
-                }
-            }
-
-            if (typeof overlay.removeAttribute === 'function') overlay.removeAttribute('id');
-            if (typeof overlay.setAttribute === 'function') overlay.setAttribute('aria-hidden', 'true');
-            overlay.classList.add('page-swipe-banner-overlay');
-            overlay.style.top = `${targetTop}px`;
-            overlay.style.left = `${Number(rect.left) || 0}px`;
-            overlay.style.width = `${Number(rect.width) || 0}px`;
-            overlay.style.height = `${Number(rect.height) || 0}px`;
-
-            doc.body.appendChild(overlay);
-            state.bannerOverlays.push(overlay);
-            element.style.visibility = 'hidden';
-        });
     }
 
     function getElementPaddingTop(options, element) {
@@ -276,16 +218,14 @@ const NavigationController = (() => {
             ? main.getBoundingClientRect()
             : { top: 0 };
         const bannerRect = banner.getBoundingClientRect();
-        const bannerHidden = banner.classList.contains('hidden') ||
-            (Number(bannerRect.height) || 0) <= 0;
         const record = {
             element: banner,
             pageElement,
             transform: banner.style.transform || '',
-            transition: banner.style.transition || '',
-            visibility: banner.style.visibility || '',
-            bannerHidden
+            transition: banner.style.transition || ''
         };
+        const bannerHidden = banner.classList.contains('hidden') ||
+            (Number(bannerRect.height) || 0) <= 0;
 
         state.bannerRecords.push(record);
         pageElement.classList.add('page-swipe-mask-aligned');
@@ -404,7 +344,19 @@ const NavigationController = (() => {
         state.targetPage = null;
     }
 
-    function finalizeSwipeState(state) {
+    function cleanupSwipe(main, state, keepTargetVisible = false, beforeBannerReset = null) {
+        if (main.classList) main.classList.remove('page-swipe-active');
+        resetSwipeInput(state, keepTargetVisible);
+        resetSwipeElement(state.currentElement);
+
+        if (state.targetElement) {
+            const targetElement = state.targetElement;
+            resetSwipeElement(targetElement);
+            if (!keepTargetVisible) targetElement.classList.add('hidden');
+        }
+        if (typeof beforeBannerReset === 'function') beforeBannerReset();
+        resetSwipeBanners(state);
+
         state.touchStart = null;
         state.currentElement = null;
         state.targetElement = null;
@@ -416,34 +368,6 @@ const NavigationController = (() => {
         if (state.preparedPages && typeof state.preparedPages.clear === 'function') {
             state.preparedPages.clear();
         }
-    }
-
-    function cleanupSwipe(options, main, state, keepTargetVisible = false,
-        beforeBannerReset = null, settleStickyBanner = false) {
-        if (main.classList) main.classList.remove('page-swipe-active');
-        resetSwipeInput(state, keepTargetVisible);
-        resetSwipeElement(state.currentElement);
-
-        if (state.targetElement) {
-            const targetElement = state.targetElement;
-            resetSwipeElement(targetElement);
-            if (!keepTargetVisible) targetElement.classList.add('hidden');
-        }
-        if (typeof beforeBannerReset === 'function') beforeBannerReset();
-
-        if (settleStickyBanner) {
-            holdSwipeBannerAtViewportQuota(options, state, main);
-            deferFrame(options, () => {
-                deferFrame(options, () => {
-                    resetSwipeBanners(state);
-                    finalizeSwipeState(state);
-                });
-            });
-            return;
-        }
-
-        resetSwipeBanners(state);
-        finalizeSwipeState(state);
     }
 
     function prepareSwipePreview(options, main, state, targetPage) {
@@ -540,7 +464,7 @@ const NavigationController = (() => {
 
     function finishSwipe(options, main, state, forceCancel = false) {
         if (!state.horizontal || state.vertical) {
-            cleanupSwipe(options, main, state);
+            cleanupSwipe(main, state);
             return;
         }
 
@@ -571,7 +495,7 @@ const NavigationController = (() => {
                 });
                 navigated = getCurrentPage(options) === targetPage;
             }
-            cleanupSwipe(options, main, state, navigated, navigated ? () => {
+            cleanupSwipe(main, state, navigated, navigated ? () => {
                 restorePageScroll(options, targetPage, { immediate: true });
 
                 // La pagina target deve avere gia layout e scroll definitivi prima
@@ -580,7 +504,7 @@ const NavigationController = (() => {
                     typeof state.targetElement.getBoundingClientRect === 'function') {
                     state.targetElement.getBoundingClientRect();
                 }
-            } : null, navigated);
+            } : null);
         }, 180);
     }
 
@@ -599,7 +523,6 @@ const NavigationController = (() => {
             deltaX: 0,
             transitioning: false,
             bannerRecords: [],
-            bannerOverlays: [],
             preparedPages: new Set(),
             inputBar: null,
             inputWasHidden: false,

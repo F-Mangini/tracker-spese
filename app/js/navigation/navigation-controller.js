@@ -184,10 +184,11 @@ const NavigationController = (() => {
     function resetSwipeBanners(state) {
         (state.bannerRecords || []).forEach(record => {
             const { element, pageElement, transform, transition } = record;
-            if (!element || !element.style) return;
-            element.classList.remove('page-swipe-banner');
-            element.style.transform = transform;
-            element.style.transition = transition;
+            if (element && element.style) {
+                element.classList.remove('page-swipe-banner');
+                element.style.transform = transform;
+                element.style.transition = transition;
+            }
             if (pageElement) {
                 pageElement.classList.remove('page-swipe-mask-aligned');
                 clearStyleProperty(pageElement, '--page-swipe-banner-y');
@@ -207,19 +208,28 @@ const NavigationController = (() => {
             ? main.getBoundingClientRect()
             : { top: 0 };
         const bannerRect = banner.getBoundingClientRect();
-        const offsetY = (Number(mainRect.top) || 0) + 12 - (Number(bannerRect.top) || 0);
-
-        state.bannerRecords.push({
+        const record = {
             element: banner,
             pageElement,
             transform: banner.style.transform || '',
             transition: banner.style.transition || ''
-        });
+        };
+        const bannerHidden = banner.classList.contains('hidden') ||
+            (Number(bannerRect.height) || 0) <= 0;
+
+        state.bannerRecords.push(record);
+        pageElement.classList.add('page-swipe-mask-aligned');
+
+        if (bannerHidden) {
+            setStyleProperty(pageElement, '--page-swipe-banner-y', '0px');
+            return;
+        }
+
+        const offsetY = (Number(mainRect.top) || 0) + 12 - (Number(bannerRect.top) || 0);
         banner.classList.add('page-swipe-banner');
         banner.style.transition = 'none';
-        pageElement.classList.add('page-swipe-mask-aligned');
         setStyleProperty(pageElement, '--page-swipe-banner-y', offsetY + 'px');
-        banner.style.transform = `translate3d(0, ${offsetY}px, 0)`;
+        banner.style.transform = 'translate3d(0, ' + offsetY + 'px, 0)';
     }
 
     function resetSwipeInput(state, keepNavigationVisibility = false) {

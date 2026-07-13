@@ -42,6 +42,7 @@
     --nav-h: 64px;
     --filter-compact-scroll-h: 63px;
     --filter-footer-h: 42px;
+    --filter-panel-content-gap: 6px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 

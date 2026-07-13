@@ -50,6 +50,14 @@ const FilterController = (() => {
         }, FILTER_LAYOUT_TRANSITION_MS);
     }
 
+    function alignMainBelowFilterPanel(main, panel) {
+        if (!main || !panel) return;
+
+        const panelHeight = Number(panel.offsetHeight) || 0;
+        main.style.marginTop =
+            `calc(var(--header-h) + ${panelHeight}px + var(--filter-panel-content-gap))`;
+    }
+
     function getState(options, getter, prop, fallback) {
         if (typeof options[getter] === 'function') return options[getter]();
         if (options.state && Object.prototype.hasOwnProperty.call(options.state, prop)) {
@@ -505,9 +513,7 @@ const FilterController = (() => {
         defer(options, () => {
             const panel = doc.getElementById('filter-panel');
             const main = doc.getElementById('app-main');
-            if (panel && main) {
-                main.style.marginTop = `calc(var(--header-h) + ${panel.offsetHeight}px)`;
-            }
+            alignMainBelowFilterPanel(main, panel);
 
             const scrollContainer = panel ? panel.querySelector('.filter-panel-scroll') : null;
             if (scrollContainer && typeof scrollContainer.scrollTo === 'function') {
@@ -536,7 +542,7 @@ const FilterController = (() => {
             if (!panel || panel.classList.contains('hidden')) return;
 
             const main = doc.getElementById('app-main');
-            if (main) main.style.marginTop = `calc(var(--header-h) + ${panel.offsetHeight}px)`;
+            alignMainBelowFilterPanel(main, panel);
             const scrollContainer = panel.querySelector('.filter-panel-scroll');
             if (scrollContainer) scrollContainer.scrollTop = 0;
             updateAppMainPadding(options);
@@ -756,7 +762,6 @@ const FilterController = (() => {
         if (advanced) advanced.classList.remove('hidden');
         syncAdvancedToggleButton(advancedBtn, getAdvancedFiltersOpen(options));
 
-        const panelHeight = panel ? Number(panel.offsetHeight) || 0 : 0;
         beginFilterLayoutTransition(options, main, () => {
             restoreTimelineScroll();
             if (timelineScrollBeforeFilterOpen !== null && main) {
@@ -772,9 +777,7 @@ const FilterController = (() => {
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.add('filter-open');
 
-        if (panel && main) {
-            main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
-        }
+        alignMainBelowFilterPanel(main, panel);
         updateAppMainPadding(options);
         restoreTimelineScroll();
     }

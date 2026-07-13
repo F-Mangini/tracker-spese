@@ -2042,7 +2042,10 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.openFilterPanel(options);
     assert.equal(elements['app-main'].scrollTop, 140);
     assert.equal(state.pageScrollTop.timeline, 140);
-    assert.equal(elements['app-main'].style.marginTop, 'calc(var(--header-h) + 96px)');
+    assert.equal(
+        elements['app-main'].style.marginTop,
+        'calc(var(--header-h) + 96px + var(--filter-panel-content-gap))'
+    );
     assert(elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
     assert(!elements['timeline-summary'].classList.contains('hidden'));
     assert(elements['app-main'].classList.contains('filter-layout-transition'));
@@ -3581,6 +3584,7 @@ test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
 
     const timelineFadeRule = css.match(/#page-timeline::before\s*\{([^}]*)\}/);
     assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
+    assert(css.includes('--filter-panel-content-gap: 6px'));
     assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
     assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
     assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));

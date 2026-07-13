@@ -15,6 +15,7 @@ const AppState = (() => {
             dateFrom: '',
             dateTo: '',
             selectedOnly: false,
+            excludedSelectedOnly: false,
             selectedOnlyIds: new Set()
         };
     }

@@ -31,7 +31,8 @@ const ExpenseFilters = (() => {
             amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
             dateFrom: String(filters.dateFrom || '').trim(),
             dateTo: String(filters.dateTo || '').trim(),
-            selectedOnly: !!filters.selectedOnly
+            selectedOnly: !!filters.selectedOnly,
+            excludedSelectedOnly: !!filters.excludedSelectedOnly
         };
     }
 
@@ -58,7 +59,7 @@ const ExpenseFilters = (() => {
         if (state.methods.size > 0 || state.excludedMethods.size > 0) count += 1;
         if (state.amountMin > 0 || state.amountMax < Infinity) count += 1;
         if (state.dateFrom || state.dateTo) count += 1;
-        if (state.selectedOnly) count += 1;
+        if (state.selectedOnly || state.excludedSelectedOnly) count += 1;
 
         return count;
     }
@@ -138,6 +139,7 @@ const ExpenseFilters = (() => {
         if (!matchesChoice(spesa.metodo, state.methods, state.excludedMethods)) return false;
         if (!matchesAmount(spesa, state)) return false;
         if (includeDate && !matchesDateRange(spesa, state)) return false;
+        if (state.excludedSelectedOnly && selectedIds.has(spesa.id)) return false;
         if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;
 
         return true;
@@ -155,6 +157,7 @@ const ExpenseFilters = (() => {
             if (!matchesChoice(spesa.metodo, state.methods, state.excludedMethods)) return false;
             if (!matchesAmount(spesa, state)) return false;
             if (includeDate && !matchesDateRange(spesa, state)) return false;
+            if (state.excludedSelectedOnly && selectedIds.has(spesa.id)) return false;
             if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;
             return true;
         });

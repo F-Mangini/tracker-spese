@@ -162,7 +162,7 @@ Da riprendere solo quando servira:
 
 ## Miglioramenti filtri completati il 2026-07-13
 
-- Filtri negativi tri-state per categorie e metodi di pagamento: neutro, incluso verde ed escluso rosso, con inclusioni ed esclusioni combinabili tra i due gruppi e conservate negli snapshot dell'export custom.
+- Filtri negativi tri-state per categorie, metodi di pagamento e filtro speciale `Selezionate`: neutro, incluso verde ed escluso rosso, con inclusioni ed esclusioni combinabili e conservate negli snapshot dell'export custom. La sezione dinamica della modalita selezione mostra la stessa spunta grigia del toggle `Seleziona tutte` nell'header.
 
 ## Filtri e Ricerca
 

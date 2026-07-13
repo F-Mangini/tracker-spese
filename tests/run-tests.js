@@ -1559,7 +1559,7 @@ test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () =
     assert.equal(ExpenseFilters.countActive(filters), 5);
 });
 
-test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
+test('Filtro speciale selezionate include o esclude lo snapshot di ID selezionati', () => {
     const ExpenseFilters = loadFilters();
     const spese = [
         expense({ id: 'a', importo: 5, categoria: 'bar' }),
@@ -1582,7 +1582,17 @@ test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
         }).map(item => item.id),
         ['b']
     );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            categories: new Set(['bar']),
+            excludedSelectedOnly: true
+        }, {
+            selectedOnlyIds: new Set(['b', 'c'])
+        }).map(item => item.id),
+        ['a']
+    );
     assert.equal(ExpenseFilters.countActive(filters), 2);
+    assert.equal(ExpenseFilters.countActive({ excludedSelectedOnly: true }), 1);
 });
 
 test('Statistiche aggregano dati giornalieri includendo giorni vuoti', () => {
@@ -1959,6 +1969,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         dateFrom: '',
         dateTo: '',
         selectedOnly: false,
+        excludedSelectedOnly: false,
         selectedOnlyIds: new Set()
     };
     const state = {
@@ -2000,7 +2011,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
             if (filters.dateFrom) count += 1;
             if (filters.dateTo) count += 1;
-            if (filters.selectedOnly) count += 1;
+            if (filters.selectedOnly || filters.excludedSelectedOnly) count += 1;
             return count;
         },
         applyFilters: items => items.filter(item => !filters.categories.size || filters.categories.has(item.categoria)),
@@ -2073,8 +2084,24 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!elements['selection-filter-section'].classList.contains('hidden'));
     elements['filter-selected-only'].listeners.click();
     assert.equal(filters.selectedOnly, true);
+    assert.equal(filters.excludedSelectedOnly, false);
     assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
     assert(elements['filter-selected-only'].classList.contains('active'));
+
+    state.selectedIds.add('casa');
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, true);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
+    assert(elements['filter-selected-only'].classList.contains('excluded'));
+    assert.equal(elements['filter-selected-only']['aria-pressed'], 'mixed');
+
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, false);
+    assert.equal(filters.selectedOnlyIds.size, 0);
+    assert(!elements['filter-selected-only'].classList.contains('active'));
+    assert(!elements['filter-selected-only'].classList.contains('excluded'));
 
     elements['search-input'].value = ' caffe ';
     elements['search-input'].listeners.input();
@@ -2226,6 +2253,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.excludedMethods.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, false);
     assert.equal(filters.selectedOnlyIds.size, 0);
     assert(!elements['filter-selected-only'].classList.contains('active'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
@@ -5197,7 +5225,8 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             amountMax: Infinity,
             dateFrom: '2026-06-01',
             dateTo: '',
-            selectedOnly: true
+            selectedOnly: true,
+            excludedSelectedOnly: false
         }
     );
 
@@ -5217,6 +5246,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
                     query: 'pane',
                     categories: ['spesa'],
                     excludedCategories: ['bar'],
+                    excludedSelectedOnly: true,
                     amountMax: 40
                 }
             }
@@ -5228,6 +5258,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     assert.equal(normalizedPrefs.lastExport.filters.query, 'pane');
     assert.deepEqual(normalizedPrefs.lastExport.filters.categories, ['spesa']);
     assert.deepEqual(normalizedPrefs.lastExport.filters.excludedCategories, ['bar']);
+    assert.equal(normalizedPrefs.lastExport.filters.excludedSelectedOnly, true);
     assert.deepEqual(
         SettingsActions.normalizeExportPreferences({
             lastExport: {
@@ -5247,7 +5278,8 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
                 amountMax: Infinity,
                 dateFrom: '',
                 dateTo: '',
-                selectedOnly: false
+                selectedOnly: false,
+                excludedSelectedOnly: false
             }
         }
     );
@@ -6084,10 +6116,11 @@ test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', 
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls, [
-        ['apply-filters', { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
+        ['apply-filters', { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false }, ['a', 'c']],
         ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
@@ -6656,11 +6689,12 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6683,11 +6717,12 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: '', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: '', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'b']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6731,12 +6766,13 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6782,7 +6818,8 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'b', 'c', 'manual']);
     assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
@@ -6798,7 +6835,8 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
         amountMax: 5,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['manual']);
 
@@ -6930,7 +6968,8 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'c']);
 
@@ -6946,7 +6985,8 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['manual']);
 
@@ -7270,6 +7310,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.filters.categories.add('bar');
     first.filters.excludedCategories.add('bollette');
     first.filters.excludedMethods.add('contanti');
+    first.filters.excludedSelectedOnly = true;
     first.filters.selectedOnlyIds.add('expense-a');
     first.pageScrollTop.timeline = 120;
     first.timelineSelectionActive = true;
@@ -7283,6 +7324,7 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.filters.categories.size, 0);
     assert.equal(second.filters.excludedCategories.size, 0);
     assert.equal(second.filters.excludedMethods.size, 0);
+    assert.equal(second.filters.excludedSelectedOnly, false);
     assert.equal(second.filters.selectedOnlyIds.size, 0);
     assert.equal(second.pageScrollTop.timeline, 0);
     assert.deepEqual(second._sdInstances, {});

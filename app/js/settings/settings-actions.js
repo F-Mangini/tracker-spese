@@ -99,7 +99,8 @@ const SettingsActions = (() => {
             amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
             dateFrom: String(source.dateFrom || '').trim(),
             dateTo: String(source.dateTo || '').trim(),
-            selectedOnly: source.selectedOnly === true
+            selectedOnly: source.selectedOnly === true,
+            excludedSelectedOnly: source.excludedSelectedOnly === true
         };
     }
 
@@ -114,7 +115,8 @@ const SettingsActions = (() => {
             amountMax: filters.amountMax,
             dateFrom: filters.dateFrom,
             dateTo: filters.dateTo,
-            selectedOnly: filters.selectedOnly
+            selectedOnly: filters.selectedOnly,
+            excludedSelectedOnly: filters.excludedSelectedOnly
         });
     }
 

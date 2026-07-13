@@ -106,7 +106,8 @@ const App = {
             spese: ExpenseStore.getSpese(),
             filters: this.filters,
             selectedIds: this.timelineSelectionActive ? this.timelineSelectedIds : new Set(),
-            selectedOnlyIds: this.timelineSelectionActive && this.filters.selectedOnly
+            selectedOnlyIds: this.timelineSelectionActive &&
+                (this.filters.selectedOnly || this.filters.excludedSelectedOnly)
                 ? this.filters.selectedOnlyIds
                 : this.timelineSelectedIds
         });

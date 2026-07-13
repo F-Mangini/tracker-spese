@@ -152,18 +152,26 @@ const FilterController = (() => {
         return !!options.timelineSelectionActive;
     }
 
-    function setSelectedOnlyFilter(options, value) {
+    function setSelectedOnlyFilter(options, value, excluded = false) {
         const enabled = !!value;
+        const excludedEnabled = !enabled && !!excluded;
+        const filters = options.filters || {};
+        const wasActive = !!filters.selectedOnly || !!filters.excludedSelectedOnly;
+        const staysActive = enabled || excludedEnabled;
+        const snapshotIds = wasActive && staysActive && filters.selectedOnlyIds
+            ? filters.selectedOnlyIds
+            : getTimelineSelectedIds(options);
 
         if (typeof options.setSelectedOnlyFilter === 'function') {
-            options.setSelectedOnlyFilter(enabled, getTimelineSelectedIds(options));
+            options.setSelectedOnlyFilter(enabled, snapshotIds, excludedEnabled);
             return;
         }
 
         if (options.filters) {
             options.filters.selectedOnly = enabled;
-            options.filters.selectedOnlyIds = enabled
-                ? new Set(getTimelineSelectedIds(options))
+            options.filters.excludedSelectedOnly = excludedEnabled;
+            options.filters.selectedOnlyIds = staysActive
+                ? new Set(snapshotIds)
                 : new Set();
         }
     }
@@ -466,7 +474,13 @@ const FilterController = (() => {
             selectedOnlyChip.addEventListener('click', () => {
                 if (!isTimelineSelectionActive(options)) return;
 
-                setSelectedOnlyFilter(options, !options.filters.selectedOnly);
+                if (options.filters.selectedOnly) {
+                    setSelectedOnlyFilter(options, false, true);
+                } else if (options.filters.excludedSelectedOnly) {
+                    setSelectedOnlyFilter(options, false, false);
+                } else {
+                    setSelectedOnlyFilter(options, true, false);
+                }
                 syncSelectionFilterUI(options);
                 (options.onFilterChange || noop)();
             });
@@ -611,8 +625,13 @@ const FilterController = (() => {
         const id = chip.dataset.id;
         const isExcluded = !!(excludedSet && excludedSet.has(id));
         const isIncluded = !isExcluded && !!(includedSet && includedSet.has(id));
+
+        syncTriStateChip(chip, isIncluded, isExcluded);
+    }
+
+    function syncTriStateChip(chip, isIncluded, isExcluded) {
         const state = isExcluded ? 'escluso' : isIncluded ? 'selezionato' : 'neutro';
-        const label = chip.dataset.label || id;
+        const label = chip.dataset.label || chip.dataset.id || '';
 
         chip.classList.toggle('active', isIncluded);
         chip.classList.toggle('excluded', isExcluded);
@@ -662,12 +681,18 @@ const FilterController = (() => {
         const section = doc.getElementById('selection-filter-section');
         const chip = doc.getElementById('filter-selected-only');
 
-        if (!active && filters.selectedOnly) {
+        if (!active && (filters.selectedOnly || filters.excludedSelectedOnly)) {
             setSelectedOnlyFilter(options, false);
         }
 
         if (section) section.classList.toggle('hidden', !active);
-        if (chip) chip.classList.toggle('active', active && !!filters.selectedOnly);
+        if (chip) {
+            syncTriStateChip(
+                chip,
+                active && !!filters.selectedOnly,
+                active && !!filters.excludedSelectedOnly
+            );
+        }
     }
 
     function initSlider(options = {}) {
@@ -956,6 +981,7 @@ const FilterController = (() => {
         filters.dateFrom = '';
         filters.dateTo = '';
         filters.selectedOnly = false;
+        filters.excludedSelectedOnly = false;
         filters.selectedOnlyIds = new Set();
 
         syncFilterUI(options);

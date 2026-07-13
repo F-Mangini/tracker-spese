@@ -268,7 +268,9 @@ const AppWiring = (() => {
 
         function getSelectedOnlyIdsForFilters() {
             if (!app.timelineSelectionActive) return new Set();
-            if (!app.filters.selectedOnly) return app.timelineSelectedIds;
+            if (!app.filters.selectedOnly && !app.filters.excludedSelectedOnly) {
+                return app.timelineSelectedIds;
+            }
             return app.filters.selectedOnlyIds instanceof Set
                 ? app.filters.selectedOnlyIds
                 : new Set();
@@ -320,7 +322,8 @@ const AppWiring = (() => {
             app.filters.dateFrom = filters.dateFrom || '';
             app.filters.dateTo = filters.dateTo || '';
             app.filters.selectedOnly = !!filters.selectedOnly;
-            app.filters.selectedOnlyIds = filters.selectedOnly
+            app.filters.excludedSelectedOnly = !!filters.excludedSelectedOnly;
+            app.filters.selectedOnlyIds = filters.selectedOnly || filters.excludedSelectedOnly
                 ? new Set(selectedIds || [])
                 : new Set();
 
@@ -342,7 +345,8 @@ const AppWiring = (() => {
                 amountMax: app.filters.amountMax === Infinity ? Infinity : Number(app.filters.amountMax),
                 dateFrom: app.filters.dateFrom || '',
                 dateTo: app.filters.dateTo || '',
-                selectedOnly: !!app.filters.selectedOnly
+                selectedOnly: !!app.filters.selectedOnly,
+                excludedSelectedOnly: !!app.filters.excludedSelectedOnly
             };
         }
 
@@ -450,9 +454,12 @@ const AppWiring = (() => {
                 getCurrentPage: () => app.currentPage,
                 isTimelineSelectionActive: () => app.currentPage !== 'settings' && app.timelineSelectionActive,
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
-                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                setSelectedOnlyFilter: (value, selectedIds = null, excluded = false) => {
                     app.filters.selectedOnly = !!value;
-                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                    app.filters.excludedSelectedOnly = !value && !!excluded;
+                    app.filters.selectedOnlyIds = value || excluded
+                        ? new Set(selectedIds || app.timelineSelectedIds)
+                        : new Set();
                 },
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
@@ -586,9 +593,12 @@ const AppWiring = (() => {
                 isDeletePending: () => app.timelineSelectionDeletePending,
                 setDeletePending: value => { app.timelineSelectionDeletePending = value; },
                 getCurrentPage: () => app.currentPage,
-                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                setSelectedOnlyFilter: (value, selectedIds = null, excluded = false) => {
                     app.filters.selectedOnly = !!value;
-                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                    app.filters.excludedSelectedOnly = !value && !!excluded;
+                    app.filters.selectedOnlyIds = value || excluded
+                        ? new Set(selectedIds || app.timelineSelectedIds)
+                        : new Set();
                 },
                 rememberFiltersBeforeSelection,
                 restoreFiltersAfterSelection,

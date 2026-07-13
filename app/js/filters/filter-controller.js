@@ -107,7 +107,6 @@ const FilterController = (() => {
 
         if (summary) {
             summary.classList.remove('hidden');
-            if (hidden) summary.classList.remove('filter-panel-revealing');
             summary.classList.toggle('filter-panel-collapsed', !!hidden);
         }
 
@@ -772,11 +771,9 @@ const FilterController = (() => {
         syncInputBarForAdvanced(options, false);
 
         const summary = doc.getElementById('timeline-summary');
-        if (summary) summary.classList.add('filter-panel-revealing');
         setTimelineSummaryHidden(options, doc, summary, false);
 
         const pageTimeline = doc.getElementById('page-timeline');
-        if (pageTimeline) pageTimeline.classList.remove('filter-open');
 
         if (main) main.style.marginTop = '';
         beginFilterLayoutTransition(options, main, () => {
@@ -785,7 +782,7 @@ const FilterController = (() => {
                 panel.classList.remove('filter-panel-closing');
             }
             if (advanced) advanced.classList.add('hidden');
-            if (summary) summary.classList.remove('filter-panel-revealing');
+            if (pageTimeline) pageTimeline.classList.remove('filter-open');
         });
 
         const steps = (hadAdvancedFilters ? 2 : 1) +

@@ -2087,13 +2087,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['filter-panel'].classList.contains('filter-panel-closing'));
     assert(!elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
-    assert(elements['timeline-summary'].classList.contains('filter-panel-revealing'));
     assert(elements['app-main'].classList.contains('filter-layout-transition'));
+    assert(elements['page-timeline'].classList.contains('filter-open'));
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     transitionTimers.shift()();
     assert(elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['filter-panel'].classList.contains('filter-panel-closing'));
-    assert(!elements['timeline-summary'].classList.contains('filter-panel-revealing'));
+    assert(!elements['page-timeline'].classList.contains('filter-open'));
     assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
@@ -3181,9 +3181,25 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     navSettings.dataset.page = 'settings';
     const navButtons = [navTimeline, navStats, navSettings];
     const main = makeElement('app-main');
+    const scrollAssignments = [];
+    let mainScrollTop = 0;
+    Object.defineProperty(main, 'scrollTop', {
+        get() {
+            return mainScrollTop;
+        },
+        set(value) {
+            mainScrollTop = Number(value) || 0;
+            scrollAssignments.push({
+                value: mainScrollTop,
+                targetWasPreview: pages.stats.classList.contains('page-swipe-preview') ||
+                    pages.timeline.classList.contains('page-swipe-preview')
+            });
+        }
+    });
     main.clientWidth = 393;
     main.clientHeight = 700;
     main.scrollTop = 17;
+    scrollAssignments.length = 0;
     main.getBoundingClientRect = () => ({ top: 56 });
     const inputBar = makeElement('input-bar');
     const filterToggle = makeElement('btn-filter-toggle');
@@ -3383,6 +3399,9 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert.equal(main.scrollTop, 42);
     assert.equal(pendingNavigationFrames.length, 0);
+    const completedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
+    assert.equal(completedSwipeScroll.value, 42);
+    assert.equal(completedSwipeScroll.targetWasPreview, false);
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
     assert.equal(statsBanner.style.transform, '');
@@ -3424,22 +3443,48 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(inputBar.classList.contains('hidden'));
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
+
+    main.listeners.touchstart({
+        touches: [{ clientX: 180, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        touches: [{ clientX: 260, clientY: 202 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        changedTouches: [{ clientX: 260, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(main.scrollTop, 99);
+    assert.equal(state.pageScrollTop.stats, 42);
+    assert.equal(state.pageScrollTop.timeline, 99);
+    assert.equal(pendingNavigationFrames.length, 0);
+    const returnedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
+    assert.equal(returnedSwipeScroll.value, 99);
+    assert.equal(returnedSwipeScroll.targetWasPreview, false);
+    assert(!pages.timeline.classList.contains('hidden'));
+    assert(pages.stats.classList.contains('hidden'));
+    assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
+    assert(!inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
 });
 
 test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
     const css = readAppFile('css/style.css');
     const summaryCollapsedRule = css.match(/#timeline-summary\.filter-panel-collapsed\s*\{([^}]*)\}/);
-    const summaryRevealingRule = css.match(/#timeline-summary\.filter-panel-revealing\s*\{([^}]*)\}/);
     const closingPanelRule = css.match(/\.filter-panel\.filter-panel-closing\s*\{([^}]*)\}/);
     const mainTransitionRule = css.match(/#app-main\.filter-layout-transition\s*\{([^}]*)\}/);
 
     assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
-    assert(summaryRevealingRule, 'Regola ritardo riapparizione riepilogo non trovata');
     assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
     assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
     assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));
     assert(/opacity\s*:\s*0/.test(summaryCollapsedRule[1]));
-    assert(/--timeline-summary-opacity-delay\s*:\s*50ms/.test(summaryRevealingRule[1]));
     assert(/overflow-anchor\s*:\s*none/.test(mainTransitionRule[1]));
     assert(/transform\s*:\s*translateY\(-10px\)/.test(closingPanelRule[1]));
 });

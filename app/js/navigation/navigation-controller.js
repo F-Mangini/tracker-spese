@@ -490,11 +490,14 @@ const NavigationController = (() => {
                 navigateTo(options, targetPage, false, {
                     animatePage: false,
                     skipPageRender: true,
-                    restoreScrollImmediately: true
+                    skipScrollRestore: true
                 });
                 navigated = getCurrentPage(options) === targetPage;
             }
             cleanupSwipe(main, state, navigated);
+            if (navigated) {
+                restorePageScroll(options, targetPage, { immediate: true });
+            }
         }, 180);
     }
 
@@ -710,9 +713,9 @@ const NavigationController = (() => {
         if (!config.skipPageRender) {
             syncPageContent(options, page);
         }
-        restorePageScroll(options, page, {
-            immediate: !!config.restoreScrollImmediately
-        });
+        if (!config.skipScrollRestore) {
+            restorePageScroll(options, page);
+        }
 
         return action;
     }

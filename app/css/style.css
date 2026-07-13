@@ -392,6 +392,13 @@ body {
     font-weight: 600;
 }
 
+.filter-chip.excluded {
+    background: var(--danger-light);
+    border-color: var(--danger);
+    color: var(--danger);
+    font-weight: 600;
+}
+
 /* ============================================
    DUAL RANGE SLIDER
    ============================================ */

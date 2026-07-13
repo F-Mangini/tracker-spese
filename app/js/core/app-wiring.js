@@ -310,7 +310,9 @@ const AppWiring = (() => {
 
             app.filters.query = filters.query || '';
             app.filters.categories = new Set(filters.categories || []);
+            app.filters.excludedCategories = new Set(filters.excludedCategories || []);
             app.filters.methods = new Set(filters.methods || []);
+            app.filters.excludedMethods = new Set(filters.excludedMethods || []);
             app.filters.amountMin = Number(filters.amountMin || 0);
             app.filters.amountMax = filters.amountMax === Infinity
                 ? Infinity
@@ -333,7 +335,9 @@ const AppWiring = (() => {
             return {
                 query: app.filters.query || '',
                 categories: Array.from(app.filters.categories || []),
+                excludedCategories: Array.from(app.filters.excludedCategories || []),
                 methods: Array.from(app.filters.methods || []),
+                excludedMethods: Array.from(app.filters.excludedMethods || []),
                 amountMin: Number(app.filters.amountMin || 0),
                 amountMax: app.filters.amountMax === Infinity ? Infinity : Number(app.filters.amountMax),
                 dateFrom: app.filters.dateFrom || '',

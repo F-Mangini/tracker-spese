@@ -569,24 +569,57 @@ const FilterController = (() => {
                     : containerId === 'filter-methods'
                     ? filters.methods
                     : targetSet;
-                const activeSet = currentSet &&
+                let currentExcludedSet = containerId === 'filter-cats'
+                    ? filters.excludedCategories
+                    : containerId === 'filter-methods'
+                    ? filters.excludedMethods
+                    : null;
+                const includedSet = currentSet &&
                     typeof currentSet.has === 'function' &&
                     typeof currentSet.add === 'function' &&
                     typeof currentSet.delete === 'function'
                     ? currentSet
                     : targetSet;
+                if (!(
+                    currentExcludedSet &&
+                    typeof currentExcludedSet.has === 'function' &&
+                    typeof currentExcludedSet.add === 'function' &&
+                    typeof currentExcludedSet.delete === 'function'
+                )) {
+                    currentExcludedSet = new Set();
+                    if (containerId === 'filter-cats') filters.excludedCategories = currentExcludedSet;
+                    if (containerId === 'filter-methods') filters.excludedMethods = currentExcludedSet;
+                }
+                const excludedSet = currentExcludedSet;
 
-                if (activeSet.has(id)) {
-                    activeSet.delete(id);
-                    chip.classList.remove('active');
+                if (includedSet.has(id)) {
+                    includedSet.delete(id);
+                    excludedSet.add(id);
+                } else if (excludedSet.has(id)) {
+                    excludedSet.delete(id);
                 } else {
-                    activeSet.add(id);
-                    chip.classList.add('active');
+                    includedSet.add(id);
                 }
 
+                syncChoiceChip(chip, includedSet, excludedSet);
                 (options.onFilterChange || noop)();
             });
         });
+    }
+
+    function syncChoiceChip(chip, includedSet, excludedSet) {
+        const id = chip.dataset.id;
+        const isExcluded = !!(excludedSet && excludedSet.has(id));
+        const isIncluded = !isExcluded && !!(includedSet && includedSet.has(id));
+        const state = isExcluded ? 'escluso' : isIncluded ? 'selezionato' : 'neutro';
+        const label = chip.dataset.label || id;
+
+        chip.classList.toggle('active', isIncluded);
+        chip.classList.toggle('excluded', isExcluded);
+        if (typeof chip.setAttribute === 'function') {
+            chip.setAttribute('aria-pressed', isExcluded ? 'mixed' : String(isIncluded));
+            chip.setAttribute('aria-label', `${label}: ${state}`);
+        }
     }
 
     function syncFilterUI(options = {}) {
@@ -611,11 +644,11 @@ const FilterController = (() => {
         }
 
         doc.querySelectorAll('#filter-cats .filter-chip').forEach(chip => {
-            chip.classList.toggle('active', filters.categories.has(chip.dataset.id));
+            syncChoiceChip(chip, filters.categories, filters.excludedCategories);
         });
 
         doc.querySelectorAll('#filter-methods .filter-chip').forEach(chip => {
-            chip.classList.toggle('active', filters.methods.has(chip.dataset.id));
+            syncChoiceChip(chip, filters.methods, filters.excludedMethods);
         });
 
         syncSelectionFilterUI(options);
@@ -915,7 +948,9 @@ const FilterController = (() => {
 
         filters.query = '';
         if (filters.categories && typeof filters.categories.clear === 'function') filters.categories.clear();
+        if (filters.excludedCategories && typeof filters.excludedCategories.clear === 'function') filters.excludedCategories.clear();
         if (filters.methods && typeof filters.methods.clear === 'function') filters.methods.clear();
+        if (filters.excludedMethods && typeof filters.excludedMethods.clear === 'function') filters.excludedMethods.clear();
         filters.amountMin = 0;
         filters.amountMax = Infinity;
         filters.dateFrom = '';

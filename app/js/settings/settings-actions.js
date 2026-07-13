@@ -92,7 +92,9 @@ const SettingsActions = (() => {
         return {
             query: String(source.query || '').trim(),
             categories: normalizeIdList(source.categories),
+            excludedCategories: normalizeIdList(source.excludedCategories),
             methods: normalizeIdList(source.methods),
+            excludedMethods: normalizeIdList(source.excludedMethods),
             amountMin: Math.max(0, normalizeNumber(source.amountMin, 0)),
             amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
             dateFrom: String(source.dateFrom || '').trim(),
@@ -105,7 +107,9 @@ const SettingsActions = (() => {
         return normalizeFilterSnapshot({
             query: filters.query,
             categories: filters.categories,
+            excludedCategories: filters.excludedCategories,
             methods: filters.methods,
+            excludedMethods: filters.excludedMethods,
             amountMin: filters.amountMin,
             amountMax: filters.amountMax,
             dateFrom: filters.dateFrom,

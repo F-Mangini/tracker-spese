@@ -160,6 +160,10 @@ Da riprendere solo quando servira:
 - Ricerca tag solo tramite prefisso `#`, confronto per inizio tag e combinazione AND tra testo libero e uno o piu tag in qualsiasi ordine.
 - Colori categoria fissi nelle statistiche, mantenendo la palette esistente.
 
+## Miglioramenti filtri completati il 2026-07-13
+
+- Filtri negativi tri-state per categorie e metodi di pagamento: neutro, incluso verde ed escluso rosso, con inclusioni ed esclusioni combinabili tra i due gruppi e conservate negli snapshot dell'export custom.
+
 ## Filtri e Ricerca
 
 - Pressione prolungata sul tasto filtri dell'header per attivare/disattivare filtri rapidi personalizzabili dalla futura pagina di personalizzazione.
@@ -167,7 +171,6 @@ Da riprendere solo quando servira:
 - Apertura/chiusura pannello tramite swipe su barra inferiore o header.
 - Date range picker custom.
 - Suggerimenti nella ricerca per categorie, metodi e tag.
-- Filtri negativi con stato includi/escludi/neutro.
 - Filtri tag con selezione tutti, nessun tag e ricerca tag.
 - Filtri preimpostati salvabili.
 

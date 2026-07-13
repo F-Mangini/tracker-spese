@@ -1432,6 +1432,42 @@ test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
     assert.deepEqual(result.map(s => s.id), ['match']);
 });
 
+test('Filtri categorie e pagamento combinano inclusioni ed esclusioni tri-state', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'bar-card', categoria: 'bar', metodo: 'carta' }),
+        expense({ id: 'home-card', categoria: 'casa', metodo: 'carta' }),
+        expense({ id: 'drink-cash', categoria: 'drink', metodo: 'contanti' }),
+        expense({ id: 'bills-card', categoria: 'bollette', metodo: 'carta' })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            excludedCategories: new Set(['bar'])
+        }).map(spesa => spesa.id),
+        ['home-card', 'drink-cash', 'bills-card']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            categories: new Set(['casa', 'drink']),
+            excludedCategories: new Set(['bar'])
+        }).map(spesa => spesa.id),
+        ['home-card', 'drink-cash']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            methods: new Set(['carta']),
+            excludedCategories: new Set(['bollette'])
+        }).map(spesa => spesa.id),
+        ['bar-card', 'home-card']
+    );
+    assert.equal(ExpenseFilters.countActive({
+        categories: new Set(['casa']),
+        excludedCategories: new Set(['bar']),
+        excludedMethods: new Set(['contanti'])
+    }), 2);
+});
+
 test('Ricerca tag richiede cancelletto e usa il prefisso', () => {
     const ExpenseFilters = loadFilters();
     const spese = [
@@ -1851,11 +1887,14 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     function makeChip(id) {
         return {
-            dataset: { id },
+            dataset: { id, label: id },
             classList: makeClassList(),
             listener: null,
             addEventListener(event, handler) {
                 if (event === 'click') this.listener = handler;
+            },
+            setAttribute(name, value) {
+                this[name] = value;
             }
         };
     }
@@ -1912,7 +1951,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     const filters = {
         query: '',
         categories: new Set(['bar']),
+        excludedCategories: new Set(['casa']),
         methods: new Set(),
+        excludedMethods: new Set(),
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -1954,8 +1995,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         countActiveFilters: () => {
             let count = 0;
             if (filters.query) count += 1;
-            if (filters.categories.size) count += 1;
-            if (filters.methods.size) count += 1;
+            if (filters.categories.size || filters.excludedCategories.size) count += 1;
+            if (filters.methods.size || filters.excludedMethods.size) count += 1;
             if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
             if (filters.dateFrom) count += 1;
             if (filters.dateTo) count += 1;
@@ -2003,6 +2044,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(state.sliderMax, 500);
     assert.equal(elements['slider-max'].value, '500');
     assert(catChips[0].classList.contains('active'));
+    assert(catChips[1].classList.contains('excluded'));
     assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
 
@@ -2012,6 +2054,19 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(detachedMethods.has('carta'), false);
     assert.equal(filters.methods.has('carta'), true);
     assert(methodChips[0].classList.contains('active'));
+    assert.equal(methodChips[0]['aria-pressed'], 'true');
+
+    methodChips[0].listener();
+    assert.equal(filters.methods.has('carta'), false);
+    assert.equal(filters.excludedMethods.has('carta'), true);
+    assert(methodChips[0].classList.contains('excluded'));
+    assert.equal(methodChips[0]['aria-pressed'], 'mixed');
+
+    methodChips[0].listener();
+    assert.equal(filters.excludedMethods.has('carta'), false);
+    assert(!methodChips[0].classList.contains('active'));
+    assert(!methodChips[0].classList.contains('excluded'));
+    assert.equal(methodChips[0]['aria-pressed'], 'false');
 
     state.selectionActive = true;
     FilterController.syncFilterUI(options);
@@ -2166,7 +2221,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.resetFilters(options);
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
+    assert.equal(filters.excludedCategories.size, 0);
     assert.equal(filters.methods.size, 0);
+    assert.equal(filters.excludedMethods.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
     assert.equal(filters.selectedOnlyIds.size, 0);
@@ -5122,7 +5179,9 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         SettingsActions.normalizeFilterSnapshot({
             query: ' caffe ',
             categories: ['bar', 2],
+            excludedCategories: new Set(['bollette']),
             methods: new Set(['carta']),
+            excludedMethods: ['contanti'],
             amountMin: '3',
             amountMax: null,
             dateFrom: '2026-06-01',
@@ -5131,7 +5190,9 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         {
             query: 'caffe',
             categories: ['bar', '2'],
+            excludedCategories: ['bollette'],
             methods: ['carta'],
+            excludedMethods: ['contanti'],
             amountMin: 3,
             amountMax: Infinity,
             dateFrom: '2026-06-01',
@@ -5155,6 +5216,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
                 filters: {
                     query: 'pane',
                     categories: ['spesa'],
+                    excludedCategories: ['bar'],
                     amountMax: 40
                 }
             }
@@ -5165,6 +5227,7 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     assert.deepEqual(normalizedPrefs.lastExport.selectedIds, ['b']);
     assert.equal(normalizedPrefs.lastExport.filters.query, 'pane');
     assert.deepEqual(normalizedPrefs.lastExport.filters.categories, ['spesa']);
+    assert.deepEqual(normalizedPrefs.lastExport.filters.excludedCategories, ['bar']);
     assert.deepEqual(
         SettingsActions.normalizeExportPreferences({
             lastExport: {
@@ -5177,7 +5240,9 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             filters: {
                 query: 'solo impostazioni',
                 categories: [],
+                excludedCategories: [],
                 methods: [],
+                excludedMethods: [],
                 amountMin: 0,
                 amountMax: Infinity,
                 dateFrom: '',
@@ -6012,7 +6077,9 @@ test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', 
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6020,7 +6087,7 @@ test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', 
         selectedOnly: false
     });
     assert.deepEqual(calls, [
-        ['apply-filters', { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
+        ['apply-filters', { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
         ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
@@ -6582,7 +6649,9 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6591,7 +6660,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6607,7 +6676,9 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: '',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6616,7 +6687,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: '', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: '', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
         ['a', 'b']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6653,7 +6724,9 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6663,7 +6736,7 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6702,7 +6775,9 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: '',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6716,7 +6791,9 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'latte',
         categories: ['bar'],
+        excludedCategories: [],
         methods: ['carta'],
+        excludedMethods: [],
         amountMin: 1,
         amountMax: 5,
         dateFrom: '',
@@ -6846,7 +6923,9 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -6860,7 +6939,9 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
     assert.deepEqual(currentFilters, {
         query: 'latte',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
@@ -7187,6 +7268,8 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.currentPage = 'stats';
     first.filters.query = 'caffe';
     first.filters.categories.add('bar');
+    first.filters.excludedCategories.add('bollette');
+    first.filters.excludedMethods.add('contanti');
     first.filters.selectedOnlyIds.add('expense-a');
     first.pageScrollTop.timeline = 120;
     first.timelineSelectionActive = true;
@@ -7198,6 +7281,8 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.currentPage, 'timeline');
     assert.equal(second.filters.query, '');
     assert.equal(second.filters.categories.size, 0);
+    assert.equal(second.filters.excludedCategories.size, 0);
+    assert.equal(second.filters.excludedMethods.size, 0);
     assert.equal(second.filters.selectedOnlyIds.size, 0);
     assert.equal(second.pageScrollTop.timeline, 0);
     assert.deepEqual(second._sdInstances, {});
@@ -7636,7 +7721,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
     };
     app.filters.query = 'pane';
     app.filters.categories = new Set(['alimentari']);
+    app.filters.excludedCategories = new Set(['bar']);
     app.filters.methods = new Set(['carta']);
+    app.filters.excludedMethods = new Set(['contanti']);
     app.filters.amountMin = 2;
     app.filters.amountMax = 20;
     app.filters.dateFrom = '2026-06-01';
@@ -7672,7 +7759,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
     TimelineSelectionController.enter(options, 'a');
     app.filters.query = 'bus';
     app.filters.categories = new Set(['trasporti']);
+    app.filters.excludedCategories = new Set(['ristorante']);
     app.filters.methods = new Set(['contanti']);
+    app.filters.excludedMethods = new Set(['carta']);
     app.filters.amountMin = 0;
     app.filters.amountMax = 10;
     app.filters.dateFrom = '';
@@ -7682,7 +7771,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
 
     assert.equal(app.filters.query, 'pane');
     assert.deepEqual(Array.from(app.filters.categories), ['alimentari']);
+    assert.deepEqual(Array.from(app.filters.excludedCategories), ['bar']);
     assert.deepEqual(Array.from(app.filters.methods), ['carta']);
+    assert.deepEqual(Array.from(app.filters.excludedMethods), ['contanti']);
     assert.equal(app.filters.amountMin, 2);
     assert.equal(app.filters.amountMax, 20);
     assert.equal(app.filters.dateFrom, '2026-06-01');

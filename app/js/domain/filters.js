@@ -24,7 +24,9 @@ const ExpenseFilters = (() => {
         return {
             query: String(filters.query || '').trim(),
             categories: toSet(filters.categories),
+            excludedCategories: toSet(filters.excludedCategories),
             methods: toSet(filters.methods),
+            excludedMethods: toSet(filters.excludedMethods),
             amountMin: Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 0,
             amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
             dateFrom: String(filters.dateFrom || '').trim(),
@@ -52,8 +54,8 @@ const ExpenseFilters = (() => {
         let count = 0;
 
         if (state.query) count += 1;
-        if (state.categories.size > 0) count += 1;
-        if (state.methods.size > 0) count += 1;
+        if (state.categories.size > 0 || state.excludedCategories.size > 0) count += 1;
+        if (state.methods.size > 0 || state.excludedMethods.size > 0) count += 1;
         if (state.amountMin > 0 || state.amountMax < Infinity) count += 1;
         if (state.dateFrom || state.dateTo) count += 1;
         if (state.selectedOnly) count += 1;
@@ -121,14 +123,19 @@ const ExpenseFilters = (() => {
         return true;
     }
 
+    function matchesChoice(value, included, excluded) {
+        if (excluded.has(value)) return false;
+        return included.size === 0 || included.has(value);
+    }
+
     function matches(spesa, filters = {}, options = {}) {
         const state = normalize(filters);
         const includeDate = options.includeDate !== false;
         const selectedIds = toSelectedIds(options.selectedOnlyIds || options.selectedIds);
 
         if (!matchesQuery(spesa, state.query)) return false;
-        if (state.categories.size > 0 && !state.categories.has(spesa.categoria)) return false;
-        if (state.methods.size > 0 && !state.methods.has(spesa.metodo)) return false;
+        if (!matchesChoice(spesa.categoria, state.categories, state.excludedCategories)) return false;
+        if (!matchesChoice(spesa.metodo, state.methods, state.excludedMethods)) return false;
         if (!matchesAmount(spesa, state)) return false;
         if (includeDate && !matchesDateRange(spesa, state)) return false;
         if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;
@@ -144,8 +151,8 @@ const ExpenseFilters = (() => {
 
         return list.filter(spesa => {
             if (!matchesQuery(spesa, state.query)) return false;
-            if (state.categories.size > 0 && !state.categories.has(spesa.categoria)) return false;
-            if (state.methods.size > 0 && !state.methods.has(spesa.metodo)) return false;
+            if (!matchesChoice(spesa.categoria, state.categories, state.excludedCategories)) return false;
+            if (!matchesChoice(spesa.metodo, state.methods, state.excludedMethods)) return false;
             if (!matchesAmount(spesa, state)) return false;
             if (includeDate && !matchesDateRange(spesa, state)) return false;
             if (state.selectedOnly && !selectedIds.has(spesa.id)) return false;

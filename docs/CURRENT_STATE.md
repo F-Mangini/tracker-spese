@@ -91,9 +91,11 @@ I filtri sono condivisi tra timeline e statistiche:
 - ricerca testuale su descrizione e nota; i termini preceduti da `#` cercano invece i tag per prefisso e possono essere combinati con il testo in qualsiasi ordine. Tutto il testo e tutti i tag indicati devono corrispondere;
 - range data;
 - importo minimo/massimo;
-- categorie;
-- metodi di pagamento.
+- categorie con stato tri-state neutro/incluso/escluso;
+- metodi di pagamento con stato tri-state neutro/incluso/escluso.
 - selezionate, disponibile solo durante la modalita selezione timeline.
+
+Per categorie e metodi, un tap porta il chip da neutro a incluso (verde), il successivo a escluso (rosso) e il terzo di nuovo a neutro. Se un gruppo non contiene inclusioni verdi, restano ammesse tutte le voci tranne quelle rosse; se contiene almeno un'inclusione, passano solo le voci verdi non escluse. Categorie e metodi si combinano tra loro, quindi per esempio si possono mostrare i soli pagamenti con carta escludendo contemporaneamente la categoria `bollette`. Gli stati esclusi fanno parte anche degli snapshot temporanei dei filtri usati dall'export custom, senza cambiare lo schema delle spese o il backup dati.
 
 Il pannello ha uno stato compatto e uno completamente aperto. I contenuti dei filtri restano gli stessi in entrambi gli stati: nel pannello compatto lo spazio scrollabile visibile e ridotto alla zona della ricerca e il resto dei controlli si raggiunge scrollando internamente, senza mostrare la barra laterale di scroll. La barra riassuntiva inferiore del pannello resta fuori dallo scroll ed e sempre visibile quando i filtri sono aperti. Il badge del pulsante filtri mostra il numero di filtri attivi.
 

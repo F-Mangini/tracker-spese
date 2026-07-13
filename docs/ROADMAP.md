@@ -162,8 +162,8 @@ Da riprendere solo quando servira:
 
 ## Miglioramenti filtri completati il 2026-07-13
 
-- Filtri negativi tri-state per categorie, metodi di pagamento e filtro speciale `Selezionate`: neutro, incluso verde ed escluso rosso, con inclusioni ed esclusioni combinabili e conservate negli snapshot dell'export custom. La sezione dinamica della modalita selezione mostra la stessa spunta grigia del toggle `Seleziona tutte` nell'header.
-- Filtro rapido tramite pressione prolungata sul pulsante filtri: salvataggio dal pannello completamente aperto, attivazione dal pannello chiuso o compatto, ripristino toggle dei filtri precedenti e ricomposizione dopo modifiche manuali. Il filtro `Selezionate` non viene memorizzato.
+- Filtri negativi tri-state per categorie, metodi di pagamento e filtro speciale `Selezionate`: neutro, incluso verde con tap ed escluso rosso con pressione lunga, con inclusioni ed esclusioni combinabili e conservate negli snapshot dell'export custom. La sezione dinamica della modalita selezione mostra la stessa spunta grigia del toggle `Seleziona tutte` nell'header.
+- Filtro rapido tramite pressione prolungata sul pulsante filtri: salvataggio dal pannello completamente aperto, attivazione dal pannello chiuso o compatto, ripristino toggle dei filtri precedenti e ricomposizione dopo modifiche manuali. Il reset diventa una nuova base vuota da ripristinare; il filtro `Selezionate` non viene memorizzato.
 
 ## Filtri e Ricerca
 

@@ -1944,6 +1944,68 @@ test('Filtro rapido dopo una modifica manuale ricompone rapido e filtri iniziali
     assert.equal(current.methods.join(','), 'carta');
 });
 
+test('Reset filtri sostituisce lo stato da ripristinare del filtro rapido', () => {
+    const { FilterController } = loadUiViews();
+    const filters = {
+        query: '',
+        categories: new Set(['bar']),
+        excludedCategories: new Set(),
+        methods: new Set(),
+        excludedMethods: new Set(),
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false,
+        excludedSelectedOnly: false,
+        selectedOnlyIds: new Set()
+    };
+    const options = {
+        filters,
+        document: {
+            getElementById: () => null,
+            querySelectorAll: () => []
+        },
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => filters,
+        applyFilterSnapshot(snapshot) {
+            filters.query = snapshot.query;
+            filters.categories = new Set(snapshot.categories);
+            filters.excludedCategories = new Set(snapshot.excludedCategories);
+            filters.methods = new Set(snapshot.methods);
+            filters.excludedMethods = new Set(snapshot.excludedMethods);
+            filters.amountMin = snapshot.amountMin;
+            filters.amountMax = snapshot.amountMax;
+            filters.dateFrom = snapshot.dateFrom;
+            filters.dateTo = snapshot.dateTo;
+            filters.selectedOnly = snapshot.selectedOnly;
+            filters.excludedSelectedOnly = snapshot.excludedSelectedOnly;
+            filters.selectedOnlyIds = new Set();
+        }
+    };
+    const state = {
+        savedSnapshot: { methods: ['carta'] },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    filters.categories.add('casa');
+    FilterController.resetFilters(options, {
+        quickFilterState: state,
+        showToast: false
+    });
+    assert.equal(state.restoreSnapshot, null);
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(filters.methods.has('carta'), true);
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(filters.categories.size, 0);
+    assert.equal(filters.methods.size, 0);
+    assert.equal(filters.excludedCategories.size, 0);
+    assert.equal(filters.excludedMethods.size, 0);
+});
+
 test('Pressione lunga filtro scatta una volta e sopprime il click successivo', () => {
     const { FilterController } = loadUiViews();
     const listeners = {};
@@ -2053,7 +2115,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             dataset: { id, label: id },
             classList: makeClassList(),
             listener: null,
+            listeners: {},
             addEventListener(event, handler) {
+                this.listeners[event] = handler;
                 if (event === 'click') this.listener = handler;
             },
             setAttribute(name, value) {
@@ -2200,8 +2264,18 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         setTimeout: callback => {
             transitionTimers.push(callback);
             return transitionTimers.length;
-        }
+        },
+        clearTimeout: () => { }
     };
+
+    function longPress(element) {
+        element.listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+        const callback = transitionTimers.shift();
+        assert.equal(typeof callback, 'function');
+        callback();
+        element.listeners.pointerup();
+        element.listeners.click({ preventDefault() { } });
+    }
 
     FilterController.init(options);
 
@@ -2222,15 +2296,29 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     methodChips[0].listener();
     assert.equal(filters.methods.has('carta'), false);
+    assert.equal(filters.excludedMethods.has('carta'), false);
+    assert(!methodChips[0].classList.contains('active'));
+    assert(!methodChips[0].classList.contains('excluded'));
+    assert.equal(methodChips[0]['aria-pressed'], 'false');
+
+    longPress(methodChips[0]);
     assert.equal(filters.excludedMethods.has('carta'), true);
     assert(methodChips[0].classList.contains('excluded'));
     assert.equal(methodChips[0]['aria-pressed'], 'mixed');
 
     methodChips[0].listener();
     assert.equal(filters.excludedMethods.has('carta'), false);
-    assert(!methodChips[0].classList.contains('active'));
+    assert.equal(filters.methods.has('carta'), true);
+    assert(methodChips[0].classList.contains('active'));
+    assert.equal(methodChips[0]['aria-pressed'], 'true');
+
+    longPress(methodChips[0]);
+    assert.equal(filters.methods.has('carta'), false);
+    assert.equal(filters.excludedMethods.has('carta'), true);
+
+    longPress(methodChips[0]);
+    assert.equal(filters.excludedMethods.has('carta'), false);
     assert(!methodChips[0].classList.contains('excluded'));
-    assert.equal(methodChips[0]['aria-pressed'], 'false');
 
     state.selectionActive = true;
     FilterController.syncFilterUI(options);
@@ -2242,12 +2330,18 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['filter-selected-only'].classList.contains('active'));
 
     state.selectedIds.add('casa');
-    elements['filter-selected-only'].listeners.click();
+    longPress(elements['filter-selected-only']);
     assert.equal(filters.selectedOnly, false);
     assert.equal(filters.excludedSelectedOnly, true);
     assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
     assert(elements['filter-selected-only'].classList.contains('excluded'));
     assert.equal(elements['filter-selected-only']['aria-pressed'], 'mixed');
+
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, true);
+    assert.equal(filters.excludedSelectedOnly, false);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
+    assert(elements['filter-selected-only'].classList.contains('active'));
 
     elements['filter-selected-only'].listeners.click();
     assert.equal(filters.selectedOnly, false);

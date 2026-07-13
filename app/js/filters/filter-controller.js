@@ -9,6 +9,7 @@ const FilterController = (() => {
     let filterLayoutTransitionToken = 0;
     let timelineScrollBeforeFilterOpen = null;
     let timelineScrollWithFilterOpen = null;
+    let activeQuickFilterState = null;
 
     function noop() { }
 
@@ -273,14 +274,12 @@ const FilterController = (() => {
         return 'activated';
     }
 
-    function bindQuickFilterLongPress(button, options = {}, state = {}) {
-        if (!button || typeof button.addEventListener !== 'function') return null;
-
+    function bindLongPressGesture(element, options = {}, onLongPress = noop, duration = QUICK_FILTER_LONG_PRESS_MS) {
+        if (!element || typeof element.addEventListener !== 'function') return null;
         const schedule = options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : null);
         const cancel = options.clearTimeout ||
             (typeof clearTimeout === 'function' ? clearTimeout : null);
-        const duration = Number(options.quickFilterLongPressMs || QUICK_FILTER_LONG_PRESS_MS);
         let timerId = null;
         let startPoint = null;
         let suppressNextClick = false;
@@ -290,7 +289,7 @@ const FilterController = (() => {
             timerId = null;
         };
 
-        button.addEventListener('pointerdown', event => {
+        element.addEventListener('pointerdown', event => {
             if (event && event.button && event.button !== 0) return;
 
             cancelTimer();
@@ -303,11 +302,11 @@ const FilterController = (() => {
             timerId = schedule(() => {
                 timerId = null;
                 suppressNextClick = true;
-                handleQuickFilterLongPress(options, state);
-            }, duration);
+                onLongPress();
+            }, Number(duration) || QUICK_FILTER_LONG_PRESS_MS);
         });
 
-        button.addEventListener('pointermove', event => {
+        element.addEventListener('pointermove', event => {
             if (!startPoint || !event || timerId === null) return;
             const dx = Math.abs(Number(event.clientX || 0) - startPoint.x);
             const dy = Math.abs(Number(event.clientY || 0) - startPoint.y);
@@ -315,10 +314,10 @@ const FilterController = (() => {
         });
 
         ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
-            button.addEventListener(eventName, cancelTimer);
+            element.addEventListener(eventName, cancelTimer);
         });
 
-        button.addEventListener('contextmenu', event => {
+        element.addEventListener('contextmenu', event => {
             if (event && typeof event.preventDefault === 'function') event.preventDefault();
         });
 
@@ -329,6 +328,20 @@ const FilterController = (() => {
                 return true;
             }
         };
+    }
+
+    function bindQuickFilterLongPress(button, options = {}, state = {}) {
+        activeQuickFilterState = state;
+        return bindLongPressGesture(
+            button,
+            options,
+            () => handleQuickFilterLongPress(options, state),
+            options.quickFilterLongPressMs || QUICK_FILTER_LONG_PRESS_MS
+        );
+    }
+
+    function forgetQuickFilterRestore(state = activeQuickFilterState) {
+        if (state) state.restoreSnapshot = null;
     }
 
     function setAdvancedFiltersOpen(options, value) {
@@ -725,18 +738,39 @@ const FilterController = (() => {
         if (resetBtn) resetBtn.addEventListener('click', () => resetFilters(options));
         if (advToggle) advToggle.addEventListener('click', () => toggleAdvancedFilters(options));
         if (selectedOnlyChip) {
-            selectedOnlyChip.addEventListener('click', () => {
+            const syncSelectedOnlyChange = () => {
+                syncSelectionFilterUI(options);
+                (options.onFilterChange || noop)();
+            };
+            const selectedLongPressBinding = bindLongPressGesture(
+                selectedOnlyChip,
+                options,
+                () => {
+                    if (!isTimelineSelectionActive(options)) return;
+
+                    if (options.filters.excludedSelectedOnly) {
+                        setSelectedOnlyFilter(options, false, false);
+                    } else {
+                        setSelectedOnlyFilter(options, false, true);
+                    }
+                    syncSelectedOnlyChange();
+                },
+                options.filterChipLongPressMs || QUICK_FILTER_LONG_PRESS_MS
+            );
+
+            selectedOnlyChip.addEventListener('click', event => {
+                if (selectedLongPressBinding && selectedLongPressBinding.consumeClick()) {
+                    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+                    return;
+                }
                 if (!isTimelineSelectionActive(options)) return;
 
                 if (options.filters.selectedOnly) {
-                    setSelectedOnlyFilter(options, false, true);
-                } else if (options.filters.excludedSelectedOnly) {
                     setSelectedOnlyFilter(options, false, false);
                 } else {
                     setSelectedOnlyFilter(options, true, false);
                 }
-                syncSelectionFilterUI(options);
-                (options.onFilterChange || noop)();
+                syncSelectedOnlyChange();
             });
         }
 
@@ -829,43 +863,40 @@ const FilterController = (() => {
         container.innerHTML = renderChips(options, items);
 
         container.querySelectorAll('.filter-chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                const id = chip.dataset.id;
-                const filters = options.filters || {};
-                const currentSet = containerId === 'filter-cats'
-                    ? filters.categories
-                    : containerId === 'filter-methods'
-                    ? filters.methods
-                    : targetSet;
-                let currentExcludedSet = containerId === 'filter-cats'
-                    ? filters.excludedCategories
-                    : containerId === 'filter-methods'
-                    ? filters.excludedMethods
-                    : null;
-                const includedSet = currentSet &&
-                    typeof currentSet.has === 'function' &&
-                    typeof currentSet.add === 'function' &&
-                    typeof currentSet.delete === 'function'
-                    ? currentSet
-                    : targetSet;
-                if (!(
-                    currentExcludedSet &&
-                    typeof currentExcludedSet.has === 'function' &&
-                    typeof currentExcludedSet.add === 'function' &&
-                    typeof currentExcludedSet.delete === 'function'
-                )) {
-                    currentExcludedSet = new Set();
-                    if (containerId === 'filter-cats') filters.excludedCategories = currentExcludedSet;
-                    if (containerId === 'filter-methods') filters.excludedMethods = currentExcludedSet;
+            const getSets = () => getChoiceChipSets(options, containerId, targetSet);
+            const longPressBinding = bindLongPressGesture(
+                chip,
+                options,
+                () => {
+                    const { includedSet, excludedSet } = getSets();
+                    const id = chip.dataset.id;
+
+                    if (excludedSet.has(id)) {
+                        excludedSet.delete(id);
+                    } else {
+                        includedSet.delete(id);
+                        excludedSet.add(id);
+                    }
+
+                    syncChoiceChip(chip, includedSet, excludedSet);
+                    (options.onFilterChange || noop)();
+                },
+                options.filterChipLongPressMs || QUICK_FILTER_LONG_PRESS_MS
+            );
+
+            chip.addEventListener('click', event => {
+                if (longPressBinding && longPressBinding.consumeClick()) {
+                    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+                    return;
                 }
-                const excludedSet = currentExcludedSet;
+
+                const { includedSet, excludedSet } = getSets();
+                const id = chip.dataset.id;
 
                 if (includedSet.has(id)) {
                     includedSet.delete(id);
-                    excludedSet.add(id);
-                } else if (excludedSet.has(id)) {
-                    excludedSet.delete(id);
                 } else {
+                    excludedSet.delete(id);
                     includedSet.add(id);
                 }
 
@@ -873,6 +904,39 @@ const FilterController = (() => {
                 (options.onFilterChange || noop)();
             });
         });
+    }
+
+    function getChoiceChipSets(options, containerId, targetSet) {
+        const filters = options.filters || {};
+        const currentSet = containerId === 'filter-cats'
+            ? filters.categories
+            : containerId === 'filter-methods'
+            ? filters.methods
+            : targetSet;
+        let excludedSet = containerId === 'filter-cats'
+            ? filters.excludedCategories
+            : containerId === 'filter-methods'
+            ? filters.excludedMethods
+            : null;
+        const includedSet = currentSet &&
+            typeof currentSet.has === 'function' &&
+            typeof currentSet.add === 'function' &&
+            typeof currentSet.delete === 'function'
+            ? currentSet
+            : targetSet;
+
+        if (!(
+            excludedSet &&
+            typeof excludedSet.has === 'function' &&
+            typeof excludedSet.add === 'function' &&
+            typeof excludedSet.delete === 'function'
+        )) {
+            excludedSet = new Set();
+            if (containerId === 'filter-cats') filters.excludedCategories = excludedSet;
+            if (containerId === 'filter-methods') filters.excludedMethods = excludedSet;
+        }
+
+        return { includedSet, excludedSet };
     }
 
     function syncChoiceChip(chip, includedSet, excludedSet) {
@@ -1225,6 +1289,8 @@ const FilterController = (() => {
     function resetFilters(options = {}, config = {}) {
         const filters = options.filters;
 
+        forgetQuickFilterRestore(config.quickFilterState || activeQuickFilterState);
+
         filters.query = '';
         if (filters.categories && typeof filters.categories.clear === 'function') filters.categories.clear();
         if (filters.excludedCategories && typeof filters.excludedCategories.clear === 'function') filters.excludedCategories.clear();
@@ -1268,6 +1334,8 @@ const FilterController = (() => {
         readQuickFilter,
         saveQuickFilter,
         handleQuickFilterLongPress,
-        bindQuickFilterLongPress
+        bindQuickFilterLongPress,
+        bindLongPressGesture,
+        forgetQuickFilterRestore
     };
 })();

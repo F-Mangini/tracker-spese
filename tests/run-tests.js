@@ -1916,9 +1916,9 @@ test('Filtro rapido alterna snapshot salvato e filtri precedenti', () => {
     assert.equal(applied.length, 2);
 });
 
-test('Filtro rapido dopo una modifica manuale ricompone rapido e filtri iniziali', () => {
+test('Filtro rapido ripristina l ultima configurazione diversa dal rapido', () => {
     const { FilterController } = loadUiViews();
-    let current = { categories: ['bar'], methods: [] };
+    let current = { categories: [], methods: [] };
     const options = {
         getFilterOpen: () => true,
         getAdvancedFiltersOpen: () => false,
@@ -1940,8 +1940,36 @@ test('Filtro rapido dopo una modifica manuale ricompone rapido e filtri iniziali
     assert.equal(current.methods.join(','), 'carta');
 
     assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
-    assert.equal(current.categories.join(','), 'bar');
+    assert.equal(current.categories.join(','), 'casa');
     assert.equal(current.methods.join(','), 'carta');
+});
+
+test('Filtro rapido ripristina lo stato precedente anche se il rapido e raggiunto a mano', () => {
+    const { FilterController } = loadUiViews();
+    let current = { categories: [], methods: [] };
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        }
+    };
+    const state = {
+        savedSnapshot: { categories: [], methods: ['carta'] },
+        restoreSnapshot: null,
+        lastObservedSnapshot: current
+    };
+
+    current = { categories: [], methods: ['carta'] };
+    FilterController.observeQuickFilterChange(options, state);
+
+    assert(state.restoreSnapshot);
+    assert.equal(state.restoreSnapshot.categories.length, 0);
+    assert.equal(state.restoreSnapshot.methods.length, 0);
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.length, 0);
 });
 
 test('Reset filtri sostituisce lo stato da ripristinare del filtro rapido', () => {

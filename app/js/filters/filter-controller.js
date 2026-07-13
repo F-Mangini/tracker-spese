@@ -140,39 +140,6 @@ const FilterController = (() => {
             serializeQuickFilterSnapshot(options, right);
     }
 
-    function mergeQuickFilterSnapshots(options, baseValue, quickValue) {
-        const base = normalizeQuickFilterSnapshot(options, baseValue);
-        const quick = normalizeQuickFilterSnapshot(options, quickValue);
-        const excludedCategories = normalizeIdList([
-            ...base.excludedCategories,
-            ...quick.excludedCategories
-        ]);
-        const excludedMethods = normalizeIdList([
-            ...base.excludedMethods,
-            ...quick.excludedMethods
-        ]);
-        const categories = normalizeIdList([
-            ...base.categories,
-            ...quick.categories
-        ]).filter(id => !excludedCategories.includes(id));
-        const methods = normalizeIdList([
-            ...base.methods,
-            ...quick.methods
-        ]).filter(id => !excludedMethods.includes(id));
-
-        return normalizeQuickFilterSnapshot(options, {
-            query: quick.query || base.query,
-            categories,
-            excludedCategories,
-            methods,
-            excludedMethods,
-            amountMin: Math.max(base.amountMin, quick.amountMin),
-            amountMax: Math.min(base.amountMax, quick.amountMax),
-            dateFrom: [base.dateFrom, quick.dateFrom].filter(Boolean).sort().pop() || '',
-            dateTo: [base.dateTo, quick.dateTo].filter(Boolean).sort()[0] || ''
-        });
-    }
-
     function getQuickFilterStorageKey(options = {}) {
         const baseKey = options.storage && options.storage.KEY
             ? options.storage.KEY
@@ -236,6 +203,31 @@ const FilterController = (() => {
         return normalized;
     }
 
+    function observeQuickFilterChange(options = {}, state = activeQuickFilterState) {
+        if (!state) return;
+
+        const current = createCurrentQuickFilterSnapshot(options);
+        const previous = state.lastObservedSnapshot
+            ? normalizeQuickFilterSnapshot(options, state.lastObservedSnapshot)
+            : null;
+        const saved = state.savedSnapshot
+            ? normalizeQuickFilterSnapshot(options, state.savedSnapshot)
+            : null;
+
+        if (saved && previous &&
+            areQuickFilterSnapshotsEqual(options, current, saved) &&
+            !areQuickFilterSnapshotsEqual(options, previous, saved)) {
+            state.restoreSnapshot = previous;
+        }
+
+        state.lastObservedSnapshot = current;
+    }
+
+    function notifyFilterChange(options = {}) {
+        observeQuickFilterChange(options);
+        (options.onFilterChange || noop)();
+    }
+
     function handleQuickFilterLongPress(options = {}, state = {}) {
         const fullyOpen = getFilterOpen(options) && getAdvancedFiltersOpen(options);
 
@@ -243,6 +235,7 @@ const FilterController = (() => {
             const saved = createCurrentQuickFilterSnapshot(options);
             state.savedSnapshot = saved;
             state.restoreSnapshot = null;
+            state.lastObservedSnapshot = saved;
             saveQuickFilter(options, saved);
             (options.showToast || noop)('Filtro rapido salvato', 'success');
             return 'saved';
@@ -257,19 +250,19 @@ const FilterController = (() => {
         state.savedSnapshot = normalizeQuickFilterSnapshot(options, saved);
         const current = createCurrentQuickFilterSnapshot(options);
 
-        if (state.restoreSnapshot &&
-            areQuickFilterSnapshotsEqual(options, current, state.savedSnapshot)) {
+        if (areQuickFilterSnapshotsEqual(options, current, state.savedSnapshot) &&
+            state.restoreSnapshot) {
             const restore = state.restoreSnapshot;
             state.restoreSnapshot = null;
-            applyQuickFilterSnapshot(options, restore);
+            state.lastObservedSnapshot = applyQuickFilterSnapshot(options, restore);
             (options.showToast || noop)('Filtri precedenti ripristinati', 'info');
             return 'restored';
         }
 
-        state.restoreSnapshot = state.restoreSnapshot
-            ? mergeQuickFilterSnapshots(options, state.restoreSnapshot, state.savedSnapshot)
-            : current;
-        applyQuickFilterSnapshot(options, state.savedSnapshot);
+        if (!areQuickFilterSnapshotsEqual(options, current, state.savedSnapshot)) {
+            state.restoreSnapshot = current;
+        }
+        state.lastObservedSnapshot = applyQuickFilterSnapshot(options, state.savedSnapshot);
         (options.showToast || noop)('Filtro rapido attivato', 'info');
         return 'activated';
     }
@@ -341,7 +334,9 @@ const FilterController = (() => {
     }
 
     function forgetQuickFilterRestore(state = activeQuickFilterState) {
-        if (state) state.restoreSnapshot = null;
+        if (!state) return;
+        state.restoreSnapshot = null;
+        state.lastObservedSnapshot = null;
     }
 
     function setAdvancedFiltersOpen(options, value) {
@@ -651,7 +646,8 @@ const FilterController = (() => {
         const selectedOnlyChip = doc.getElementById('filter-selected-only');
         const quickFilterState = {
             savedSnapshot: readQuickFilter(options),
-            restoreSnapshot: null
+            restoreSnapshot: null,
+            lastObservedSnapshot: createCurrentQuickFilterSnapshot(options)
         };
         const quickFilterBinding = bindQuickFilterLongPress(
             toggleBtn,
@@ -674,7 +670,7 @@ const FilterController = (() => {
             searchInput.addEventListener('input', () => {
                 options.filters.query = searchInput.value.trim();
                 clearBtn.classList.toggle('hidden', !options.filters.query);
-                (options.onFilterChange || noop)();
+                notifyFilterChange(options);
             });
 
             searchInput.addEventListener('keydown', e => {
@@ -707,7 +703,7 @@ const FilterController = (() => {
                 searchInput.value = '';
                 options.filters.query = '';
                 clearBtn.classList.add('hidden');
-                (options.onFilterChange || noop)();
+                notifyFilterChange(options);
             };
 
             clearBtn.addEventListener('mousedown', handleClear);
@@ -730,7 +726,7 @@ const FilterController = (() => {
                 el.classList.add('date-picked');
                 if (el === dateFrom) options.filters.dateFrom = el.value;
                 else options.filters.dateTo = el.value;
-                (options.onFilterChange || noop)();
+                notifyFilterChange(options);
                 try { el.blur(); } catch (_) { }
             });
         });
@@ -740,7 +736,7 @@ const FilterController = (() => {
         if (selectedOnlyChip) {
             const syncSelectedOnlyChange = () => {
                 syncSelectionFilterUI(options);
-                (options.onFilterChange || noop)();
+                notifyFilterChange(options);
             };
             const selectedLongPressBinding = bindLongPressGesture(
                 selectedOnlyChip,
@@ -879,7 +875,7 @@ const FilterController = (() => {
                     }
 
                     syncChoiceChip(chip, includedSet, excludedSet);
-                    (options.onFilterChange || noop)();
+                    notifyFilterChange(options);
                 },
                 options.filterChipLongPressMs || QUICK_FILTER_LONG_PRESS_MS
             );
@@ -901,7 +897,7 @@ const FilterController = (() => {
                 }
 
                 syncChoiceChip(chip, includedSet, excludedSet);
-                (options.onFilterChange || noop)();
+                notifyFilterChange(options);
             });
         });
     }
@@ -1039,7 +1035,7 @@ const FilterController = (() => {
             options.filters.amountMax = hi >= getSliderMaxValue(options) ? Infinity : hi;
 
             updateSliderUI(options, lo, hi);
-            (options.onFilterChange || noop)();
+            notifyFilterChange(options);
         };
 
         sMin.addEventListener('input', () => {
@@ -1305,7 +1301,7 @@ const FilterController = (() => {
         filters.selectedOnlyIds = new Set();
 
         syncFilterUI(options);
-        (options.onFilterChange || noop)();
+        notifyFilterChange(options);
         if (config.showToast !== false) {
             (options.showToast || noop)('Filtri resettati', 'info');
         }
@@ -1329,10 +1325,10 @@ const FilterController = (() => {
         releaseFilterSearchInteraction,
         normalizeQuickFilterSnapshot,
         areQuickFilterSnapshotsEqual,
-        mergeQuickFilterSnapshots,
         getQuickFilterStorageKey,
         readQuickFilter,
         saveQuickFilter,
+        observeQuickFilterChange,
         handleQuickFilterLongPress,
         bindQuickFilterLongPress,
         bindLongPressGesture,

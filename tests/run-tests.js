@@ -3178,9 +3178,25 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         settings: makeElement('page-settings', ['hidden'])
     };
     const timelineBanner = makeElement('timeline-summary');
-    timelineBanner.getBoundingClientRect = () => ({ top: 68, height: 84 });
+    let simulateTimelineStickyLag = false;
+    let timelineNaturalReads = 0;
+    timelineBanner.getBoundingClientRect = () => {
+        if (simulateTimelineStickyLag &&
+            !pages.timeline.classList.contains('page-swipe-preview') &&
+            timelineBanner.style.transform === '') {
+            timelineNaturalReads += 1;
+            return { top: timelineNaturalReads === 1 ? 167 : 68, height: 84 };
+        }
+        return {
+            top: pages.timeline.classList.contains('page-swipe-preview') ? 167 : 68,
+            height: 84
+        };
+    };
     const statsBanner = makeElement('stats-sticky-header');
-    statsBanner.getBoundingClientRect = () => ({ top: 90, height: 84 });
+    statsBanner.getBoundingClientRect = () => ({
+        top: pages.stats.classList.contains('page-swipe-preview') ? 90 : 68,
+        height: 84
+    });
     pages.timeline.getBoundingClientRect = () => ({ top: -304 });
     pages.timeline.querySelector = selector => selector.includes('timeline-summary') ? timelineBanner : null;
     pages.stats.querySelector = selector => selector.includes('stats-sticky-header') ? statsBanner : null;
@@ -3392,6 +3408,10 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         pendingNavigationFrames.push(callback);
         return pendingNavigationFrames.length;
     };
+    const flushNavigationFrame = () => {
+        assert(pendingNavigationFrames.length > 0);
+        pendingNavigationFrames.shift()();
+    };
     main.listeners.touchstart({
         touches: [{ clientX: 300, clientY: 200 }],
         target: { closest: () => null }
@@ -3478,6 +3498,9 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
 
+    timelineBanner.classList.remove('hidden');
+    pages.timeline.classList.remove('filter-open');
+    simulateTimelineStickyLag = true;
     main.listeners.touchstart({
         touches: [{ clientX: 180, clientY: 200 }],
         target: { closest: () => null }
@@ -3495,12 +3518,19 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(main.scrollTop, 99);
     assert.equal(state.pageScrollTop.stats, 42);
     assert.equal(state.pageScrollTop.timeline, 99);
-    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(pendingNavigationFrames.length, 1);
     const returnedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
     assert.equal(returnedSwipeScroll.value, 99);
     assert.equal(returnedSwipeScroll.targetWasPreview, false);
     assert(!pages.timeline.classList.contains('hidden'));
     assert(pages.stats.classList.contains('hidden'));
+    assert.equal(timelineBanner.style.transform, 'translate3d(0, -99px, 0)');
+    assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
+
+    flushNavigationFrame();
+
+    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(timelineBanner.style.transform, '');
     assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
     assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
     assert(!inputBar.classList.contains('hidden'));

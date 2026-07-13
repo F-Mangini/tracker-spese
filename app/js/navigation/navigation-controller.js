@@ -197,6 +197,58 @@ const NavigationController = (() => {
         state.bannerRecords = [];
     }
 
+    function finalizeSwipeState(state) {
+        state.touchStart = null;
+        state.currentElement = null;
+        state.targetElement = null;
+        state.targetPage = null;
+        state.horizontal = false;
+        state.vertical = false;
+        state.deltaX = 0;
+        state.transitioning = false;
+        if (state.preparedPages && typeof state.preparedPages.clear === 'function') {
+            state.preparedPages.clear();
+        }
+    }
+
+    function settleSwipeBanners(options, state, main, onSettled, attempt = 0) {
+        const mainRect = typeof main.getBoundingClientRect === 'function'
+            ? main.getBoundingClientRect()
+            : { top: 0 };
+        const targetTop = (Number(mainRect.top) || 0) + 12;
+        let needsAnotherFrame = false;
+
+        (state.bannerRecords || []).forEach(record => {
+            const { element, pageElement, transform, bannerHidden } = record;
+            if (bannerHidden || !element || !element.style ||
+                !pageElement || pageElement.classList.contains('hidden') ||
+                typeof element.getBoundingClientRect !== 'function') return;
+
+            // Misura la quota naturale senza mostrare il frame intermedio. Se
+            // Chromium conserva per un frame il vecchio calcolo sticky, riapplica
+            // subito una compensazione e riprova al frame successivo.
+            element.style.transform = transform;
+            const naturalRect = element.getBoundingClientRect();
+            const offsetY = targetTop - (Number(naturalRect.top) || 0);
+
+            if (Math.abs(offsetY) > 0.5) {
+                element.style.transform = 'translate3d(0, ' + offsetY + 'px, 0)';
+                setStyleProperty(pageElement, '--page-swipe-banner-y', offsetY + 'px');
+                needsAnotherFrame = true;
+            }
+        });
+
+        if (needsAnotherFrame && attempt < 3) {
+            deferFrame(options, () => {
+                settleSwipeBanners(options, state, main, onSettled, attempt + 1);
+            });
+            return;
+        }
+
+        resetSwipeBanners(state);
+        onSettled();
+    }
+
     function getElementPaddingTop(options, element) {
         const doc = getDocument(options);
         const view = options.window || doc.defaultView ||
@@ -218,14 +270,15 @@ const NavigationController = (() => {
             ? main.getBoundingClientRect()
             : { top: 0 };
         const bannerRect = banner.getBoundingClientRect();
+        const bannerHidden = banner.classList.contains('hidden') ||
+            (Number(bannerRect.height) || 0) <= 0;
         const record = {
             element: banner,
             pageElement,
             transform: banner.style.transform || '',
-            transition: banner.style.transition || ''
+            transition: banner.style.transition || '',
+            bannerHidden
         };
-        const bannerHidden = banner.classList.contains('hidden') ||
-            (Number(bannerRect.height) || 0) <= 0;
 
         state.bannerRecords.push(record);
         pageElement.classList.add('page-swipe-mask-aligned');
@@ -344,7 +397,8 @@ const NavigationController = (() => {
         state.targetPage = null;
     }
 
-    function cleanupSwipe(main, state, keepTargetVisible = false, beforeBannerReset = null) {
+    function cleanupSwipe(options, main, state, keepTargetVisible = false,
+        beforeBannerReset = null, settleVisibleBanner = false) {
         if (main.classList) main.classList.remove('page-swipe-active');
         resetSwipeInput(state, keepTargetVisible);
         resetSwipeElement(state.currentElement);
@@ -355,19 +409,14 @@ const NavigationController = (() => {
             if (!keepTargetVisible) targetElement.classList.add('hidden');
         }
         if (typeof beforeBannerReset === 'function') beforeBannerReset();
-        resetSwipeBanners(state);
 
-        state.touchStart = null;
-        state.currentElement = null;
-        state.targetElement = null;
-        state.targetPage = null;
-        state.horizontal = false;
-        state.vertical = false;
-        state.deltaX = 0;
-        state.transitioning = false;
-        if (state.preparedPages && typeof state.preparedPages.clear === 'function') {
-            state.preparedPages.clear();
+        if (settleVisibleBanner) {
+            settleSwipeBanners(options, state, main, () => finalizeSwipeState(state));
+            return;
         }
+
+        resetSwipeBanners(state);
+        finalizeSwipeState(state);
     }
 
     function prepareSwipePreview(options, main, state, targetPage) {
@@ -464,7 +513,7 @@ const NavigationController = (() => {
 
     function finishSwipe(options, main, state, forceCancel = false) {
         if (!state.horizontal || state.vertical) {
-            cleanupSwipe(main, state);
+            cleanupSwipe(options, main, state);
             return;
         }
 
@@ -495,16 +544,9 @@ const NavigationController = (() => {
                 });
                 navigated = getCurrentPage(options) === targetPage;
             }
-            cleanupSwipe(main, state, navigated, navigated ? () => {
+            cleanupSwipe(options, main, state, navigated, navigated ? () => {
                 restorePageScroll(options, targetPage, { immediate: true });
-
-                // La pagina target deve avere gia layout e scroll definitivi prima
-                // di rimuovere la compensazione verticale del banner sticky.
-                if (state.targetElement &&
-                    typeof state.targetElement.getBoundingClientRect === 'function') {
-                    state.targetElement.getBoundingClientRect();
-                }
-            } : null);
+            } : null, navigated);
         }, 180);
     }
 

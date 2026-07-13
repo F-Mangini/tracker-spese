@@ -197,7 +197,17 @@ const NavigationController = (() => {
         state.bannerRecords = [];
     }
 
-    function alignSwipeBanner(state, main, pageElement) {
+    function getElementPaddingTop(options, element) {
+        const doc = getDocument(options);
+        const view = options.window || doc.defaultView ||
+            (typeof window !== 'undefined' ? window : null);
+        if (!view || typeof view.getComputedStyle !== 'function') return 0;
+
+        const paddingTop = Number.parseFloat(view.getComputedStyle(element).paddingTop);
+        return Number.isFinite(paddingTop) ? paddingTop : 0;
+    }
+
+    function alignSwipeBanner(options, state, main, pageElement) {
         if (!pageElement || typeof pageElement.querySelector !== 'function') return;
 
         const banner = pageElement.querySelector('#timeline-summary, .stats-sticky-header');
@@ -226,10 +236,15 @@ const NavigationController = (() => {
                 typeof pageElement.getBoundingClientRect === 'function'
                 ? pageElement.getBoundingClientRect()
                 : mainRect;
+            const pagePaddingTop = isPreview
+                ? getElementPaddingTop(options, pageElement)
+                : 0;
             const maskOffsetY = isPreview
                 ? Math.max(
                     0,
-                    (Number(mainRect.top) || 0) - (Number(pageRect.top) || 0)
+                    (Number(mainRect.top) || 0) -
+                        (Number(pageRect.top) || 0) -
+                        pagePaddingTop
                 )
                 : 0;
 
@@ -391,8 +406,8 @@ const NavigationController = (() => {
         state.currentElement = currentElement;
         state.targetElement = targetElement;
         state.targetPage = targetPage;
-        alignSwipeBanner(state, main, currentElement);
-        alignSwipeBanner(state, main, targetElement);
+        alignSwipeBanner(options, state, main, currentElement);
+        alignSwipeBanner(options, state, main, targetElement);
     }
 
     function updateSwipePreview(options, main, state, deltaX, deltaY, event) {
@@ -418,7 +433,7 @@ const NavigationController = (() => {
             if (currentElement) currentElement.classList.add('page-swipe-layer', 'page-swipe-current');
             const resistedX = deltaX * 0.18;
             setSwipeTransform(currentElement, resistedX);
-            alignSwipeBanner(state, main, currentElement);
+            alignSwipeBanner(options, state, main, currentElement);
             updateSwipeInput(
                 options,
                 state,

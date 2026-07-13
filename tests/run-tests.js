@@ -3202,6 +3202,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     let pendingSettingsNavigation = null;
     const options = {
         document: doc,
+        window: { getComputedStyle: () => ({ paddingTop: '12px' }) },
         pageScrollTop: state.pageScrollTop,
         getCurrentPage: () => state.currentPage,
         setCurrentPage: page => { state.currentPage = page; },
@@ -3376,7 +3377,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!pages.timeline.classList.contains('hidden'));
     assert.equal(pages.stats.style.transform, 'translate3d(40px, 0, 0)');
     assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
-    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '360px');
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '348px');
     assert(!inputBar.classList.contains('hidden'));
     assert(inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '-353px');

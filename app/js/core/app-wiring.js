@@ -438,8 +438,6 @@ const AppWiring = (() => {
                 }),
                 pageScrollTop: app.pageScrollTop,
                 getFilterOpen: () => app.filterOpen,
-                getTimelineFilterScrollCompensation: () => app.timelineFilterScrollCompensation,
-                setTimelineFilterScrollCompensation: value => { app.timelineFilterScrollCompensation = value; },
                 setFilterOpen: value => { app.filterOpen = value; },
                 getAdvancedFiltersOpen: () => app.advancedFiltersOpen,
                 setAdvancedFiltersOpen: value => { app.advancedFiltersOpen = value; },

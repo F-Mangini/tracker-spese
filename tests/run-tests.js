@@ -1894,7 +1894,6 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         lastSliderInput: 'max',
         sliderMax: 100,
         lastViewportHeight: 0,
-        timelineFilterScrollCompensation: 0,
         pageScrollTop: { timeline: 200 }
     };
     const spese = [
@@ -1931,8 +1930,6 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         getQuickTotals: () => ({ todayTotal: 1, weekTotal: 2, monthTotal: 3, monthNameCapitalized: 'Maggio' }),
         getFilterOpen: () => state.filterOpen,
         setFilterOpen: value => { state.filterOpen = value; },
-        getTimelineFilterScrollCompensation: () => state.timelineFilterScrollCompensation,
-        setTimelineFilterScrollCompensation: value => { state.timelineFilterScrollCompensation = value; },
         getAdvancedFiltersOpen: () => state.advancedFiltersOpen,
         setAdvancedFiltersOpen: value => { state.advancedFiltersOpen = value; },
         getFilterSearchActive: () => state.filterSearchActive,
@@ -1991,9 +1988,9 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     elements['app-main'].scrollTop = 200;
     FilterController.openFilterPanel(options);
-    assert.equal(elements['app-main'].scrollTop, 80);
-    assert.equal(state.pageScrollTop.timeline, 80);
-    assert.equal(state.timelineFilterScrollCompensation, 120);
+    assert.equal(elements['app-main'].scrollTop, 200);
+    assert.equal(state.pageScrollTop.timeline, 200);
+    assert.equal(elements['app-main'].style.marginTop, 'calc(var(--header-h) + 96px)');
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     assert.equal(elements['btn-advanced-toggle'].title, 'Espandi pannello filtri');
     elements['search-input'].listeners.focus();
@@ -2081,7 +2078,6 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!elements['app-main'].classList.contains('no-input-bar'));
     assert.equal(elements['app-main'].scrollTop, 200);
     assert.equal(state.pageScrollTop.timeline, 200);
-    assert.equal(state.timelineFilterScrollCompensation, 0);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
     FilterController.openFilterPanel(options);
@@ -6988,7 +6984,6 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.filters.amountMax, Infinity);
     assert.equal(second._activeFiltersHistory, false);
     assert.equal(second._releasedFilterSearchHistory, false);
-    assert.equal(second.timelineFilterScrollCompensation, 0);
     assert.equal(second._suppressPopstateCount, 0);
     assert.equal(second.timelineSelectionActive, false);
     assert.equal(second.timelineSelectedIds.size, 0);

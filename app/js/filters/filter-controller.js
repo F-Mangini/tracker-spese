@@ -75,77 +75,22 @@ const FilterController = (() => {
         return options.currentPage || 'timeline';
     }
 
-    function getTimelineFilterScrollCompensation(options) {
-        return Number(getState(
-            options,
-            'getTimelineFilterScrollCompensation',
-            'timelineFilterScrollCompensation',
-            0
-        )) || 0;
-    }
-
-    function setTimelineFilterScrollCompensation(options, value) {
-        setState(
-            options,
-            'setTimelineFilterScrollCompensation',
-            'timelineFilterScrollCompensation',
-            Math.max(0, Number(value) || 0)
-        );
-    }
-
-    function getElementOuterHeight(options, element) {
-        if (!element) return 0;
-
-        const rect = typeof element.getBoundingClientRect === 'function'
-            ? element.getBoundingClientRect()
-            : null;
-        const height = Number(rect && rect.height) || Number(element.offsetHeight) || 0;
-        const win = getWindow(options);
-        const style = win && typeof win.getComputedStyle === 'function'
-            ? win.getComputedStyle(element)
-            : null;
-        const marginTop = Number.parseFloat(style && style.marginTop) || 0;
-        const marginBottom = Number.parseFloat(style && style.marginBottom) || 0;
-
-        return height + marginTop + marginBottom;
-    }
-
-    function hideTimelineSummaryForFilters(options, doc, summary) {
+    function setTimelineSummaryHidden(options, doc, summary, hidden) {
         const main = doc.getElementById('app-main');
-        const isTimeline = getCurrentPage(options) === 'timeline';
-        const previousScrollTop = main && isTimeline ? Number(main.scrollTop) || 0 : 0;
-        const compensation = Math.min(previousScrollTop, getElementOuterHeight(options, summary));
+        const shouldPreserveScroll = main && getCurrentPage(options) === 'timeline';
+        const preservedScrollTop = shouldPreserveScroll
+            ? Number(main.scrollTop) || 0
+            : null;
 
-        setTimelineFilterScrollCompensation(options, compensation);
-        if (summary) summary.classList.add('hidden');
-
-        if (main && isTimeline && compensation > 0) {
-            main.scrollTop = previousScrollTop - compensation;
-            if (options.pageScrollTop) options.pageScrollTop.timeline = main.scrollTop;
-        }
-    }
-
-    function showTimelineSummaryAfterFilters(options, doc, summary) {
-        const compensation = getTimelineFilterScrollCompensation(options);
-        const main = doc.getElementById('app-main');
-        const isTimeline = getCurrentPage(options) === 'timeline';
-        const restoredScrollTop = main && isTimeline
-            ? (Number(main.scrollTop) || 0) + compensation
-            : 0;
-
-        if (summary) summary.classList.remove('hidden');
-
-        if (compensation > 0) {
-            if (main && isTimeline) {
-                main.scrollTop = restoredScrollTop;
-                if (options.pageScrollTop) options.pageScrollTop.timeline = restoredScrollTop;
-            } else if (options.pageScrollTop) {
-                options.pageScrollTop.timeline =
-                    (Number(options.pageScrollTop.timeline) || 0) + compensation;
-            }
+        if (summary) {
+            if (hidden) summary.classList.add('hidden');
+            else summary.classList.remove('hidden');
         }
 
-        setTimelineFilterScrollCompensation(options, 0);
+        if (shouldPreserveScroll) {
+            main.scrollTop = preservedScrollTop;
+            if (options.pageScrollTop) options.pageScrollTop.timeline = preservedScrollTop;
+        }
     }
 
     function isTimelineSelectionActive(options) {
@@ -755,7 +700,7 @@ const FilterController = (() => {
         (options.pushUiState || noop)({ panel: 'filter' });
 
         const summary = doc.getElementById('timeline-summary');
-        hideTimelineSummaryForFilters(options, doc, summary);
+        setTimelineSummaryHidden(options, doc, summary, true);
 
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.add('filter-open');
@@ -794,7 +739,7 @@ const FilterController = (() => {
         syncInputBarForAdvanced(options, false);
 
         const summary = doc.getElementById('timeline-summary');
-        showTimelineSummaryAfterFilters(options, doc, summary);
+        setTimelineSummaryHidden(options, doc, summary, false);
 
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.remove('filter-open');

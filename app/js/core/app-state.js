@@ -40,7 +40,6 @@ const AppState = (() => {
             chartBar: null,
 
             filterOpen: false,
-            timelineFilterScrollCompensation: 0,
             filters: createFilters(),
             _activeFiltersHistory: false,
             sliderMax: 100,

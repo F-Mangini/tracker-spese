@@ -1756,6 +1756,7 @@ test('Controller filtri riusa modello filtrato precomputato', () => {
 test('Controller filtri coordina pannello, ricerca e slider fuori da App', () => {
     const { FilterController, FilterView } = loadUiViews();
     const calls = [];
+    const transitionTimers = [];
 
     function makeClassList(initial = []) {
         const classes = new Set(initial);
@@ -1955,7 +1956,11 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         clearReleasedFilterSearchHistory: () => { state.releasedFilterSearchHistory = false; },
         onFilterChange: () => calls.push('filter-change'),
         showToast: (message, type) => calls.push(['toast', message, type]),
-        requestAnimationFrame: callback => callback()
+        requestAnimationFrame: callback => callback(),
+        setTimeout: callback => {
+            transitionTimers.push(callback);
+            return transitionTimers.length;
+        }
     };
 
     FilterController.init(options);
@@ -1991,6 +1996,12 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(elements['app-main'].scrollTop, 200);
     assert.equal(state.pageScrollTop.timeline, 200);
     assert.equal(elements['app-main'].style.marginTop, 'calc(var(--header-h) + 96px)');
+    assert(elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
+    assert(!elements['timeline-summary'].classList.contains('hidden'));
+    assert(elements['app-main'].classList.contains('filter-layout-transition'));
+    assert.equal(elements['filter-panel']['aria-hidden'], 'false');
+    transitionTimers.shift()();
+    assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     assert.equal(elements['btn-advanced-toggle'].title, 'Espandi pannello filtri');
     elements['search-input'].listeners.focus();
@@ -2073,6 +2084,15 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.closeFilterPanel(options);
     assert.equal(state.filterOpen, false);
     assert.equal(state.advancedFiltersOpen, false);
+    assert(elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert(!elements['filter-panel'].classList.contains('hidden'));
+    assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
+    assert(elements['app-main'].classList.contains('filter-layout-transition'));
+    assert(!elements['advanced-filters'].classList.contains('hidden'));
+    transitionTimers.shift()();
+    assert(elements['filter-panel'].classList.contains('hidden'));
+    assert(!elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
     assert(!elements['app-main'].classList.contains('no-input-bar'));
@@ -2081,6 +2101,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
     FilterController.openFilterPanel(options);
+    transitionTimers.shift()();
     FilterController.openAdvancedFilters(options);
     scrollContainer.scrollTop = 120;
     FilterController.closeAdvancedFilters(options);
@@ -3394,6 +3415,21 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(inputBar.classList.contains('hidden'));
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
+});
+
+test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
+    const css = readAppFile('css/style.css');
+    const summaryCollapsedRule = css.match(/#timeline-summary\.filter-panel-collapsed\s*\{([^}]*)\}/);
+    const closingPanelRule = css.match(/\.filter-panel\.filter-panel-closing\s*\{([^}]*)\}/);
+    const mainTransitionRule = css.match(/#app-main\.filter-layout-transition\s*\{([^}]*)\}/);
+
+    assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
+    assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
+    assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
+    assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(/opacity\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(/overflow-anchor\s*:\s*none/.test(mainTransitionRule[1]));
+    assert(/transform\s*:\s*translateY\(-10px\)/.test(closingPanelRule[1]));
 });
 
 test('CSS impedisce il collasso dell offset verticale del contenuto', () => {

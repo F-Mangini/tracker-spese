@@ -232,7 +232,16 @@ body {
     border-bottom: 1px solid var(--border);
     z-index: 99;
     box-shadow: var(--shadow);
-    animation: fpSlideIn 0.2s ease;
+    animation: fpSlideIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.filter-panel.filter-panel-closing {
+    animation: none;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
 }
 
 .filter-panel.hidden {
@@ -622,7 +631,11 @@ body {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     touch-action: pan-y;
-    transition: margin-top 0.2s ease;
+    transition: margin-top 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#app-main.filter-layout-transition {
+    overflow-anchor: none;
 }
 
 #app-main.no-input-bar {
@@ -701,6 +714,23 @@ body {
     display: flex;
     align-items: center;
     box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: height 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        padding-top 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        margin-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 160ms ease,
+        transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#timeline-summary.filter-panel-collapsed {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
 }
 
 #page-timeline::before {
@@ -2486,5 +2516,14 @@ body.no-scroll #app-main {
 
     .overlay {
         align-items: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-panel,
+    #app-main,
+    #timeline-summary {
+        animation: none;
+        transition: none;
     }
 }

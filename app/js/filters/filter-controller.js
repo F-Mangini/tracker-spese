@@ -3,6 +3,9 @@
    ============================================ */
 
 const FilterController = (() => {
+    const FILTER_LAYOUT_TRANSITION_MS = 200;
+    let filterLayoutTransitionToken = 0;
+
     function noop() { }
 
     function getDocument(options) {
@@ -23,6 +26,26 @@ const FilterController = (() => {
 
         if (frame) frame(callback);
         else callback();
+    }
+
+    function beginFilterLayoutTransition(options, main, onComplete = noop) {
+        const token = ++filterLayoutTransitionToken;
+        const schedule = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : null);
+
+        if (main) main.classList.add('filter-layout-transition');
+
+        if (!schedule) {
+            if (main) main.classList.remove('filter-layout-transition');
+            onComplete();
+            return;
+        }
+
+        schedule(() => {
+            if (token !== filterLayoutTransitionToken) return;
+            if (main) main.classList.remove('filter-layout-transition');
+            onComplete();
+        }, FILTER_LAYOUT_TRANSITION_MS);
     }
 
     function getState(options, getter, prop, fallback) {
@@ -83,8 +106,8 @@ const FilterController = (() => {
             : null;
 
         if (summary) {
-            if (hidden) summary.classList.add('hidden');
-            else summary.classList.remove('hidden');
+            summary.classList.remove('hidden');
+            summary.classList.toggle('filter-panel-collapsed', !!hidden);
         }
 
         if (shouldPreserveScroll) {
@@ -692,10 +715,19 @@ const FilterController = (() => {
         const toggleBtn = doc.getElementById('btn-filter-toggle');
         const advanced = doc.getElementById('advanced-filters');
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
-        if (panel) panel.classList.remove('hidden');
+        const main = doc.getElementById('app-main');
+
+        if (panel) {
+            panel.classList.remove('filter-panel-closing');
+            panel.classList.remove('hidden');
+            if (typeof panel.setAttribute === 'function') panel.setAttribute('aria-hidden', 'false');
+        }
         if (toggleBtn) toggleBtn.classList.add('active');
         if (advanced) advanced.classList.remove('hidden');
         syncAdvancedToggleButton(advancedBtn, getAdvancedFiltersOpen(options));
+
+        const panelHeight = panel ? Number(panel.offsetHeight) || 0 : 0;
+        beginFilterLayoutTransition(options, main);
 
         (options.pushUiState || noop)({ panel: 'filter' });
 
@@ -705,13 +737,10 @@ const FilterController = (() => {
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.add('filter-open');
 
-        defer(options, () => {
-            const main = doc.getElementById('app-main');
-            if (panel && main) {
-                main.style.marginTop = `calc(var(--header-h) + ${panel.offsetHeight}px)`;
-            }
-            updateAppMainPadding(options);
-        });
+        if (panel && main) {
+            main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
+        }
+        updateAppMainPadding(options);
     }
 
     function closeFilterPanel(options = {}, fromPopstate = false) {
@@ -730,10 +759,13 @@ const FilterController = (() => {
         const toggleBtn = doc.getElementById('btn-filter-toggle');
         const advanced = doc.getElementById('advanced-filters');
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
+        const main = doc.getElementById('app-main');
 
-        if (panel) panel.classList.add('hidden');
+        if (panel) {
+            panel.classList.add('filter-panel-closing');
+            if (typeof panel.setAttribute === 'function') panel.setAttribute('aria-hidden', 'true');
+        }
         if (toggleBtn) toggleBtn.classList.remove('active');
-        if (advanced) advanced.classList.add('hidden');
         syncAdvancedToggleButton(advancedBtn, false);
         if (body) body.classList.remove('no-scroll');
         syncInputBarForAdvanced(options, false);
@@ -744,8 +776,14 @@ const FilterController = (() => {
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.remove('filter-open');
 
-        const main = doc.getElementById('app-main');
         if (main) main.style.marginTop = '';
+        beginFilterLayoutTransition(options, main, () => {
+            if (panel) {
+                panel.classList.add('hidden');
+                panel.classList.remove('filter-panel-closing');
+            }
+            if (advanced) advanced.classList.add('hidden');
+        });
 
         const steps = (hadAdvancedFilters ? 2 : 1) +
             (!fromPopstate && shouldCleanupReleasedFilterSearchHistory ? 1 : 0);

@@ -468,7 +468,8 @@ const AppWiring = (() => {
                 clearReleasedFilterSearchHistory: () => { app._releasedFilterSearchHistory = false; },
                 onFilterChange: () => app.onFilterChange(),
                 showToast: (message, type) => app.showToast(message, type),
-                requestAnimationFrame: callback => deps.requestAnimationFrame(callback)
+                requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
             };
         }
 

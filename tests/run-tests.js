@@ -2087,11 +2087,13 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['filter-panel'].classList.contains('filter-panel-closing'));
     assert(!elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
+    assert(elements['timeline-summary'].classList.contains('filter-panel-revealing'));
     assert(elements['app-main'].classList.contains('filter-layout-transition'));
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     transitionTimers.shift()();
     assert(elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert(!elements['timeline-summary'].classList.contains('filter-panel-revealing'));
     assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
@@ -3339,6 +3341,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(typeof main.listeners.touchstart, 'function');
     assert.equal(typeof main.listeners.touchmove, 'function');
     assert.equal(typeof main.listeners.touchend, 'function');
+    const pendingNavigationFrames = [];
+    options.requestAnimationFrame = callback => {
+        pendingNavigationFrames.push(callback);
+        return pendingNavigationFrames.length;
+    };
     main.listeners.touchstart({
         touches: [{ clientX: 300, clientY: 200 }],
         target: { closest: () => null }
@@ -3374,6 +3381,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         preventDefault() {}
     });
     assert.equal(state.currentPage, 'stats');
+    assert.equal(main.scrollTop, 42);
+    assert.equal(pendingNavigationFrames.length, 0);
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
     assert.equal(statsBanner.style.transform, '');
@@ -3420,14 +3429,17 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
 test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
     const css = readAppFile('css/style.css');
     const summaryCollapsedRule = css.match(/#timeline-summary\.filter-panel-collapsed\s*\{([^}]*)\}/);
+    const summaryRevealingRule = css.match(/#timeline-summary\.filter-panel-revealing\s*\{([^}]*)\}/);
     const closingPanelRule = css.match(/\.filter-panel\.filter-panel-closing\s*\{([^}]*)\}/);
     const mainTransitionRule = css.match(/#app-main\.filter-layout-transition\s*\{([^}]*)\}/);
 
     assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
+    assert(summaryRevealingRule, 'Regola ritardo riapparizione riepilogo non trovata');
     assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
     assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
     assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));
     assert(/opacity\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(/--timeline-summary-opacity-delay\s*:\s*50ms/.test(summaryRevealingRule[1]));
     assert(/overflow-anchor\s*:\s*none/.test(mainTransitionRule[1]));
     assert(/transform\s*:\s*translateY\(-10px\)/.test(closingPanelRule[1]));
 });

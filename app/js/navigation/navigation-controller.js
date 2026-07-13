@@ -489,7 +489,8 @@ const NavigationController = (() => {
             if (shouldComplete) {
                 navigateTo(options, targetPage, false, {
                     animatePage: false,
-                    skipPageRender: true
+                    skipPageRender: true,
+                    restoreScrollImmediately: true
                 });
                 navigated = getCurrentPage(options) === targetPage;
             }
@@ -591,21 +592,23 @@ const NavigationController = (() => {
         getPageScrollTop(options)[currentPage] = main.scrollTop;
     }
 
-    function restorePageScroll(options = {}, page) {
+    function restorePageScroll(options = {}, page, config = {}) {
         const doc = getDocument(options);
         const main = doc.getElementById('app-main');
         if (!main) return;
 
         const top = getPageScrollTop(options)[page] || 0;
-
-        deferFrame(options, () => {
+        const applyScroll = () => {
             setRestoringPageScroll(options, true);
             main.scrollTop = top;
 
             deferTick(options, () => {
                 setRestoringPageScroll(options, false);
             });
-        });
+        };
+
+        if (config.immediate) applyScroll();
+        else deferFrame(options, applyScroll);
     }
 
     function syncPageDom(options = {}, page, config = {}) {
@@ -707,7 +710,9 @@ const NavigationController = (() => {
         if (!config.skipPageRender) {
             syncPageContent(options, page);
         }
-        restorePageScroll(options, page);
+        restorePageScroll(options, page, {
+            immediate: !!config.restoreScrollImmediately
+        });
 
         return action;
     }

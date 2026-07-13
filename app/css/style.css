@@ -719,8 +719,12 @@ body {
         padding-top 200ms cubic-bezier(0.22, 1, 0.36, 1),
         padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
         margin-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 160ms ease,
+        opacity 150ms ease var(--timeline-summary-opacity-delay, 0ms),
         transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#timeline-summary.filter-panel-revealing {
+    --timeline-summary-opacity-delay: 50ms;
 }
 
 #timeline-summary.filter-panel-collapsed {

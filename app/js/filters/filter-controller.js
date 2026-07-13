@@ -4,7 +4,8 @@
 
 const FilterController = (() => {
     const FILTER_LAYOUT_TRANSITION_MS = 200;
-    const QUICK_FILTER_LONG_PRESS_MS = 500;
+    const QUICK_FILTER_LONG_PRESS_MS = 450;
+    const LONG_PRESS_RELEASE_TOLERANCE_MS = 24;
     const QUICK_FILTER_STORAGE_SUFFIX = ':quick-filter';
     let filterLayoutTransitionToken = 0;
     let timelineScrollBeforeFilterOpen = null;
@@ -273,13 +274,43 @@ const FilterController = (() => {
             (typeof setTimeout === 'function' ? setTimeout : null);
         const cancel = options.clearTimeout ||
             (typeof clearTimeout === 'function' ? clearTimeout : null);
+        const durationMs = Number(duration) || QUICK_FILTER_LONG_PRESS_MS;
         let timerId = null;
         let startPoint = null;
+        let startedAt = null;
+        let longPressFired = false;
         let suppressNextClick = false;
+
+        const getEventTime = event => {
+            const eventTime = Number(event && event.timeStamp);
+            return Number.isFinite(eventTime) && eventTime > 0
+                ? eventTime
+                : Date.now();
+        };
+
+        const fireLongPress = () => {
+            if (longPressFired) return;
+            longPressFired = true;
+            suppressNextClick = true;
+            onLongPress();
+        };
 
         const cancelTimer = () => {
             if (cancel && timerId !== null) cancel(timerId);
             timerId = null;
+        };
+
+        const finishPress = event => {
+            if (!longPressFired && timerId !== null && startedAt !== null) {
+                const elapsed = getEventTime(event) - startedAt;
+                if (elapsed >= durationMs - LONG_PRESS_RELEASE_TOLERANCE_MS) {
+                    fireLongPress();
+                }
+            }
+
+            cancelTimer();
+            startedAt = null;
+            startPoint = null;
         };
 
         element.addEventListener('pointerdown', event => {
@@ -287,6 +318,8 @@ const FilterController = (() => {
 
             cancelTimer();
             suppressNextClick = false;
+            longPressFired = false;
+            startedAt = getEventTime(event);
             startPoint = event
                 ? { x: Number(event.clientX || 0), y: Number(event.clientY || 0) }
                 : null;
@@ -294,20 +327,27 @@ const FilterController = (() => {
 
             timerId = schedule(() => {
                 timerId = null;
-                suppressNextClick = true;
-                onLongPress();
-            }, Number(duration) || QUICK_FILTER_LONG_PRESS_MS);
+                fireLongPress();
+            }, durationMs);
         });
 
         element.addEventListener('pointermove', event => {
             if (!startPoint || !event || timerId === null) return;
             const dx = Math.abs(Number(event.clientX || 0) - startPoint.x);
             const dy = Math.abs(Number(event.clientY || 0) - startPoint.y);
-            if (dx > 8 || dy > 8) cancelTimer();
+            if (dx > 8 || dy > 8) {
+                cancelTimer();
+                startedAt = null;
+                startPoint = null;
+            }
         });
 
-        ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
-            element.addEventListener(eventName, cancelTimer);
+        element.addEventListener('pointerup', finishPress);
+        element.addEventListener('pointercancel', finishPress);
+        element.addEventListener('pointerleave', () => {
+            cancelTimer();
+            startedAt = null;
+            startPoint = null;
         });
 
         element.addEventListener('contextmenu', event => {

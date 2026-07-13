@@ -2069,11 +2069,90 @@ test('Pressione lunga filtro scatta una volta e sopprime il click successivo', (
 
     listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
     const timer = Array.from(timers.values())[0];
-    assert.equal(timer.delay, 500);
+    assert.equal(timer.delay, 450);
     timer.callback();
 
     assert.equal(current.methods.join(','), 'carta');
     assert.equal(binding.consumeClick(), true);
+    assert.equal(binding.consumeClick(), false);
+});
+
+test('Pressione lunga filtro scatta al rilascio vicino alla soglia anche se il timer non e ancora partito', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let longPressCount = 0;
+    const element = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const options = {
+        setTimeout(callback, delay) {
+            const id = nextTimerId++;
+            timers.set(id, { callback, delay });
+            return id;
+        },
+        clearTimeout(id) {
+            timers.delete(id);
+        }
+    };
+    const binding = FilterController.bindLongPressGesture(
+        element,
+        options,
+        () => {
+            longPressCount += 1;
+        }
+    );
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10, timeStamp: 100 });
+    const pendingTimer = Array.from(timers.values())[0];
+    assert.equal(pendingTimer.delay, 450);
+
+    listeners.pointerup({ timeStamp: 540 });
+    assert.equal(longPressCount, 1);
+    assert.equal(timers.size, 0);
+    assert.equal(binding.consumeClick(), true);
+    assert.equal(binding.consumeClick(), false);
+
+    pendingTimer.callback();
+    assert.equal(longPressCount, 1);
+});
+
+test('Rilascio breve del filtro resta un tap normale', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let longPressCount = 0;
+    const element = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const binding = FilterController.bindLongPressGesture(
+        element,
+        {
+            setTimeout(callback, delay) {
+                const id = nextTimerId++;
+                timers.set(id, { callback, delay });
+                return id;
+            },
+            clearTimeout(id) {
+                timers.delete(id);
+            }
+        },
+        () => {
+            longPressCount += 1;
+        }
+    );
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10, timeStamp: 100 });
+    listeners.pointerup({ timeStamp: 300 });
+
+    assert.equal(longPressCount, 0);
+    assert.equal(timers.size, 0);
     assert.equal(binding.consumeClick(), false);
 });
 

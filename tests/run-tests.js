@@ -1991,10 +1991,22 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(filters.query, 'caffe');
     assert(calls.includes('filter-change'));
 
+    let simulatedTimelineScrollTop = 0;
+    Object.defineProperty(elements['app-main'], 'scrollTop', {
+        configurable: true,
+        get() {
+            return simulatedTimelineScrollTop;
+        },
+        set(value) {
+            const maxScrollTop = elements['timeline-summary'].classList
+                .contains('filter-panel-collapsed') ? 140 : Infinity;
+            simulatedTimelineScrollTop = Math.min(Number(value) || 0, maxScrollTop);
+        }
+    });
     elements['app-main'].scrollTop = 200;
     FilterController.openFilterPanel(options);
-    assert.equal(elements['app-main'].scrollTop, 200);
-    assert.equal(state.pageScrollTop.timeline, 200);
+    assert.equal(elements['app-main'].scrollTop, 140);
+    assert.equal(state.pageScrollTop.timeline, 140);
     assert.equal(elements['app-main'].style.marginTop, 'calc(var(--header-h) + 96px)');
     assert(elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
     assert(!elements['timeline-summary'].classList.contains('hidden'));
@@ -2088,7 +2100,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
     assert(elements['app-main'].classList.contains('filter-layout-transition'));
-    assert(elements['page-timeline'].classList.contains('filter-open'));
+    assert(!elements['page-timeline'].classList.contains('filter-open'));
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     transitionTimers.shift()();
     assert(elements['filter-panel'].classList.contains('hidden'));
@@ -3203,6 +3215,24 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     main.getBoundingClientRect = () => ({ top: 56 });
     const inputBar = makeElement('input-bar');
     const filterToggle = makeElement('btn-filter-toggle');
+    const bannerResetSnapshots = [];
+    let statsBannerTransform = '';
+    Object.defineProperty(statsBanner.style, 'transform', {
+        configurable: true,
+        enumerable: true,
+        get() {
+            return statsBannerTransform;
+        },
+        set(value) {
+            statsBannerTransform = value;
+            if (value === '') {
+                bannerResetSnapshots.push({
+                    scrollTop: main.scrollTop,
+                    targetWasPreview: pages.stats.classList.contains('page-swipe-preview')
+                });
+            }
+        }
+    });
 
     const doc = {
         getElementById(id) {
@@ -3405,6 +3435,10 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(pages.stats.style.transform, '');
     assert(!pages.stats.classList.contains('page-nav-enter'));
     assert.equal(statsBanner.style.transform, '');
+    const completedBannerReset = bannerResetSnapshots[bannerResetSnapshots.length - 1];
+    assert.equal(completedBannerReset.scrollTop, 42);
+    assert.equal(completedBannerReset.targetWasPreview, false);
+
     assert(!pages.stats.classList.contains('page-swipe-mask-aligned'));
     assert.equal(pages.stats.style['--page-swipe-banner-y'], '');
     assert(inputBar.classList.contains('hidden'));
@@ -3480,13 +3514,18 @@ test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
     const closingPanelRule = css.match(/\.filter-panel\.filter-panel-closing\s*\{([^}]*)\}/);
     const mainTransitionRule = css.match(/#app-main\.filter-layout-transition\s*\{([^}]*)\}/);
 
+    const timelineFadeRule = css.match(/#page-timeline::before\s*\{([^}]*)\}/);
     assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
     assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
     assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
     assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(timelineFadeRule, 'Regola sfumatura Timeline non trovata');
     assert(/opacity\s*:\s*0/.test(summaryCollapsedRule[1]));
     assert(/overflow-anchor\s*:\s*none/.test(mainTransitionRule[1]));
     assert(/transform\s*:\s*translateY\(-10px\)/.test(closingPanelRule[1]));
+    assert(/transition\s*:[^;]*height\s+200ms/.test(timelineFadeRule[1]));
+    assert(/margin-bottom\s+200ms/.test(timelineFadeRule[1]));
+    assert(/opacity\s+160ms/.test(timelineFadeRule[1]));
 });
 
 test('CSS impedisce il collasso dell offset verticale del contenuto', () => {

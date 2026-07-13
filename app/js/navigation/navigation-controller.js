@@ -344,9 +344,8 @@ const NavigationController = (() => {
         state.targetPage = null;
     }
 
-    function cleanupSwipe(main, state, keepTargetVisible = false) {
+    function cleanupSwipe(main, state, keepTargetVisible = false, beforeBannerReset = null) {
         if (main.classList) main.classList.remove('page-swipe-active');
-        resetSwipeBanners(state);
         resetSwipeInput(state, keepTargetVisible);
         resetSwipeElement(state.currentElement);
 
@@ -355,6 +354,8 @@ const NavigationController = (() => {
             resetSwipeElement(targetElement);
             if (!keepTargetVisible) targetElement.classList.add('hidden');
         }
+        if (typeof beforeBannerReset === 'function') beforeBannerReset();
+        resetSwipeBanners(state);
 
         state.touchStart = null;
         state.currentElement = null;
@@ -494,10 +495,16 @@ const NavigationController = (() => {
                 });
                 navigated = getCurrentPage(options) === targetPage;
             }
-            cleanupSwipe(main, state, navigated);
-            if (navigated) {
+            cleanupSwipe(main, state, navigated, navigated ? () => {
                 restorePageScroll(options, targetPage, { immediate: true });
-            }
+
+                // La pagina target deve avere gia layout e scroll definitivi prima
+                // di rimuovere la compensazione verticale del banner sticky.
+                if (state.targetElement &&
+                    typeof state.targetElement.getBoundingClientRect === 'function') {
+                    state.targetElement.getBoundingClientRect();
+                }
+            } : null);
         }, 180);
     }
 

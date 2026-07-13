@@ -5,6 +5,8 @@
 const FilterController = (() => {
     const FILTER_LAYOUT_TRANSITION_MS = 200;
     let filterLayoutTransitionToken = 0;
+    let timelineScrollBeforeFilterOpen = null;
+    let timelineScrollWithFilterOpen = null;
 
     function noop() { }
 
@@ -36,15 +38,15 @@ const FilterController = (() => {
         if (main) main.classList.add('filter-layout-transition');
 
         if (!schedule) {
-            if (main) main.classList.remove('filter-layout-transition');
             onComplete();
+            if (main) main.classList.remove('filter-layout-transition');
             return;
         }
 
         schedule(() => {
             if (token !== filterLayoutTransitionToken) return;
-            if (main) main.classList.remove('filter-layout-transition');
             onComplete();
+            if (main) main.classList.remove('filter-layout-transition');
         }, FILTER_LAYOUT_TRANSITION_MS);
     }
 
@@ -114,6 +116,25 @@ const FilterController = (() => {
             main.scrollTop = preservedScrollTop;
             if (options.pageScrollTop) options.pageScrollTop.timeline = preservedScrollTop;
         }
+    }
+
+    function createTimelineScrollRestorer(options, main, explicitScrollTop = null) {
+        const currentScrollTop = main && getCurrentPage(options) === 'timeline'
+            ? Number(main.scrollTop) || 0
+            : null;
+        const preservedScrollTop = explicitScrollTop !== null
+            ? explicitScrollTop
+            : currentScrollTop;
+
+        return () => {
+            if (preservedScrollTop === null || !main) return;
+            void main.offsetHeight;
+            main.scrollTop = preservedScrollTop;
+            const appliedScrollTop = Number(main.scrollTop) || 0;
+            if (options.pageScrollTop) {
+                options.pageScrollTop.timeline = appliedScrollTop;
+            }
+        };
     }
 
     function isTimelineSelectionActive(options) {
@@ -717,6 +738,15 @@ const FilterController = (() => {
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
         const main = doc.getElementById('app-main');
 
+        timelineScrollBeforeFilterOpen = main && getCurrentPage(options) === 'timeline'
+            ? Number(main.scrollTop) || 0
+            : null;
+        timelineScrollWithFilterOpen = null;
+        const restoreTimelineScroll = createTimelineScrollRestorer(
+            options,
+            main,
+            timelineScrollBeforeFilterOpen
+        );
         if (panel) {
             panel.classList.remove('filter-panel-closing');
             panel.classList.remove('hidden');
@@ -727,7 +757,12 @@ const FilterController = (() => {
         syncAdvancedToggleButton(advancedBtn, getAdvancedFiltersOpen(options));
 
         const panelHeight = panel ? Number(panel.offsetHeight) || 0 : 0;
-        beginFilterLayoutTransition(options, main);
+        beginFilterLayoutTransition(options, main, () => {
+            restoreTimelineScroll();
+            if (timelineScrollBeforeFilterOpen !== null && main) {
+                timelineScrollWithFilterOpen = Number(main.scrollTop) || 0;
+            }
+        });
 
         (options.pushUiState || noop)({ panel: 'filter' });
 
@@ -741,6 +776,7 @@ const FilterController = (() => {
             main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
         }
         updateAppMainPadding(options);
+        restoreTimelineScroll();
     }
 
     function closeFilterPanel(options = {}, fromPopstate = false) {
@@ -760,6 +796,17 @@ const FilterController = (() => {
         const advanced = doc.getElementById('advanced-filters');
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
         const main = doc.getElementById('app-main');
+        const currentTimelineScroll = main && getCurrentPage(options) === 'timeline'
+            ? Number(main.scrollTop) || 0
+            : null;
+        const filterDidNotScrollTimeline = currentTimelineScroll !== null &&
+            timelineScrollBeforeFilterOpen !== null &&
+            (timelineScrollWithFilterOpen === null ||
+                Math.abs(currentTimelineScroll - timelineScrollWithFilterOpen) <= 1);
+        const closeScrollTarget = filterDidNotScrollTimeline
+            ? timelineScrollBeforeFilterOpen
+            : currentTimelineScroll;
+        const restoreTimelineScroll = createTimelineScrollRestorer(options, main, closeScrollTarget);
 
         if (panel) {
             panel.classList.add('filter-panel-closing');
@@ -771,19 +818,24 @@ const FilterController = (() => {
         syncInputBarForAdvanced(options, false);
 
         const summary = doc.getElementById('timeline-summary');
-        setTimelineSummaryHidden(options, doc, summary, false);
-
         const pageTimeline = doc.getElementById('page-timeline');
-
-        if (main) main.style.marginTop = '';
         beginFilterLayoutTransition(options, main, () => {
             if (panel) {
                 panel.classList.add('hidden');
                 panel.classList.remove('filter-panel-closing');
             }
             if (advanced) advanced.classList.add('hidden');
-            if (pageTimeline) pageTimeline.classList.remove('filter-open');
+            restoreTimelineScroll();
+            timelineScrollBeforeFilterOpen = null;
+            timelineScrollWithFilterOpen = null;
         });
+
+        // Disattiva lo scroll anchoring prima di qualsiasi variazione geometrica:
+        // il browser non deve scegliere il riepilogo come nuova ancora a meta chiusura.
+        setTimelineSummaryHidden(options, doc, summary, false);
+        if (pageTimeline) pageTimeline.classList.remove('filter-open');
+        if (main) main.style.marginTop = '';
+        restoreTimelineScroll();
 
         const steps = (hadAdvancedFilters ? 2 : 1) +
             (!fromPopstate && shouldCleanupReleasedFilterSearchHistory ? 1 : 0);

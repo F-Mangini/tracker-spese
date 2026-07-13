@@ -746,6 +746,9 @@ body {
     margin-left: -12px;
     margin-right: -12px;
     margin-bottom: -110px;
+    transition: height 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        margin-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 160ms ease;
 }
 
 #page-settings::before {
@@ -2522,7 +2525,8 @@ body.no-scroll #app-main {
 @media (prefers-reduced-motion: reduce) {
     .filter-panel,
     #app-main,
-    #timeline-summary {
+    #timeline-summary,
+    #page-timeline::before {
         animation: none;
         transition: none;
     }

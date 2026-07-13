@@ -444,6 +444,19 @@ const AppWiring = (() => {
                     selectedIds: getTimelineSelectedIdsForFilters(),
                     selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
+                storage: deps.Storage,
+                localStorage: (() => {
+                    try {
+                        return deps.window && deps.window.localStorage
+                            ? deps.window.localStorage
+                            : null;
+                    } catch (_) {
+                        return null;
+                    }
+                })(),
+                createFilterSnapshot: createCurrentFilterSnapshot,
+                applyFilterSnapshot,
+                normalizeFilterSnapshot: value => deps.SettingsActions.normalizeFilterSnapshot(value),
                 pageScrollTop: app.pageScrollTop,
                 getFilterOpen: () => app.filterOpen,
                 setFilterOpen: value => { app.filterOpen = value; },
@@ -480,7 +493,8 @@ const AppWiring = (() => {
                 onFilterChange: () => app.onFilterChange(),
                 showToast: (message, type) => app.showToast(message, type),
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
-                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: timerId => deps.clearTimeout(timerId)
             };
         }
 

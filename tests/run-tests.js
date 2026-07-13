@@ -1834,6 +1834,159 @@ test('Controller filtri riusa modello filtrato precomputato', () => {
     assert.equal(payloadSeen.quickTotals.todayTotal, 3);
 });
 
+test('Filtro rapido salva una preferenza locale senza il filtro Selezionate', () => {
+    const { FilterController } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const toasts = [];
+    const current = {
+        query: '',
+        categories: new Set(['bar']),
+        excludedCategories: new Set(['casa']),
+        methods: new Set(['carta']),
+        excludedMethods: new Set(),
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: true,
+        excludedSelectedOnly: false
+    };
+    const options = {
+        storage: { KEY: 'spesa-tracker-data-dev' },
+        localStorage,
+        filters: current,
+        getFilterOpen: () => true,
+        getAdvancedFiltersOpen: () => true,
+        createFilterSnapshot: () => current,
+        showToast: (...args) => toasts.push(args)
+    };
+    const state = {};
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'saved');
+    assert.equal(
+        FilterController.getQuickFilterStorageKey(options),
+        'spesa-tracker-data-dev:quick-filter'
+    );
+
+    const persisted = JSON.parse(localStorage.getItem('spesa-tracker-data-dev:quick-filter'));
+    assert.equal(persisted.selectedOnly, false);
+    assert.equal(persisted.excludedSelectedOnly, false);
+    assert.equal(persisted.amountMax, 'Infinity');
+    assert.equal(persisted.categories.join(','), 'bar');
+    assert.equal(persisted.excludedCategories.join(','), 'casa');
+    assert.deepEqual(toasts.pop(), ['Filtro rapido salvato', 'success']);
+});
+
+test('Filtro rapido alterna snapshot salvato e filtri precedenti', () => {
+    const { FilterController } = loadUiViews();
+    let current = {
+        categories: ['bar'],
+        methods: [],
+        selectedOnly: true
+    };
+    const applied = [];
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+            applied.push(snapshot);
+        }
+    };
+    const state = {
+        savedSnapshot: {
+            categories: [],
+            methods: ['carta'],
+            excludedSelectedOnly: true
+        },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.join(','), 'carta');
+    assert.equal(current.selectedOnly, false);
+    assert.equal(current.excludedSelectedOnly, false);
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.join(','), 'bar');
+    assert.equal(current.methods.length, 0);
+    assert.equal(current.selectedOnly, false);
+    assert.equal(applied.length, 2);
+});
+
+test('Filtro rapido dopo una modifica manuale ricompone rapido e filtri iniziali', () => {
+    const { FilterController } = loadUiViews();
+    let current = { categories: ['bar'], methods: [] };
+    const options = {
+        getFilterOpen: () => true,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        }
+    };
+    const state = {
+        savedSnapshot: { categories: [], methods: ['carta'] },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    current = { categories: ['casa'], methods: ['carta'] };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.join(','), 'carta');
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.join(','), 'bar');
+    assert.equal(current.methods.join(','), 'carta');
+});
+
+test('Pressione lunga filtro scatta una volta e sopprime il click successivo', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let current = { categories: ['bar'] };
+    const button = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        },
+        setTimeout(callback, delay) {
+            const id = nextTimerId++;
+            timers.set(id, { callback, delay });
+            return id;
+        },
+        clearTimeout(id) {
+            timers.delete(id);
+        }
+    };
+    const state = {
+        savedSnapshot: { methods: ['carta'] },
+        restoreSnapshot: null
+    };
+    const binding = FilterController.bindQuickFilterLongPress(button, options, state);
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+    const timer = Array.from(timers.values())[0];
+    assert.equal(timer.delay, 500);
+    timer.callback();
+
+    assert.equal(current.methods.join(','), 'carta');
+    assert.equal(binding.consumeClick(), true);
+    assert.equal(binding.consumeClick(), false);
+});
+
 test('Controller filtri coordina pannello, ricerca e slider fuori da App', () => {
     const { FilterController, FilterView } = loadUiViews();
     const calls = [];

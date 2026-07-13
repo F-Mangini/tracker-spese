@@ -38,6 +38,7 @@ File e aree considerate:
 - `app/js/settings/settings-actions.js`;
 - `app/js/settings/settings-controller.js`;
 - `app/js/settings/settings-view.js`;
+- `app/js/filters/filter-controller.js`;
 - `app/js/timeline/timeline-selection-controller.js`;
 - `app/js/timeline/timeline-controller.js`;
 - `app/js/ui/download-controller.js`;
@@ -60,6 +61,7 @@ File e aree considerate:
 | Cache service worker | Cache Storage browser | No | Contiene asset statici dell'app, non dati utente. |
 | Export JSON/CSV/raw e selezioni timeline | File scaricato dal browser | Solo su azione utente | File in chiaro: dopo il download la protezione dipende dal device e da dove l'utente lo salva o condivide. Gli export da selezione contengono solo le spese selezionate; il JSON custom puo includere o escludere impostazioni e future personalizzazioni, mentre il CSV resta solo dati. |
 | Preferenze export custom | `localStorage`, chiave `${Storage.KEY}:export-custom` | No | Contengono formato, checklist, id selezionati e filtri dell'ultimo export custom riuscito per riprendere la configurazione e alimentare i toggle `Ultima Selezione` / `Ultimi Filtri`. Non contengono importi o note, ma gli id e i filtri possono rivelare indirettamente quali spese erano state scelte su quel dispositivo. |
+| Filtro rapido | `localStorage`, chiave `${Storage.KEY}:quick-filter` | No | Contiene solo lo snapshot dei filtri salvato con pressione prolungata; il filtro `Selezionate` e i relativi id non vengono memorizzati. Puo comunque rivelare preferenze d'uso come categorie, metodi, date o testo cercato. |
 | Copia spese selezionate | Clipboard del sistema | Solo su azione utente | La copia usa contenuto CSV delle sole spese selezionate. Non invia dati in rete, ma dopo la copia la protezione dipende dagli appunti del sistema e dalle app in cui l'utente incolla. |
 | Import JSON/CSV | File scelto dall'utente, letto con `FileReader` | No | Il contenuto viene validato localmente prima del commit. |
 | Dettatura vocale | API `SpeechRecognition` / `webkitSpeechRecognition` del browser | Potenzialmente si | Dipende dal browser/OS: puo usare servizi esterni del provider. La funzione e opzionale e attivata dall'utente. |

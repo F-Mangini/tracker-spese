@@ -4,6 +4,8 @@
 
 const FilterController = (() => {
     const FILTER_LAYOUT_TRANSITION_MS = 200;
+    const QUICK_FILTER_LONG_PRESS_MS = 500;
+    const QUICK_FILTER_STORAGE_SUFFIX = ':quick-filter';
     let filterLayoutTransitionToken = 0;
     let timelineScrollBeforeFilterOpen = null;
     let timelineScrollWithFilterOpen = null;
@@ -88,6 +90,245 @@ const FilterController = (() => {
 
     function getAdvancedFiltersOpen(options) {
         return !!getState(options, 'getAdvancedFiltersOpen', 'advancedFiltersOpen', false);
+    }
+
+    function normalizeIdList(value) {
+        const items = Array.isArray(value)
+            ? value
+            : (value && typeof value.forEach === 'function' ? Array.from(value) : []);
+
+        return Array.from(new Set(items.map(String).filter(Boolean))).sort();
+    }
+
+    function normalizeQuickFilterSnapshot(options = {}, value = {}) {
+        const source = typeof options.normalizeFilterSnapshot === 'function'
+            ? options.normalizeFilterSnapshot(value)
+            : (value && typeof value === 'object' ? value : {});
+        const rawMax = source.amountMax === Infinity ||
+            source.amountMax === null ||
+            source.amountMax === 'Infinity'
+            ? Infinity
+            : Number(source.amountMax);
+
+        return {
+            query: String(source.query || '').trim(),
+            categories: normalizeIdList(source.categories),
+            excludedCategories: normalizeIdList(source.excludedCategories),
+            methods: normalizeIdList(source.methods),
+            excludedMethods: normalizeIdList(source.excludedMethods),
+            amountMin: Math.max(0, Number(source.amountMin) || 0),
+            amountMax: Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : Infinity,
+            dateFrom: String(source.dateFrom || '').trim(),
+            dateTo: String(source.dateTo || '').trim(),
+            selectedOnly: false,
+            excludedSelectedOnly: false
+        };
+    }
+
+    function serializeQuickFilterSnapshot(options, value) {
+        const snapshot = normalizeQuickFilterSnapshot(options, value);
+
+        return JSON.stringify({
+            ...snapshot,
+            amountMax: snapshot.amountMax === Infinity ? 'Infinity' : snapshot.amountMax
+        });
+    }
+
+    function areQuickFilterSnapshotsEqual(options, left, right) {
+        return serializeQuickFilterSnapshot(options, left) ===
+            serializeQuickFilterSnapshot(options, right);
+    }
+
+    function mergeQuickFilterSnapshots(options, baseValue, quickValue) {
+        const base = normalizeQuickFilterSnapshot(options, baseValue);
+        const quick = normalizeQuickFilterSnapshot(options, quickValue);
+        const excludedCategories = normalizeIdList([
+            ...base.excludedCategories,
+            ...quick.excludedCategories
+        ]);
+        const excludedMethods = normalizeIdList([
+            ...base.excludedMethods,
+            ...quick.excludedMethods
+        ]);
+        const categories = normalizeIdList([
+            ...base.categories,
+            ...quick.categories
+        ]).filter(id => !excludedCategories.includes(id));
+        const methods = normalizeIdList([
+            ...base.methods,
+            ...quick.methods
+        ]).filter(id => !excludedMethods.includes(id));
+
+        return normalizeQuickFilterSnapshot(options, {
+            query: quick.query || base.query,
+            categories,
+            excludedCategories,
+            methods,
+            excludedMethods,
+            amountMin: Math.max(base.amountMin, quick.amountMin),
+            amountMax: Math.min(base.amountMax, quick.amountMax),
+            dateFrom: [base.dateFrom, quick.dateFrom].filter(Boolean).sort().pop() || '',
+            dateTo: [base.dateTo, quick.dateTo].filter(Boolean).sort()[0] || ''
+        });
+    }
+
+    function getQuickFilterStorageKey(options = {}) {
+        const baseKey = options.storage && options.storage.KEY
+            ? options.storage.KEY
+            : 'spesa-tracker-data';
+
+        return `${baseKey}${QUICK_FILTER_STORAGE_SUFFIX}`;
+    }
+
+    function getQuickFilterStorage(options = {}) {
+        if (options.localStorage) return options.localStorage;
+
+        const win = getWindow(options);
+        try {
+            return win && win.localStorage ? win.localStorage : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function readQuickFilter(options = {}) {
+        const storageLike = getQuickFilterStorage(options);
+        if (!storageLike || typeof storageLike.getItem !== 'function') return null;
+
+        try {
+            const raw = storageLike.getItem(getQuickFilterStorageKey(options));
+            if (!raw) return null;
+            return normalizeQuickFilterSnapshot(options, JSON.parse(raw));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function saveQuickFilter(options = {}, snapshot) {
+        const storageLike = getQuickFilterStorage(options);
+        if (!storageLike || typeof storageLike.setItem !== 'function') return false;
+
+        try {
+            storageLike.setItem(
+                getQuickFilterStorageKey(options),
+                serializeQuickFilterSnapshot(options, snapshot)
+            );
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function createCurrentQuickFilterSnapshot(options = {}) {
+        const current = typeof options.createFilterSnapshot === 'function'
+            ? options.createFilterSnapshot()
+            : options.filters;
+
+        return normalizeQuickFilterSnapshot(options, current);
+    }
+
+    function applyQuickFilterSnapshot(options = {}, snapshot) {
+        const normalized = normalizeQuickFilterSnapshot(options, snapshot);
+        if (typeof options.applyFilterSnapshot === 'function') {
+            options.applyFilterSnapshot(normalized, []);
+        }
+        return normalized;
+    }
+
+    function handleQuickFilterLongPress(options = {}, state = {}) {
+        const fullyOpen = getFilterOpen(options) && getAdvancedFiltersOpen(options);
+
+        if (fullyOpen) {
+            const saved = createCurrentQuickFilterSnapshot(options);
+            state.savedSnapshot = saved;
+            state.restoreSnapshot = null;
+            saveQuickFilter(options, saved);
+            (options.showToast || noop)('Filtro rapido salvato', 'success');
+            return 'saved';
+        }
+
+        const saved = state.savedSnapshot || readQuickFilter(options);
+        if (!saved) {
+            (options.showToast || noop)('Nessun filtro rapido salvato', 'info');
+            return 'missing';
+        }
+
+        state.savedSnapshot = normalizeQuickFilterSnapshot(options, saved);
+        const current = createCurrentQuickFilterSnapshot(options);
+
+        if (state.restoreSnapshot &&
+            areQuickFilterSnapshotsEqual(options, current, state.savedSnapshot)) {
+            const restore = state.restoreSnapshot;
+            state.restoreSnapshot = null;
+            applyQuickFilterSnapshot(options, restore);
+            (options.showToast || noop)('Filtri precedenti ripristinati', 'info');
+            return 'restored';
+        }
+
+        state.restoreSnapshot = state.restoreSnapshot
+            ? mergeQuickFilterSnapshots(options, state.restoreSnapshot, state.savedSnapshot)
+            : current;
+        applyQuickFilterSnapshot(options, state.savedSnapshot);
+        (options.showToast || noop)('Filtro rapido attivato', 'info');
+        return 'activated';
+    }
+
+    function bindQuickFilterLongPress(button, options = {}, state = {}) {
+        if (!button || typeof button.addEventListener !== 'function') return null;
+
+        const schedule = options.setTimeout ||
+            (typeof setTimeout === 'function' ? setTimeout : null);
+        const cancel = options.clearTimeout ||
+            (typeof clearTimeout === 'function' ? clearTimeout : null);
+        const duration = Number(options.quickFilterLongPressMs || QUICK_FILTER_LONG_PRESS_MS);
+        let timerId = null;
+        let startPoint = null;
+        let suppressNextClick = false;
+
+        const cancelTimer = () => {
+            if (cancel && timerId !== null) cancel(timerId);
+            timerId = null;
+        };
+
+        button.addEventListener('pointerdown', event => {
+            if (event && event.button && event.button !== 0) return;
+
+            cancelTimer();
+            suppressNextClick = false;
+            startPoint = event
+                ? { x: Number(event.clientX || 0), y: Number(event.clientY || 0) }
+                : null;
+            if (!schedule) return;
+
+            timerId = schedule(() => {
+                timerId = null;
+                suppressNextClick = true;
+                handleQuickFilterLongPress(options, state);
+            }, duration);
+        });
+
+        button.addEventListener('pointermove', event => {
+            if (!startPoint || !event || timerId === null) return;
+            const dx = Math.abs(Number(event.clientX || 0) - startPoint.x);
+            const dy = Math.abs(Number(event.clientY || 0) - startPoint.y);
+            if (dx > 8 || dy > 8) cancelTimer();
+        });
+
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
+            button.addEventListener(eventName, cancelTimer);
+        });
+
+        button.addEventListener('contextmenu', event => {
+            if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        });
+
+        return {
+            consumeClick() {
+                if (!suppressNextClick) return false;
+                suppressNextClick = false;
+                return true;
+            }
+        };
     }
 
     function setAdvancedFiltersOpen(options, value) {
@@ -395,9 +636,22 @@ const FilterController = (() => {
         const dateTo = doc.getElementById('filter-date-to');
         const advToggle = doc.getElementById('btn-advanced-toggle');
         const selectedOnlyChip = doc.getElementById('filter-selected-only');
+        const quickFilterState = {
+            savedSnapshot: readQuickFilter(options),
+            restoreSnapshot: null
+        };
+        const quickFilterBinding = bindQuickFilterLongPress(
+            toggleBtn,
+            options,
+            quickFilterState
+        );
 
         if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
+            toggleBtn.addEventListener('click', event => {
+                if (quickFilterBinding && quickFilterBinding.consumeClick()) {
+                    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+                    return;
+                }
                 if (getFilterOpen(options)) closeFilterPanel(options);
                 else openFilterPanel(options);
             });
@@ -1006,6 +1260,14 @@ const FilterController = (() => {
         getActiveFilterCount,
         updateFilterBadge,
         resetFilters,
-        releaseFilterSearchInteraction
+        releaseFilterSearchInteraction,
+        normalizeQuickFilterSnapshot,
+        areQuickFilterSnapshotsEqual,
+        mergeQuickFilterSnapshots,
+        getQuickFilterStorageKey,
+        readQuickFilter,
+        saveQuickFilter,
+        handleQuickFilterLongPress,
+        bindQuickFilterLongPress
     };
 })();

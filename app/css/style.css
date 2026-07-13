@@ -42,7 +42,7 @@
     --nav-h: 64px;
     --filter-compact-scroll-h: 63px;
     --filter-footer-h: 42px;
-    --filter-panel-content-gap: 6px;
+    --filter-panel-content-offset: 6px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -728,7 +728,7 @@ body {
     height: 0;
     padding-top: 0;
     padding-bottom: 0;
-    margin-bottom: 0;
+    margin-bottom: var(--filter-panel-content-offset);
     opacity: 0;
     transform: translateY(-8px);
     pointer-events: none;

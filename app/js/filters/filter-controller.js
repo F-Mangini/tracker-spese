@@ -54,8 +54,7 @@ const FilterController = (() => {
         if (!main || !panel) return;
 
         const panelHeight = Number(panel.offsetHeight) || 0;
-        main.style.marginTop =
-            `calc(var(--header-h) + ${panelHeight}px + var(--filter-panel-content-gap))`;
+        main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
     }
 
     function getState(options, getter, prop, fallback) {

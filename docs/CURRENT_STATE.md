@@ -88,7 +88,7 @@ Una pressione lunga su una card entra in modalita selezione e seleziona quella s
 
 I filtri sono condivisi tra timeline e statistiche:
 
-- ricerca testuale su descrizione e nota; una query che inizia con `#` cerca invece i tag che iniziano con il testo successivo;
+- ricerca testuale su descrizione e nota; i termini preceduti da `#` cercano invece i tag per prefisso e possono essere combinati con il testo in qualsiasi ordine. Tutto il testo e tutti i tag indicati devono corrispondere;
 - range data;
 - importo minimo/massimo;
 - categorie;

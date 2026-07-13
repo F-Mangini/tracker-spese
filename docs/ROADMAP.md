@@ -157,7 +157,7 @@ Da riprendere solo quando servira:
 - Toggle del titolo header con la data odierna, dissolvenza in uscita/entrata e stato non persistente.
 - Parsing di `.<categoria>` per forzare una categoria, con precedenza all'ultima direttiva valida.
 - Swipe orizzontale interattivo tra Timeline, Statistiche e Impostazioni: le pagine seguono il dito prima del rilascio e completano o annullano lo slide in base alla soglia; l'animazione e separata dal fade usato dalla bottom nav, mantiene banner sticky e barra di inserimento alla quota corretta e avvia una sola volta le normali animazioni dei grafici durante l'anteprima.
-- Ricerca tag solo tramite prefisso `#` e confronto per inizio tag.
+- Ricerca tag solo tramite prefisso `#`, confronto per inizio tag e combinazione AND tra testo libero e uno o piu tag in qualsiasi ordine.
 - Colori categoria fissi nelle statistiche, mantenendo la palette esistente.
 
 ## Filtri e Ricerca

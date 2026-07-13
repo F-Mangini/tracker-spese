@@ -1450,6 +1450,41 @@ test('Ricerca tag richiede cancelletto e usa il prefisso', () => {
     );
 });
 
+test('Ricerca combina testo e tag in qualsiasi ordine', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'match-title', descrizione: 'Panino integrale', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'match-note', descrizione: 'Pranzo', nota: 'Preso un panino caldo', tags: ['inviaggio'] }),
+        expense({ id: 'missing-tag', descrizione: 'Panino integrale', nota: '', tags: ['roma'] }),
+        expense({ id: 'missing-text', descrizione: 'Cena', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'text-only-in-tag', descrizione: 'Cena', nota: '', tags: ['panino', 'inviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: 'panino #inviagg' }).map(spesa => spesa.id),
+        ['match-title', 'match-note']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#inviagg panino' }).map(spesa => spesa.id),
+        ['match-title', 'match-note']
+    );
+});
+
+test('Ricerca con piu tag richiede che ogni prefisso sia presente', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'both', descrizione: 'Panino', nota: '', tags: ['roma-centro', 'inviaggio'] }),
+        expense({ id: 'only-roma', descrizione: 'Panino', nota: '', tags: ['roma-centro'] }),
+        expense({ id: 'only-trip', descrizione: 'Panino', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'wrong-prefix', descrizione: 'Panino', nota: '', tags: ['aroma', 'inviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#roma panino #inviagg' }).map(spesa => spesa.id),
+        ['both']
+    );
+});
+
 test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () => {
     const ExpenseFilters = loadFilters();
     const spese = [

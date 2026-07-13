@@ -68,22 +68,30 @@ const ExpenseFilters = (() => {
     function matchesQuery(spesa, query) {
         if (!query) return true;
 
-        const q = query.toLowerCase();
+        const terms = String(query).toLowerCase().trim().split(/\s+/);
+        const tagPrefixes = terms
+            .filter(term => term.startsWith('#'))
+            .map(term => term.slice(1));
+        const textQuery = terms
+            .filter(term => !term.startsWith('#'))
+            .join(' ');
         const descrizione = String(spesa.descrizione || '').toLowerCase();
         const nota = String(spesa.nota || '').toLowerCase();
-        const tags = Array.isArray(spesa.tags) ? spesa.tags : [];
+        const tags = Array.isArray(spesa.tags)
+            ? spesa.tags.map(tag => String(tag || '').toLowerCase())
+            : [];
 
-        if (q.startsWith('#')) {
-            const tagPrefix = q.slice(1).trim();
-            if (!tagPrefix) return false;
+        if (tagPrefixes.some(prefix => !prefix)) return false;
 
-            return tags.some(tag => String(tag || '').toLowerCase().startsWith(tagPrefix));
-        }
-
-        return (
-            descrizione.includes(q) ||
-            nota.includes(q)
+        const matchesText = !textQuery || (
+            descrizione.includes(textQuery) ||
+            nota.includes(textQuery)
         );
+        const matchesTags = tagPrefixes.every(prefix =>
+            tags.some(tag => tag.startsWith(prefix))
+        );
+
+        return matchesText && matchesTags;
     }
 
     function matchesDateRange(spesa, state) {

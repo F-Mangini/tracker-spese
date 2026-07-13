@@ -2450,7 +2450,7 @@ body.no-scroll #app-main {
     margin-bottom: 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;

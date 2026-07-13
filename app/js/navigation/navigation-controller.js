@@ -221,7 +221,23 @@ const NavigationController = (() => {
         pageElement.classList.add('page-swipe-mask-aligned');
 
         if (bannerHidden) {
-            setStyleProperty(pageElement, '--page-swipe-banner-y', '0px');
+            const isPreview = pageElement.classList.contains('page-swipe-preview');
+            const pageRect = isPreview &&
+                typeof pageElement.getBoundingClientRect === 'function'
+                ? pageElement.getBoundingClientRect()
+                : mainRect;
+            const maskOffsetY = isPreview
+                ? Math.max(
+                    0,
+                    (Number(mainRect.top) || 0) - (Number(pageRect.top) || 0)
+                )
+                : 0;
+
+            setStyleProperty(
+                pageElement,
+                '--page-swipe-banner-y',
+                maskOffsetY + 'px'
+            );
             return;
         }
 

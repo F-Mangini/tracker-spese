@@ -3111,11 +3111,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     function makeClassList(initial = []) {
         const classes = new Set(initial);
         return {
-            add(cls) {
-                classes.add(cls);
+            add(...items) {
+                items.forEach(cls => classes.add(cls));
             },
-            remove(cls) {
-                classes.delete(cls);
+            remove(...items) {
+                items.forEach(cls => classes.delete(cls));
             },
             contains(cls) {
                 return classes.has(cls);
@@ -3146,6 +3146,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     timelineBanner.getBoundingClientRect = () => ({ top: 68, height: 84 });
     const statsBanner = makeElement('stats-sticky-header');
     statsBanner.getBoundingClientRect = () => ({ top: 90, height: 84 });
+    pages.timeline.getBoundingClientRect = () => ({ top: -304 });
     pages.timeline.querySelector = selector => selector.includes('timeline-summary') ? timelineBanner : null;
     pages.stats.querySelector = selector => selector.includes('stats-sticky-header') ? statsBanner : null;
     pages.settings.querySelector = () => null;
@@ -3375,7 +3376,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!pages.timeline.classList.contains('hidden'));
     assert.equal(pages.stats.style.transform, 'translate3d(40px, 0, 0)');
     assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
-    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '0px');
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '360px');
     assert(!inputBar.classList.contains('hidden'));
     assert(inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '-353px');
@@ -3418,6 +3419,8 @@ test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
     assert(css.includes('--page-banner-h: 84px'));
     assert(/height\s*:\s*var\(--page-banner-h\)/.test(timelineBannerRule[1]));
     assert(/height\s*:\s*var\(--page-banner-h\)/.test(statsBannerRule[1]));
+    assert(/border-radius\s*:\s*var\(--radius\)/.test(timelineBannerRule[1]));
+    assert(/border-radius\s*:\s*var\(--radius\)/.test(statsBannerRule[1]));
     assert(/height\s*:\s*10px/.test(compactFilterFadeRule[1]));
     assert(!/\banimation\s*:/.test(basePageRule[1]));
     assert(/animation\s*:\s*fadeIn/.test(navEnterRule[1]));

@@ -9,10 +9,11 @@ const NavigationController = (() => {
     const PAGE_ORDER = ['timeline', 'stats', 'settings'];
     const SWIPE_MIN_DISTANCE = 60;
     const SWIPE_AXIS_RATIO = 1.25;
-    const SWIPE_FLICK_MIN_DISTANCE = 24;
-    const SWIPE_FLICK_MIN_VELOCITY = 0.45;
+    const SWIPE_FLICK_MIN_DISTANCE = 20;
+    const SWIPE_FLICK_MIN_VELOCITY = 0.32;
     const SWIPE_FLICK_MAX_DURATION_MS = 220;
-    const SWIPE_TRANSITION_MS = 180;
+    const SWIPE_TRANSITION_MS = 240;
+    const SWIPE_TRANSITION_EASING = 'cubic-bezier(0.18, 0.9, 0.22, 1)';
 
     function noop() { }
 
@@ -172,7 +173,7 @@ const NavigationController = (() => {
     function setSwipeTransform(element, x, animate = false) {
         if (!element || !element.style) return;
         element.style.transition = animate
-            ? `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+            ? `transform ${SWIPE_TRANSITION_MS}ms ${SWIPE_TRANSITION_EASING}`
             : 'none';
         element.style.transform = `translate3d(${x}px, 0, 0)`;
     }
@@ -427,7 +428,7 @@ const NavigationController = (() => {
         setStyleProperty(
             state.inputBar,
             '--page-swipe-input-transition',
-            `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+            `transform ${SWIPE_TRANSITION_MS}ms ${SWIPE_TRANSITION_EASING}`
         );
     }
 

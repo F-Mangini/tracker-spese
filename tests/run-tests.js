@@ -3620,10 +3620,10 @@ test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
     assert.equal(NavigationController.getSwipeTargetPage('stats', -40, 5), null);
     assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 75), null);
 
-    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 2, 40, 393), true, 'Un flick breve e veloce completa lo swipe');
-    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 2, 180, 393), false, 'Lo stesso spostamento lento resta sulla pagina');
-    assert.equal(NavigationController.shouldCompleteSwipeGesture(-18, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
-    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 30, 40, 393), false, 'Un gesto diagonale non viene trattato come flick');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 60, 393), true, 'Un flick molto breve ma deciso completa lo swipe');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 90, 393), false, 'Lo stesso spostamento lento resta sulla pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-16, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 20, 40, 393), false, 'Un gesto diagonale non viene trattato come flick');
 });
 
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
@@ -3955,6 +3955,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     timelineBanner.classList.add('hidden');
     pages.timeline.classList.add('filter-open');
     main.listeners.touchstart({
+        timeStamp: 2000,
         touches: [{ clientX: 180, clientY: 200 }],
         target: { closest: () => null }
     });
@@ -3973,6 +3974,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(inputBar.style['--page-swipe-input-x'], '-353px');
 
     main.listeners.touchend({
+        timeStamp: 2200,
         changedTouches: [{ clientX: 220, clientY: 202 }],
         preventDefault() {}
     });
@@ -4026,7 +4028,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
 
     const queuedSwipeTimers = new Map();
     let nextSwipeTimerId = 1;
-    options.setTimeout = callback => {
+    options.setTimeout = (callback, delay) => {
+        assert.equal(delay, 240, 'La transizione usa un assestamento piu calmo');
         const id = nextSwipeTimerId++;
         queuedSwipeTimers.set(id, callback);
         return id;
@@ -4054,11 +4057,12 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     });
     main.listeners.touchend({
         timeStamp: 1040,
-        changedTouches: [{ clientX: 268, clientY: 202 }],
+        changedTouches: [{ clientX: 278, clientY: 202 }],
         preventDefault() {}
     });
 
     assert.equal(state.currentPage, 'timeline');
+    assert.equal(pages.timeline.style.transition, 'transform 240ms cubic-bezier(0.18, 0.9, 0.22, 1)');
     assert.equal(queuedSwipeTimers.size, 1);
 
     main.listeners.touchstart({

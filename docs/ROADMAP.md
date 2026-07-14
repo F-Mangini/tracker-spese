@@ -167,7 +167,7 @@ Da riprendere solo quando servira:
 
 ## Miglioramenti navigazione completati il 2026-07-14
 
-- Swipe pagina piu responsivo: i flick brevi ma veloci possono completare il cambio senza raggiungere la soglia di distanza; la sensibilita e stata affinata fino ai gesti molto corti ma decisi, mantenendo protetti i movimenti lenti o diagonali. L'assestamento usa 240 ms e una decelerazione finale piu lunga per un movimento piu calmo e leggibile.
+- Swipe pagina piu responsivo: i flick brevi ma veloci possono completare il cambio senza raggiungere la soglia di distanza; la sensibilita include una soglia aggiuntiva per micro-flick da almeno 12 px e 0,45 px/ms, mantenendo protetti i movimenti piu corti, lenti o diagonali. L'assestamento usa 240 ms e una decelerazione finale piu lunga per un movimento piu calmo e leggibile.
 - Concatenazione degli swipe: un nuovo gesto puo iniziare durante l'assestamento del precedente, che viene concluso immediatamente prima di passare alla pagina successiva.
 
 ## Filtri e Ricerca

@@ -11,6 +11,8 @@ const NavigationController = (() => {
     const SWIPE_AXIS_RATIO = 1.25;
     const SWIPE_FLICK_MIN_DISTANCE = 20;
     const SWIPE_FLICK_MIN_VELOCITY = 0.32;
+    const SWIPE_MICRO_FLICK_MIN_DISTANCE = 12;
+    const SWIPE_MICRO_FLICK_MIN_VELOCITY = 0.45;
     const SWIPE_FLICK_MAX_DURATION_MS = 220;
     const SWIPE_TRANSITION_MS = 240;
     const SWIPE_TRANSITION_EASING = 'cubic-bezier(0.18, 0.9, 0.22, 1)';
@@ -160,9 +162,13 @@ const NavigationController = (() => {
         if (!Number.isFinite(duration) || duration <= 0 ||
             duration > SWIPE_FLICK_MAX_DURATION_MS) return false;
 
-        return horizontalDistance >= SWIPE_FLICK_MIN_DISTANCE &&
-            horizontalDistance >= verticalDistance * SWIPE_AXIS_RATIO &&
-            horizontalDistance / duration >= SWIPE_FLICK_MIN_VELOCITY;
+        if (horizontalDistance < verticalDistance * SWIPE_AXIS_RATIO) return false;
+
+        const velocity = horizontalDistance / duration;
+        return (horizontalDistance >= SWIPE_FLICK_MIN_DISTANCE &&
+            velocity >= SWIPE_FLICK_MIN_VELOCITY) ||
+            (horizontalDistance >= SWIPE_MICRO_FLICK_MIN_DISTANCE &&
+                velocity >= SWIPE_MICRO_FLICK_MIN_VELOCITY);
     }
 
     function shouldIgnoreSwipeTarget(target) {

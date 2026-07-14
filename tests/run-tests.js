@@ -3622,7 +3622,9 @@ test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
 
     assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 60, 393), true, 'Un flick molto breve ma deciso completa lo swipe');
     assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 90, 393), false, 'Lo stesso spostamento lento resta sulla pagina');
-    assert.equal(NavigationController.shouldCompleteSwipeGesture(-16, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-12, 1, 25, 393), true, 'Un micro flick molto rapido completa lo swipe');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-12, 1, 30, 393), false, 'Un micro spostamento non abbastanza rapido resta sulla pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-11, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
     assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 20, 40, 393), false, 'Un gesto diagonale non viene trattato come flick');
 });
 

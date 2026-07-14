@@ -4109,9 +4109,13 @@ test('Colori categoria restano fissi indipendentemente dai totali', () => {
     const { StatsCharts } = loadUiViews();
     const transportColor = StatsCharts.getCategoryColor('trasporti');
     const barColor = StatsCharts.getCategoryColor('bar');
+    const clothingColor = StatsCharts.getCategoryColor('abbigliamento');
+    const travelColor = StatsCharts.getCategoryColor('viaggi');
 
     assert.equal(transportColor, StatsCharts.COLORS[3]);
     assert.equal(barColor, StatsCharts.COLORS[2]);
+    assert.equal(travelColor, StatsCharts.COLORS[20]);
+    assert.notEqual(travelColor, clothingColor);
 
     const config = StatsCharts.buildDoughnutConfig([
         expense({ importo: 100, categoria: 'bar' }),

@@ -7,7 +7,8 @@ const StatsCharts = (() => {
         '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
         '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
         '#14b8a6', '#e11d48', '#0ea5e9', '#a855f7', '#eab308',
-        '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf'
+        '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf',
+        '#2563eb'
     ];
 
     const CATEGORY_COLOR_INDEX = {
@@ -31,7 +32,7 @@ const StatsCharts = (() => {
         tech: 17,
         telefono: 18,
         trasporti: 3,
-        viaggi: 0,
+        viaggi: 20,
         altro: 1
     };
 

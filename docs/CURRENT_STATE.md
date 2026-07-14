@@ -144,7 +144,7 @@ Quando un'azione chiude piu livelli UI programmando uno o piu `back()`/`go()`, e
 
 ### Statistiche
 
-Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche. Ogni categoria usa un colore fisso nel grafico a torta e nel dettaglio categorie, indipendentemente dall'ordine dei totali; la palette resta quella gia usata dall'app e `Trasporti` usa il rosso.
+Le statistiche supportano periodo settimana, mese, anno e custom. Mostrano totale, numero spese, media giornaliera, grafico categorie, grafico temporale, dettaglio categorie e top spese. I filtri non-data si applicano anche alle statistiche. Ogni categoria usa un colore fisso nel grafico a torta e nel dettaglio categorie, indipendentemente dall'ordine dei totali; `Trasporti` usa il rosso, `Abbigliamento` il verde e `Viaggi` un blu dedicato per restare chiaramente distinguibili.
 
 La pagina statistiche e di sola lettura: oggi non apre direttamente la modifica di una spesa.
 

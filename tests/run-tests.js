@@ -2567,10 +2567,12 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!doc.body.classList.contains('no-scroll'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'scroll-to'));
 
-    FilterController.closeFilterPanel(options);
+    scrollContainer.scrollTop = 120;
+    elements['btn-filter-toggle'].listeners.click({ preventDefault() { } });
     assert.equal(state.filterOpen, false);
     assert.equal(state.advancedFiltersOpen, false);
     assert(elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert.equal(scrollContainer.scrollTop, 120);
     assert(!elements['filter-panel'].classList.contains('hidden'));
     assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
     assert(elements['app-main'].classList.contains('filter-layout-transition'));
@@ -2584,12 +2586,15 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
     assert(!elements['app-main'].classList.contains('no-input-bar'));
+    assert.equal(scrollContainer.scrollTop, 0);
     assert.equal(elements['app-main'].scrollTop, 200);
     assert.equal(state.pageScrollTop.timeline, 200);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
+    scrollContainer.scrollTop = 120;
     FilterController.openFilterPanel(options);
     transitionTimers.shift()();
+    assert.equal(scrollContainer.scrollTop, 0);
     FilterController.openAdvancedFilters(options);
     scrollContainer.scrollTop = 120;
     FilterController.closeAdvancedFilters(options);

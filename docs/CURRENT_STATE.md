@@ -86,6 +86,8 @@ Una pressione lunga su una card entra in modalita selezione e seleziona quella s
 
 ### Filtri
 
+Quando il pannello completamente aperto viene chiuso del tutto dal pulsante filtri nell'header, la successiva apertura compatta riparte dalla posizione iniziale, con il contenuto dei filtri scrollato in alto.
+
 I filtri sono condivisi tra timeline e statistiche:
 
 - ricerca testuale su descrizione e nota; i termini preceduti da `#` cercano invece i tag per prefisso e possono essere combinati con il testo in qualsiasi ordine. Tutto il testo e tutti i tag indicati devono corrispondere;

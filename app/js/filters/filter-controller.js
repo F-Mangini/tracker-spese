@@ -10,6 +10,7 @@ const FilterController = (() => {
     let filterLayoutTransitionToken = 0;
     let timelineScrollBeforeFilterOpen = null;
     let timelineScrollWithFilterOpen = null;
+    let resetFilterScrollOnNextOpen = false;
     let activeQuickFilterState = null;
 
     function noop() { }
@@ -52,6 +53,13 @@ const FilterController = (() => {
             onComplete();
             if (main) main.classList.remove('filter-layout-transition');
         }, FILTER_LAYOUT_TRANSITION_MS);
+    }
+
+    function resetFilterPanelScroll(panel) {
+        if (!panel) return;
+
+        const scrollContainer = panel.querySelector('.filter-panel-scroll');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
     }
 
     function alignMainBelowFilterPanel(main, panel) {
@@ -1154,6 +1162,9 @@ const FilterController = (() => {
         const advanced = doc.getElementById('advanced-filters');
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
         const main = doc.getElementById('app-main');
+        const shouldResetFilterScroll = resetFilterScrollOnNextOpen;
+
+        resetFilterScrollOnNextOpen = false;
 
         timelineScrollBeforeFilterOpen = main && getCurrentPage(options) === 'timeline'
             ? Number(main.scrollTop) || 0
@@ -1175,6 +1186,7 @@ const FilterController = (() => {
 
         beginFilterLayoutTransition(options, main, () => {
             restoreTimelineScroll();
+            if (shouldResetFilterScroll) resetFilterPanelScroll(panel);
             if (timelineScrollBeforeFilterOpen !== null && main) {
                 timelineScrollWithFilterOpen = Number(main.scrollTop) || 0;
             }
@@ -1191,6 +1203,10 @@ const FilterController = (() => {
         alignMainBelowFilterPanel(main, panel);
         updateAppMainPadding(options);
         restoreTimelineScroll();
+        if (shouldResetFilterScroll) {
+            resetFilterPanelScroll(panel);
+            defer(options, () => resetFilterPanelScroll(panel));
+        }
     }
 
     function closeFilterPanel(options = {}, fromPopstate = false) {
@@ -1201,6 +1217,8 @@ const FilterController = (() => {
         const shouldCleanupReleasedFilterSearchHistory =
             !!(options.shouldCleanupReleasedFilterSearchHistory &&
                 options.shouldCleanupReleasedFilterSearchHistory());
+
+        if (hadAdvancedFilters) resetFilterScrollOnNextOpen = true;
 
         setFilterOpen(options, false);
         setAdvancedFiltersOpen(options, false);
@@ -1237,6 +1255,8 @@ const FilterController = (() => {
             if (panel) {
                 panel.classList.add('hidden');
                 panel.classList.remove('filter-panel-closing');
+
+                if (hadAdvancedFilters) resetFilterPanelScroll(panel);
             }
             if (advanced) advanced.classList.add('hidden');
             restoreTimelineScroll();

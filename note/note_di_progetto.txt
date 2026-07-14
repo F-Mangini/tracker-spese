@@ -2,10 +2,22 @@
 
 ## ELENCO MODIFICHE DA APPORTARE E IDEE
 
+### Aggiunte del 14/07/2026
+
+BUG: quando si chiude il pannello filtri compatto e si è completamente in fondo alla pagina timeline c'è un rimbalzo della pagina che non dovrebbe esserci. Inoltre al termine della chiusura del pannello, la pagina non è più del tutto in fondo come dovrebbe.
+
+FEAT: in personalizzazione deve essere disponibile un set di icone per le quali tutti i colori sono disponibili per poter aggiungere e modificare le categorie.
+
+FEAT: rendere il filtro rapido salvato esportabile all'interno delle personalizzazioni.
+
+### Aggiunte del 12/07/2026
+
+la data odierna deve comparire al posto del nome dell'app nell'header se si clicca su di esso. (toggle, il titolo torna se si clicca sulla data)✅
+
 ### Aggiunte del 12/06/2026
 
 BUG: Quando si apre la tastiera per scrivere in uno dei campi a tendina di "modifica spesa" o "esporta" la finestra deve scorrere in modo che tutta la tendina sia visibile sopra la tastiera. Al momento questo è vero solo per "modifica spesa" e solo la prima volta che si apre la tastiera.
-Im generale sistemare visibilità campi selezionati e tendine.
+In generale sistemare visibilità campi selezionati e tendine.
 
 FEAT: opzionalmente ordinamento per valore spesa al posto che cronologico. (In generale valutare altre modalità di ordinamento)
 
@@ -21,9 +33,9 @@ FEAT: Comportamento tasto filtri personalizzabile. Tra le opzioni anche "adattiv
 
 FEAT: + nella barra di inserimento a sinistra, per poter selezionare data e ora.
 
-FEAT: parsing di .<categoria> (punto seguito da carattere, senza spazio) per forzare una specifica categoria. Se il pattern è presente più volte, usare l'ultima occorrenza.
-
 FEAT: Animazione a scorrimento verticale per il banner riassuntivo quando si disattivano filtri e per entrata e uscita da modalità selezione.
+
+FEAT: parsing di .<categoria> (punto seguito da carattere, senza spazio) per forzare una specifica categoria. Se il pattern è presente più volte, usare l'ultima occorrenza.✅
 
 FEAT: in impostazioni mettere importa ed esporta nella stessa card.✅
 
@@ -33,13 +45,13 @@ BUG: le keywords non devono essere riconosciute all'interno di parole, ad esempi
 
 ### Aggiunte del 02/06/2026
 
-Tenendo premuto sul tastino dei filtri dell'header, voglio che si faccia toggle dei "filtri rapidi", personalizzabili nella futura pagina di personalizzazione.
+Tenendo premuto sul tastino dei filtri dell'header, voglio che si faccia toggle dei "filtri rapidi".✅
 
 BUG: Facendo back dopo aver cambiato versione (A -> B) (se si è sulla timeline con niente di aperto o selezionato) si torna indietro alla pagina impostazioni e alla precedente versione (A) al posto di uscire dall'app. Tuttavia si torna indietro alla precedente versione non in modo stabile, chiudendo e riaprendo si va alla versione che si era selezionato (B). Voglio che questo non accada. Una volta scelta una nuova versione non deve essere possibile tornare alla precedente usando i back.✅
 
 BUG: Tenendo premuta una spesa c'è una piccolissima finestra temporale in cui rilasciando si va in modalità selezione ma la spesa non viene selezionata. Fixa✅
 
-FEAT: in modalità selezione voglio che il tasto cerca rimanga dov'è anche nella modalità normalità. Al posto del toggle del tema voglio il tasto seleziona tutto. Mentre nel bottom nav i bottoni di timeline, statistiche e impostazione vengono nascosti con un'animazione a scorrimento verso destra. Al loro posto voglio in ordine da sinistra a destra il tasto copia (nella clipboard), il tasto esporta e il tasto elimina. Questi tre entrano con animazione a scorrimento coordinata verso destra. Gli altri tre bottoni rimangono disponibili, infatti voglio che scrollando verso sinistra il bottom nav i tre bottoni originali tornino a disposizione (sempre la stessa animazione a scorrimento). Inoltre scrollando si cambia l'intero set dei 3 bottoni, non deve essere possibile un scroll parziale.✅
+FEAT: in modalità selezione voglio che il tasto cerca rimanga dov'è anche nella modalità normale. Al posto del toggle del tema voglio il tasto seleziona tutto. Mentre nel bottom nav i bottoni di timeline, statistiche e impostazione vengono nascosti con un'animazione a scorrimento verso destra. Al loro posto voglio in ordine da sinistra a destra il tasto copia (nella clipboard), il tasto esporta e il tasto elimina. Questi tre entrano con animazione a scorrimento coordinata verso destra. Gli altri tre bottoni rimangono disponibili, infatti voglio che scrollando verso sinistra il bottom nav i tre bottoni originali tornino a disposizione (sempre la stessa animazione a scorrimento). Inoltre scrollando si cambia l'intero set dei 3 bottoni, non deve essere possibile un scroll parziale.✅
 
 FEAT: nessun testo/importi degli elementi della UI di tutta l'app deve essere selezionabile.✅
 
@@ -53,7 +65,7 @@ FEAT: Migliorare esteticamente finestra scelta formato di export. E anche quello
 
 FEAT: Gestire import (nel caso di aggiunta) nel caso di id uguali che potrebbero significare che la spesa è già presente.
 
-FEAT:Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
+FEAT: Quando si importa, solo se le impostazioni e personalizzazioni attuali sono diverse da quelle presenti nel file di import, chiedere se si vuole mantenere la configurazione attuale o settarla uguale a quella del backup che si sta importando.
 
 FEAT: nella timeline facendo swipe orizzontale su una singola spesa, devono essere visualizzate, sulla stessa, l'opzione rapida di eliminazione (cestino rosso) e l'opzione per copiare la spesa (copia nella clipboard la spesa con tutte le sue informazioni, da decidere come strutturarla json? tsv? md table?). Queste opzioni devono comparire da destra con animazione a scorrimento coordinata con lo swipe e occupare solo una parte dello spazio della spesa. L'icona, il titolo e l'importo della spesa rimangono visibili a sinistra.
 
@@ -116,8 +128,6 @@ FEAT: pannello filtri regolabile e bloccabile (tasto lucchetto) tramite pression
 
 FEAT: pannello filtri apribile e chiudibile facendo swipe sulla barra in basso (dove si trova il riassunto) e in alto (dove si trova il nome app e i tast per filtri e tema).
 
-FEAT: Voglio che scorrendo a destra e sinistra si scorra tra le pagine (timeline, statistiche, impostazioni).
-
 
 BUG: sistemare animazione barra di inserimento (non si muove insieme alla tastiera quando si apre e si chiude)
 
@@ -137,20 +147,14 @@ FEAT: Voglio un date filter picker custom con barra che collega la data di inizi
 FEAT: Voglio suggerimenti di categorie e pagamenti mentre si scrive nella barra di ricerca. E anche di tag se si mette il #. Selezionabili e inseriti automaticamente nelle sezioni apposite.
 Due tasti, uno per aggiungere, uno per escludere. Diventano rimuovi e escludi se il filtro è già stato aggiunto. (chiedere dettagli per questa feature)
 
-FEAT: Voglio che i tag siano cercabili solo se si mette il # prima del testo di ricerca (es. #inviagg troverà qualsiasi spesa con tag che inizia per "inviagg").
-
 
 FEAT: Voglio aggiungere gli accrediti (oltre alle spese) (bassa priorità).
 
 FEAT: Voglio che sia possibile la customizzazione delle categorie da tab personalizzazione. Cambiarne il colore associato, quelle attive e non attive, aggiungerne di nuove, rimuoverle, cambiarne le keyword.
 
-FEAT: Voglio aggiungere le selezioni negative (escludere dai risultati tutto ciò che rientra nel filtro) (con toggle a tre fasi: fase verde: includi; fase rossa: escludi; fase normale: niente)
-
 
 FEAT: Voglio aggiungere filtri per i tag (con possibilità di selezionare tutti i tag, tutte le spese senza tag, e cercare tag da aggiungere al filtro attuale) (chiedere più info per questa feature)
 
-
-FEAT: Colori specifici per categoria (ogni categoria deve avere un colore stabile personalizzabile).
 
 FEAT: Grafico spese nel tempo colorato in base alle categorie (le barre verticali sono colorate della categoria della spesa. Se più spese contribuiscono la barra viene divisa nei vari colori in percentuale rispetto a come le spese contribuiscono, però solo le spese che contribuiscono per almeno il 10% del totale). (chiedere dettagli)
 
@@ -163,6 +167,8 @@ FEAT: Migliorare estetica UI.
 
 FEAT: Sostituire emoji con icone.
 
+FEAT: Colori specifici per categoria (ogni categoria deve avere un colore stabile personalizzabile).🟡
+
 BUG: Animazione buggata quando si fa swipe indietro (tramite gesture telefono) dal lato sinistro dello schermo. (buggato sul mio vecchio realme 9, funzionante sul mio nuovo Xiaomi 15)🟡
 
 FEAT: Voglio le Categorie in ordine alfabetico (attualmente lo sono solo perché scritte in ordine nel codice) (e selezionabili da tab personalizzazione, il tab personalizzazione non esiste ancora, sarà da aggiungere dopo il refactor)🟡
@@ -172,6 +178,12 @@ FEAT: Cambiare favicon.🟡
 FEAT: Voglio filtri pre-impostati da tab personalizzazione (ancora non esistente) che rimangono attivi anche se esco e rientro nell'app.❌
 
 BUG: Quando chiudo l'app con un indietro, deve rimanere nei recenti del telefono e non chiudersi del tutto.❌
+
+FEAT: Voglio che scorrendo a destra e sinistra si scorra tra le pagine (timeline, statistiche, impostazioni).✅
+
+FEAT: Voglio che i tag siano cercabili solo se si mette il # prima del testo di ricerca (es. #inviagg troverà qualsiasi spesa con tag che inizia per "inviagg").✅
+
+FEAT: Voglio aggiungere le selezioni negative (escludere dai risultati tutto ciò che rientra nel filtro) (verde: includi; rosso: escludi; normale: niente)✅
 
 FEAT: Voglio che tenendo premuto su una spesa si vada in modalità selezione per selezionare spese con opzione in alto per cancellare o per selezionare tutte (in questa modalità i filtri applicati rimangono attivi, quindi se ad esempio si ha attivo il filtro "Supermercato" e si selezionano tutte le spese, verranno selezionate tutte e sole le spese di categoria "Supermercato").✅
 

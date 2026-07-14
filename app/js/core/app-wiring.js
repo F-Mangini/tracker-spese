@@ -268,7 +268,9 @@ const AppWiring = (() => {
 
         function getSelectedOnlyIdsForFilters() {
             if (!app.timelineSelectionActive) return new Set();
-            if (!app.filters.selectedOnly) return app.timelineSelectedIds;
+            if (!app.filters.selectedOnly && !app.filters.excludedSelectedOnly) {
+                return app.timelineSelectedIds;
+            }
             return app.filters.selectedOnlyIds instanceof Set
                 ? app.filters.selectedOnlyIds
                 : new Set();
@@ -310,7 +312,9 @@ const AppWiring = (() => {
 
             app.filters.query = filters.query || '';
             app.filters.categories = new Set(filters.categories || []);
+            app.filters.excludedCategories = new Set(filters.excludedCategories || []);
             app.filters.methods = new Set(filters.methods || []);
+            app.filters.excludedMethods = new Set(filters.excludedMethods || []);
             app.filters.amountMin = Number(filters.amountMin || 0);
             app.filters.amountMax = filters.amountMax === Infinity
                 ? Infinity
@@ -318,7 +322,8 @@ const AppWiring = (() => {
             app.filters.dateFrom = filters.dateFrom || '';
             app.filters.dateTo = filters.dateTo || '';
             app.filters.selectedOnly = !!filters.selectedOnly;
-            app.filters.selectedOnlyIds = filters.selectedOnly
+            app.filters.excludedSelectedOnly = !!filters.excludedSelectedOnly;
+            app.filters.selectedOnlyIds = filters.selectedOnly || filters.excludedSelectedOnly
                 ? new Set(selectedIds || [])
                 : new Set();
 
@@ -333,12 +338,15 @@ const AppWiring = (() => {
             return {
                 query: app.filters.query || '',
                 categories: Array.from(app.filters.categories || []),
+                excludedCategories: Array.from(app.filters.excludedCategories || []),
                 methods: Array.from(app.filters.methods || []),
+                excludedMethods: Array.from(app.filters.excludedMethods || []),
                 amountMin: Number(app.filters.amountMin || 0),
                 amountMax: app.filters.amountMax === Infinity ? Infinity : Number(app.filters.amountMax),
                 dateFrom: app.filters.dateFrom || '',
                 dateTo: app.filters.dateTo || '',
-                selectedOnly: !!app.filters.selectedOnly
+                selectedOnly: !!app.filters.selectedOnly,
+                excludedSelectedOnly: !!app.filters.excludedSelectedOnly
             };
         }
 
@@ -408,7 +416,9 @@ const AppWiring = (() => {
                 getCurrentPage: () => app.currentPage,
                 isTimelineSelectionActive: () => app.timelineSelectionActive,
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
-                defer: callback => deps.setTimeout(callback, 0)
+                defer: callback => deps.setTimeout(callback, 0),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: timerId => deps.clearTimeout(timerId)
             };
         }
 
@@ -435,6 +445,20 @@ const AppWiring = (() => {
                     selectedIds: getTimelineSelectedIdsForFilters(),
                     selectedOnlyIds: getSelectedOnlyIdsForFilters()
                 }),
+                storage: deps.Storage,
+                localStorage: (() => {
+                    try {
+                        return deps.window && deps.window.localStorage
+                            ? deps.window.localStorage
+                            : null;
+                    } catch (_) {
+                        return null;
+                    }
+                })(),
+                createFilterSnapshot: createCurrentFilterSnapshot,
+                applyFilterSnapshot,
+                normalizeFilterSnapshot: value => deps.SettingsActions.normalizeFilterSnapshot(value),
+                pageScrollTop: app.pageScrollTop,
                 getFilterOpen: () => app.filterOpen,
                 setFilterOpen: value => { app.filterOpen = value; },
                 getAdvancedFiltersOpen: () => app.advancedFiltersOpen,
@@ -444,9 +468,12 @@ const AppWiring = (() => {
                 getCurrentPage: () => app.currentPage,
                 isTimelineSelectionActive: () => app.currentPage !== 'settings' && app.timelineSelectionActive,
                 getTimelineSelectedIds: () => app.timelineSelectedIds,
-                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                setSelectedOnlyFilter: (value, selectedIds = null, excluded = false) => {
                     app.filters.selectedOnly = !!value;
-                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                    app.filters.excludedSelectedOnly = !value && !!excluded;
+                    app.filters.selectedOnlyIds = value || excluded
+                        ? new Set(selectedIds || app.timelineSelectedIds)
+                        : new Set();
                 },
                 getLastSliderInput: () => app._lastSliderInput,
                 setLastSliderInput: value => { app._lastSliderInput = value; },
@@ -466,7 +493,9 @@ const AppWiring = (() => {
                 clearReleasedFilterSearchHistory: () => { app._releasedFilterSearchHistory = false; },
                 onFilterChange: () => app.onFilterChange(),
                 showToast: (message, type) => app.showToast(message, type),
-                requestAnimationFrame: callback => deps.requestAnimationFrame(callback)
+                requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: timerId => deps.clearTimeout(timerId)
             };
         }
 
@@ -579,9 +608,12 @@ const AppWiring = (() => {
                 isDeletePending: () => app.timelineSelectionDeletePending,
                 setDeletePending: value => { app.timelineSelectionDeletePending = value; },
                 getCurrentPage: () => app.currentPage,
-                setSelectedOnlyFilter: (value, selectedIds = null) => {
+                setSelectedOnlyFilter: (value, selectedIds = null, excluded = false) => {
                     app.filters.selectedOnly = !!value;
-                    app.filters.selectedOnlyIds = value ? new Set(selectedIds || app.timelineSelectedIds) : new Set();
+                    app.filters.excludedSelectedOnly = !value && !!excluded;
+                    app.filters.selectedOnlyIds = value || excluded
+                        ? new Set(selectedIds || app.timelineSelectedIds)
+                        : new Set();
                 },
                 rememberFiltersBeforeSelection,
                 restoreFiltersAfterSelection,

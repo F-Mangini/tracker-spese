@@ -180,6 +180,7 @@ const StatsController = (() => {
             summary,
             barChartTitle,
             chartColors: StatsCharts.COLORS,
+            getCategoryColor: categoryId => StatsCharts.getCategoryColor(categoryId),
             getCategory
         });
 

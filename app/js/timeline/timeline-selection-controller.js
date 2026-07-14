@@ -190,7 +190,9 @@ const TimelineSelectionController = (() => {
             dataset.defaultHtml = title.innerHTML;
         }
 
-        title.innerHTML = dataset.defaultHtml;
+        if (dataset.showingDate !== 'true') {
+            title.innerHTML = dataset.defaultHtml;
+        }
     }
 
     function setNavSetAccessibility(bottomNav, active, set) {

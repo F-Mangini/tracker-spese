@@ -204,7 +204,9 @@ const SettingsController = (() => {
             return {
                 ...filters,
                 categories: normalizeSelectionIds(filters.categories).sort(),
+                excludedCategories: normalizeSelectionIds(filters.excludedCategories).sort(),
                 methods: normalizeSelectionIds(filters.methods).sort(),
+                excludedMethods: normalizeSelectionIds(filters.excludedMethods).sort(),
                 amountMax: filters.amountMax === Infinity ? 'Infinity' : filters.amountMax
             };
         };

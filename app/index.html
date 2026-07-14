@@ -60,9 +60,10 @@
             </div>
 
             <div id="selection-filter-section" class="filter-section hidden">
-                <div class="filter-label">Selezione</div>
+                <div class="filter-label">&#x2611;&#xfe0f; Selezione</div>
                 <div class="filter-chips">
-                    <button id="filter-selected-only" class="filter-chip" data-id="selected-only">
+                    <button type="button" id="filter-selected-only" class="filter-chip" data-id="selected-only"
+                        data-label="Selezionate" aria-pressed="false" aria-label="Selezionate: neutro">
                         Selezionate
                     </button>
                 </div>
@@ -284,6 +285,7 @@
     <script src="js/core/app-refresh.js"></script>
     <script src="js/ui/ui-utils.js"></script>
     <script src="js/ui/download-controller.js"></script>
+    <script src="js/ui/header-title-controller.js"></script>
     <script src="js/filters/filter-view.js"></script>
     <script src="js/filters/filter-controller.js"></script>
     <script src="js/timeline/timeline-view.js"></script>

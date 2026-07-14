@@ -37,10 +37,12 @@
     --radius-md: 12px;
     --radius-sm: 8px;
     --header-h: 56px;
+    --page-banner-h: 84px;
     --input-h: 64px;
     --nav-h: 64px;
     --filter-compact-scroll-h: 63px;
     --filter-footer-h: 42px;
+    --filter-panel-content-offset: 6px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -80,6 +82,7 @@ textarea {
 }
 
 body {
+    display: flow-root;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
@@ -113,6 +116,27 @@ body {
     font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: -0.02em;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transform-origin: left center;
+    border-radius: 6px;
+    transition: opacity 90ms ease;
+}
+
+#app-header h1:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+#app-header h1.header-title-fade-out {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #app-header h1 {
+        transition: none;
+    }
 }
 
 .header-actions {
@@ -209,7 +233,16 @@ body {
     border-bottom: 1px solid var(--border);
     z-index: 99;
     box-shadow: var(--shadow);
-    animation: fpSlideIn 0.2s ease;
+    animation: fpSlideIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.filter-panel.filter-panel-closing {
+    animation: none;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
 }
 
 .filter-panel.hidden {
@@ -356,6 +389,13 @@ body {
     background: var(--accent-light);
     border-color: var(--accent);
     color: var(--accent-text);
+    font-weight: 600;
+}
+
+.filter-chip.excluded {
+    background: var(--danger-light);
+    border-color: var(--danger);
+    color: var(--danger);
     font-weight: 600;
 }
 
@@ -589,6 +629,7 @@ body {
    MAIN CONTENT
    ============================================ */
 #app-main {
+    position: relative;
     margin-top: var(--header-h);
     height: calc(100vh - var(--header-h));
     height: calc(100dvh - var(--header-h));
@@ -597,20 +638,60 @@ body {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    transition: margin-top 0.2s ease;
+    touch-action: pan-y;
+    transition: margin-top 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#app-main.filter-layout-transition {
+    overflow-anchor: none;
 }
 
 #app-main.no-input-bar {
     padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
 }
 
+#app-main.page-swipe-active {
+    overflow-y: hidden;
+}
+
 .page {
     padding: 12px 12px 0;
+}
+
+.page.page-nav-enter {
     animation: fadeIn 0.2s ease;
 }
 
 .page.hidden {
     display: none;
+}
+
+.page.page-swipe-layer {
+    animation: none;
+    background: var(--bg-primary);
+    backface-visibility: hidden;
+    will-change: transform;
+}
+
+.page.page-swipe-current {
+    position: relative;
+    z-index: 1;
+}
+
+.page.page-swipe-preview {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.page-swipe-banner {
+    will-change: transform;
+}
+
+.page.page-swipe-mask-aligned::before {
+    transform: translate3d(0, var(--page-swipe-banner-y, 0px), 0);
+    will-change: transform;
 }
 
 @keyframes fadeIn {
@@ -635,9 +716,29 @@ body {
     background: linear-gradient(135deg, var(--accent), var(--accent-hover));
     color: #fff;
     border-radius: var(--radius);
+    height: var(--page-banner-h);
     padding: 16px 20px;
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
     box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: height 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        padding-top 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        margin-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 160ms ease,
+        transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#timeline-summary.filter-panel-collapsed {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: var(--filter-panel-content-offset);
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
 }
 
 #page-timeline::before {
@@ -647,12 +748,15 @@ body {
     z-index: 97;
     display: block;
     opacity: 0.8;
-    height: 104px;
+    height: 110px;
     background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-primary) calc(100% - 30px), transparent 100%);
     pointer-events: none;
     margin-left: -12px;
     margin-right: -12px;
-    margin-bottom: -104px;
+    margin-bottom: -110px;
+    transition: height 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        margin-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 160ms ease;
 }
 
 #page-settings::before {
@@ -670,10 +774,10 @@ body {
 }
 
 #page-timeline.filter-open::before {
-    height: 16px;
+    height: 10px;
     opacity: 0.6;
     background: linear-gradient(to bottom, var(--bg-primary) 0%, transparent 100%);
-    margin-bottom: -16px;
+    margin-bottom: -10px;
 }
 
 #timeline-summary.hidden {
@@ -688,6 +792,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    width: 100%;
 }
 
 .summary-item {
@@ -959,6 +1064,13 @@ body.expense-input-active #input-bar {
     transition: none;
     transform: none !important;
     will-change: bottom;
+}
+
+#input-bar.page-swipe-input,
+body.expense-input-active #input-bar.page-swipe-input {
+    transition: var(--page-swipe-input-transition, none) !important;
+    transform: translate3d(var(--page-swipe-input-x, 0px), 0, 0) !important;
+    will-change: transform;
 }
 
 .input-wrapper {
@@ -2375,10 +2487,11 @@ body.no-scroll #app-main {
     position: sticky;
     top: 12px;
     z-index: 95;
+    height: var(--page-banner-h);
     margin-bottom: 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
@@ -2414,5 +2527,15 @@ body.no-scroll #app-main {
 
     .overlay {
         align-items: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-panel,
+    #app-main,
+    #timeline-summary,
+    #page-timeline::before {
+        animation: none;
+        transition: none;
     }
 }

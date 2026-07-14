@@ -167,6 +167,7 @@ function loadUiViews(globals = {}) {
     const inputBarControllerCode = readAppScript('input/input-bar-controller.js');
     const uiCode = readAppScript('ui/ui-utils.js');
     const downloadControllerCode = readAppScript('ui/download-controller.js');
+    const headerTitleControllerCode = readAppScript('ui/header-title-controller.js');
     const filterViewCode = readAppScript('filters/filter-view.js');
     const filterControllerCode = readAppScript('filters/filter-controller.js');
     const timelineViewCode = readAppScript('timeline/timeline-view.js');
@@ -209,6 +210,7 @@ function loadUiViews(globals = {}) {
             inputBarControllerCode,
             uiCode,
             downloadControllerCode,
+            headerTitleControllerCode,
             filterViewCode,
             filterControllerCode,
             timelineViewCode,
@@ -243,6 +245,7 @@ function loadUiViews(globals = {}) {
             'globalThis.AppRefresh = AppRefresh;',
             'globalThis.AppUI = AppUI;',
             'globalThis.DownloadController = DownloadController;',
+            'globalThis.HeaderTitleController = HeaderTitleController;',
             'globalThis.ExpenseActions = ExpenseActions;',
             'globalThis.ExpenseSubmitController = ExpenseSubmitController;',
             'globalThis.ExpenseInputController = ExpenseInputController;',
@@ -282,6 +285,7 @@ function loadUiViews(globals = {}) {
     return {
         AppUI: context.AppUI,
         DownloadController: context.DownloadController,
+        HeaderTitleController: context.HeaderTitleController,
         ExpenseStore: context.ExpenseStore,
         ExpenseQuery: context.ExpenseQuery,
         AppRefresh: context.AppRefresh,
@@ -634,6 +638,73 @@ test('Parser riconosce keyword categoria solo come parole intere', () => {
     assert.equal(bus.categoria, 'trasporti');
     assert.equal(busta.categoria, 'altro');
     assert.equal(storeWithSymbol.categoria, 'abbigliamento');
+});
+
+test('Parser forza la categoria esplicita usando l ultima occorrenza', () => {
+    const Parser = loadParser();
+    const result = Parser.parse('scarpe 25 .bar .cura-personale');
+
+    assert.equal(result.categoria, 'cura');
+    assert.equal(result.descrizione, 'Scarpe');
+});
+
+test('Titolo header alterna nome app e data odierna con fade e accessibilita tastiera', () => {
+    const { HeaderTitleController } = loadUiViews();
+    const listeners = {};
+    const attributes = {};
+    const classes = new Set();
+    const timers = [];
+    const title = {
+        innerHTML: "Where's My Money?",
+        textContent: "Where's My Money?",
+        dataset: {},
+        classList: {
+            add: value => classes.add(value),
+            remove: value => classes.delete(value)
+        },
+        setAttribute: (name, value) => {
+            attributes[name] = value;
+        },
+        addEventListener: (name, handler) => {
+            listeners[name] = handler;
+        }
+    };
+    const controller = HeaderTitleController.init({
+        document: { querySelector: () => title },
+        now: () => new Date('2026-07-12T12:00:00'),
+        locale: 'it-IT',
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        }
+    });
+
+    listeners.click();
+    assert.equal(title.dataset.showingDate, 'false');
+    assert(classes.has('header-title-fade-out'));
+    assert.equal(timers[0].delay, 90);
+
+    timers.shift().callback();
+    assert.equal(title.textContent, '12 luglio 2026');
+    assert.equal(title.dataset.showingDate, 'true');
+    assert(!classes.has('header-title-fade-out'));
+    timers.shift().callback();
+
+    let prevented = false;
+    listeners.keydown({
+        key: 'Enter',
+        preventDefault: () => {
+            prevented = true;
+        }
+    });
+    assert.equal(prevented, true);
+    assert(classes.has('header-title-fade-out'));
+    timers.shift().callback();
+    assert.equal(title.innerHTML, "Where's My Money?");
+    assert.equal(title.dataset.showingDate, 'false');
+    timers.shift().callback();
+    assert.equal(attributes.role, 'button');
+    assert.equal(controller.title, title);
 });
 
 test('Azioni spesa isolano parser e storage dall input rapido', () => {
@@ -1361,6 +1432,95 @@ test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
     assert.deepEqual(result.map(s => s.id), ['match']);
 });
 
+test('Filtri categorie e pagamento combinano inclusioni ed esclusioni tri-state', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'bar-card', categoria: 'bar', metodo: 'carta' }),
+        expense({ id: 'home-card', categoria: 'casa', metodo: 'carta' }),
+        expense({ id: 'drink-cash', categoria: 'drink', metodo: 'contanti' }),
+        expense({ id: 'bills-card', categoria: 'bollette', metodo: 'carta' })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            excludedCategories: new Set(['bar'])
+        }).map(spesa => spesa.id),
+        ['home-card', 'drink-cash', 'bills-card']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            categories: new Set(['casa', 'drink']),
+            excludedCategories: new Set(['bar'])
+        }).map(spesa => spesa.id),
+        ['home-card', 'drink-cash']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            methods: new Set(['carta']),
+            excludedCategories: new Set(['bollette'])
+        }).map(spesa => spesa.id),
+        ['bar-card', 'home-card']
+    );
+    assert.equal(ExpenseFilters.countActive({
+        categories: new Set(['casa']),
+        excludedCategories: new Set(['bar']),
+        excludedMethods: new Set(['contanti'])
+    }), 2);
+});
+
+test('Ricerca tag richiede cancelletto e usa il prefisso', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'tag', descrizione: 'Cena', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'text', descrizione: 'Promemoria inviagg', nota: '', tags: [] }),
+        expense({ id: 'middle', descrizione: 'Altro', nota: '', tags: ['preinviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: 'inviagg' }).map(spesa => spesa.id),
+        ['text']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#inviagg' }).map(spesa => spesa.id),
+        ['tag']
+    );
+});
+
+test('Ricerca combina testo e tag in qualsiasi ordine', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'match-title', descrizione: 'Panino integrale', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'match-note', descrizione: 'Pranzo', nota: 'Preso un panino caldo', tags: ['inviaggio'] }),
+        expense({ id: 'missing-tag', descrizione: 'Panino integrale', nota: '', tags: ['roma'] }),
+        expense({ id: 'missing-text', descrizione: 'Cena', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'text-only-in-tag', descrizione: 'Cena', nota: '', tags: ['panino', 'inviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: 'panino #inviagg' }).map(spesa => spesa.id),
+        ['match-title', 'match-note']
+    );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#inviagg panino' }).map(spesa => spesa.id),
+        ['match-title', 'match-note']
+    );
+});
+
+test('Ricerca con piu tag richiede che ogni prefisso sia presente', () => {
+    const ExpenseFilters = loadFilters();
+    const spese = [
+        expense({ id: 'both', descrizione: 'Panino', nota: '', tags: ['roma-centro', 'inviaggio'] }),
+        expense({ id: 'only-roma', descrizione: 'Panino', nota: '', tags: ['roma-centro'] }),
+        expense({ id: 'only-trip', descrizione: 'Panino', nota: '', tags: ['inviaggio'] }),
+        expense({ id: 'wrong-prefix', descrizione: 'Panino', nota: '', tags: ['aroma', 'inviaggio'] })
+    ];
+
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, { query: '#roma panino #inviagg' }).map(spesa => spesa.id),
+        ['both']
+    );
+});
+
 test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () => {
     const ExpenseFilters = loadFilters();
     const spese = [
@@ -1399,7 +1559,7 @@ test('Filtri non-data ignorano il periodo ma mantengono gli altri vincoli', () =
     assert.equal(ExpenseFilters.countActive(filters), 5);
 });
 
-test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
+test('Filtro speciale selezionate include o esclude lo snapshot di ID selezionati', () => {
     const ExpenseFilters = loadFilters();
     const spese = [
         expense({ id: 'a', importo: 5, categoria: 'bar' }),
@@ -1422,7 +1582,17 @@ test('Filtro speciale selezionate limita ai soli ID selezionati', () => {
         }).map(item => item.id),
         ['b']
     );
+    assert.deepEqual(
+        ExpenseFilters.apply(spese, {
+            categories: new Set(['bar']),
+            excludedSelectedOnly: true
+        }, {
+            selectedOnlyIds: new Set(['b', 'c'])
+        }).map(item => item.id),
+        ['a']
+    );
     assert.equal(ExpenseFilters.countActive(filters), 2);
+    assert.equal(ExpenseFilters.countActive({ excludedSelectedOnly: true }), 1);
 });
 
 test('Statistiche aggregano dati giornalieri includendo giorni vuoti', () => {
@@ -1664,9 +1834,332 @@ test('Controller filtri riusa modello filtrato precomputato', () => {
     assert.equal(payloadSeen.quickTotals.todayTotal, 3);
 });
 
+test('Filtro rapido salva una preferenza locale senza il filtro Selezionate', () => {
+    const { FilterController } = loadUiViews();
+    const localStorage = createLocalStorage();
+    const toasts = [];
+    const current = {
+        query: '',
+        categories: new Set(['bar']),
+        excludedCategories: new Set(['casa']),
+        methods: new Set(['carta']),
+        excludedMethods: new Set(),
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: true,
+        excludedSelectedOnly: false
+    };
+    const options = {
+        storage: { KEY: 'spesa-tracker-data-dev' },
+        localStorage,
+        filters: current,
+        getFilterOpen: () => true,
+        getAdvancedFiltersOpen: () => true,
+        createFilterSnapshot: () => current,
+        showToast: (...args) => toasts.push(args)
+    };
+    const state = {};
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'saved');
+    assert.equal(
+        FilterController.getQuickFilterStorageKey(options),
+        'spesa-tracker-data-dev:quick-filter'
+    );
+
+    const persisted = JSON.parse(localStorage.getItem('spesa-tracker-data-dev:quick-filter'));
+    assert.equal(persisted.selectedOnly, false);
+    assert.equal(persisted.excludedSelectedOnly, false);
+    assert.equal(persisted.amountMax, 'Infinity');
+    assert.equal(persisted.categories.join(','), 'bar');
+    assert.equal(persisted.excludedCategories.join(','), 'casa');
+    assert.deepEqual(toasts.pop(), ['Filtro rapido salvato', 'success']);
+});
+
+test('Filtro rapido alterna snapshot salvato e filtri precedenti', () => {
+    const { FilterController } = loadUiViews();
+    let current = {
+        categories: ['bar'],
+        methods: [],
+        selectedOnly: true
+    };
+    const applied = [];
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+            applied.push(snapshot);
+        }
+    };
+    const state = {
+        savedSnapshot: {
+            categories: [],
+            methods: ['carta'],
+            excludedSelectedOnly: true
+        },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.join(','), 'carta');
+    assert.equal(current.selectedOnly, false);
+    assert.equal(current.excludedSelectedOnly, false);
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.join(','), 'bar');
+    assert.equal(current.methods.length, 0);
+    assert.equal(current.selectedOnly, false);
+    assert.equal(applied.length, 2);
+});
+
+test('Filtro rapido ripristina l ultima configurazione diversa dal rapido', () => {
+    const { FilterController } = loadUiViews();
+    let current = { categories: [], methods: [] };
+    const options = {
+        getFilterOpen: () => true,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        }
+    };
+    const state = {
+        savedSnapshot: { categories: [], methods: ['carta'] },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    current = { categories: ['casa'], methods: ['carta'] };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.join(','), 'carta');
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.join(','), 'casa');
+    assert.equal(current.methods.join(','), 'carta');
+});
+
+test('Filtro rapido ripristina lo stato precedente anche se il rapido e raggiunto a mano', () => {
+    const { FilterController } = loadUiViews();
+    let current = { categories: [], methods: [] };
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        }
+    };
+    const state = {
+        savedSnapshot: { categories: [], methods: ['carta'] },
+        restoreSnapshot: null,
+        lastObservedSnapshot: current
+    };
+
+    current = { categories: [], methods: ['carta'] };
+    FilterController.observeQuickFilterChange(options, state);
+
+    assert(state.restoreSnapshot);
+    assert.equal(state.restoreSnapshot.categories.length, 0);
+    assert.equal(state.restoreSnapshot.methods.length, 0);
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(current.categories.length, 0);
+    assert.equal(current.methods.length, 0);
+});
+
+test('Reset filtri sostituisce lo stato da ripristinare del filtro rapido', () => {
+    const { FilterController } = loadUiViews();
+    const filters = {
+        query: '',
+        categories: new Set(['bar']),
+        excludedCategories: new Set(),
+        methods: new Set(),
+        excludedMethods: new Set(),
+        amountMin: 0,
+        amountMax: Infinity,
+        dateFrom: '',
+        dateTo: '',
+        selectedOnly: false,
+        excludedSelectedOnly: false,
+        selectedOnlyIds: new Set()
+    };
+    const options = {
+        filters,
+        document: {
+            getElementById: () => null,
+            querySelectorAll: () => []
+        },
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => filters,
+        applyFilterSnapshot(snapshot) {
+            filters.query = snapshot.query;
+            filters.categories = new Set(snapshot.categories);
+            filters.excludedCategories = new Set(snapshot.excludedCategories);
+            filters.methods = new Set(snapshot.methods);
+            filters.excludedMethods = new Set(snapshot.excludedMethods);
+            filters.amountMin = snapshot.amountMin;
+            filters.amountMax = snapshot.amountMax;
+            filters.dateFrom = snapshot.dateFrom;
+            filters.dateTo = snapshot.dateTo;
+            filters.selectedOnly = snapshot.selectedOnly;
+            filters.excludedSelectedOnly = snapshot.excludedSelectedOnly;
+            filters.selectedOnlyIds = new Set();
+        }
+    };
+    const state = {
+        savedSnapshot: { methods: ['carta'] },
+        restoreSnapshot: null
+    };
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    filters.categories.add('casa');
+    FilterController.resetFilters(options, {
+        quickFilterState: state,
+        showToast: false
+    });
+    assert.equal(state.restoreSnapshot, null);
+
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'activated');
+    assert.equal(filters.methods.has('carta'), true);
+    assert.equal(FilterController.handleQuickFilterLongPress(options, state), 'restored');
+    assert.equal(filters.categories.size, 0);
+    assert.equal(filters.methods.size, 0);
+    assert.equal(filters.excludedCategories.size, 0);
+    assert.equal(filters.excludedMethods.size, 0);
+});
+
+test('Pressione lunga filtro scatta una volta e sopprime il click successivo', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let current = { categories: ['bar'] };
+    const button = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const options = {
+        getFilterOpen: () => false,
+        getAdvancedFiltersOpen: () => false,
+        createFilterSnapshot: () => current,
+        applyFilterSnapshot(snapshot) {
+            current = snapshot;
+        },
+        setTimeout(callback, delay) {
+            const id = nextTimerId++;
+            timers.set(id, { callback, delay });
+            return id;
+        },
+        clearTimeout(id) {
+            timers.delete(id);
+        }
+    };
+    const state = {
+        savedSnapshot: { methods: ['carta'] },
+        restoreSnapshot: null
+    };
+    const binding = FilterController.bindQuickFilterLongPress(button, options, state);
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+    const timer = Array.from(timers.values())[0];
+    assert.equal(timer.delay, 450);
+    timer.callback();
+
+    assert.equal(current.methods.join(','), 'carta');
+    assert.equal(binding.consumeClick(), true);
+    assert.equal(binding.consumeClick(), false);
+});
+
+test('Pressione lunga filtro scatta al rilascio vicino alla soglia anche se il timer non e ancora partito', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let longPressCount = 0;
+    const element = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const options = {
+        setTimeout(callback, delay) {
+            const id = nextTimerId++;
+            timers.set(id, { callback, delay });
+            return id;
+        },
+        clearTimeout(id) {
+            timers.delete(id);
+        }
+    };
+    const binding = FilterController.bindLongPressGesture(
+        element,
+        options,
+        () => {
+            longPressCount += 1;
+        }
+    );
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10, timeStamp: 100 });
+    const pendingTimer = Array.from(timers.values())[0];
+    assert.equal(pendingTimer.delay, 450);
+
+    listeners.pointerup({ timeStamp: 540 });
+    assert.equal(longPressCount, 1);
+    assert.equal(timers.size, 0);
+    assert.equal(binding.consumeClick(), true);
+    assert.equal(binding.consumeClick(), false);
+
+    pendingTimer.callback();
+    assert.equal(longPressCount, 1);
+});
+
+test('Rilascio breve del filtro resta un tap normale', () => {
+    const { FilterController } = loadUiViews();
+    const listeners = {};
+    const timers = new Map();
+    let nextTimerId = 1;
+    let longPressCount = 0;
+    const element = {
+        addEventListener(event, handler) {
+            listeners[event] = handler;
+        }
+    };
+    const binding = FilterController.bindLongPressGesture(
+        element,
+        {
+            setTimeout(callback, delay) {
+                const id = nextTimerId++;
+                timers.set(id, { callback, delay });
+                return id;
+            },
+            clearTimeout(id) {
+                timers.delete(id);
+            }
+        },
+        () => {
+            longPressCount += 1;
+        }
+    );
+
+    listeners.pointerdown({ button: 0, clientX: 10, clientY: 10, timeStamp: 100 });
+    listeners.pointerup({ timeStamp: 300 });
+
+    assert.equal(longPressCount, 0);
+    assert.equal(timers.size, 0);
+    assert.equal(binding.consumeClick(), false);
+});
+
 test('Controller filtri coordina pannello, ricerca e slider fuori da App', () => {
     const { FilterController, FilterView } = loadUiViews();
     const calls = [];
+    const transitionTimers = [];
 
     function makeClassList(initial = []) {
         const classes = new Set(initial);
@@ -1726,11 +2219,16 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
 
     function makeChip(id) {
         return {
-            dataset: { id },
+            dataset: { id, label: id },
             classList: makeClassList(),
             listener: null,
+            listeners: {},
             addEventListener(event, handler) {
+                this.listeners[event] = handler;
                 if (event === 'click') this.listener = handler;
+            },
+            setAttribute(name, value) {
+                this[name] = value;
             }
         };
     }
@@ -1787,12 +2285,15 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     const filters = {
         query: '',
         categories: new Set(['bar']),
+        excludedCategories: new Set(['casa']),
         methods: new Set(),
+        excludedMethods: new Set(),
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
         selectedOnly: false,
+        excludedSelectedOnly: false,
         selectedOnlyIds: new Set()
     };
     const state = {
@@ -1804,7 +2305,8 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         releasedFilterSearchHistory: false,
         lastSliderInput: 'max',
         sliderMax: 100,
-        lastViewportHeight: 0
+        lastViewportHeight: 0,
+        pageScrollTop: { timeline: 200 }
     };
     const spese = [
         expense({ id: 'bar', importo: 120, categoria: 'bar' }),
@@ -1817,6 +2319,7 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
             matchMedia: () => ({ matches: true })
         },
         body: doc.body,
+        pageScrollTop: state.pageScrollTop,
         filters,
         categories: [{ id: 'bar', emoji: 'B', nome: 'Bar' }, { id: 'casa', emoji: 'C', nome: 'Casa' }],
         methods: [{ id: 'carta', emoji: 'M', nome: 'Carta' }],
@@ -1827,12 +2330,12 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         countActiveFilters: () => {
             let count = 0;
             if (filters.query) count += 1;
-            if (filters.categories.size) count += 1;
-            if (filters.methods.size) count += 1;
+            if (filters.categories.size || filters.excludedCategories.size) count += 1;
+            if (filters.methods.size || filters.excludedMethods.size) count += 1;
             if (filters.amountMin > 0 || filters.amountMax !== Infinity) count += 1;
             if (filters.dateFrom) count += 1;
             if (filters.dateTo) count += 1;
-            if (filters.selectedOnly) count += 1;
+            if (filters.selectedOnly || filters.excludedSelectedOnly) count += 1;
             return count;
         },
         applyFilters: items => items.filter(item => !filters.categories.size || filters.categories.has(item.categoria)),
@@ -1864,14 +2367,29 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
         clearReleasedFilterSearchHistory: () => { state.releasedFilterSearchHistory = false; },
         onFilterChange: () => calls.push('filter-change'),
         showToast: (message, type) => calls.push(['toast', message, type]),
-        requestAnimationFrame: callback => callback()
+        requestAnimationFrame: callback => callback(),
+        setTimeout: callback => {
+            transitionTimers.push(callback);
+            return transitionTimers.length;
+        },
+        clearTimeout: () => { }
     };
+
+    function longPress(element) {
+        element.listeners.pointerdown({ button: 0, clientX: 10, clientY: 10 });
+        const callback = transitionTimers.shift();
+        assert.equal(typeof callback, 'function');
+        callback();
+        element.listeners.pointerup();
+        element.listeners.click({ preventDefault() { } });
+    }
 
     FilterController.init(options);
 
     assert.equal(state.sliderMax, 500);
     assert.equal(elements['slider-max'].value, '500');
     assert(catChips[0].classList.contains('active'));
+    assert(catChips[1].classList.contains('excluded'));
     assert(elements['selection-filter-section'].classList.contains('hidden'));
     assert.equal(FilterController.getActiveFilterCount(options), 1);
 
@@ -1881,21 +2399,95 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert.equal(detachedMethods.has('carta'), false);
     assert.equal(filters.methods.has('carta'), true);
     assert(methodChips[0].classList.contains('active'));
+    assert.equal(methodChips[0]['aria-pressed'], 'true');
+
+    methodChips[0].listener();
+    assert.equal(filters.methods.has('carta'), false);
+    assert.equal(filters.excludedMethods.has('carta'), false);
+    assert(!methodChips[0].classList.contains('active'));
+    assert(!methodChips[0].classList.contains('excluded'));
+    assert.equal(methodChips[0]['aria-pressed'], 'false');
+
+    longPress(methodChips[0]);
+    assert.equal(filters.excludedMethods.has('carta'), true);
+    assert(methodChips[0].classList.contains('excluded'));
+    assert.equal(methodChips[0]['aria-pressed'], 'mixed');
+
+    methodChips[0].listener();
+    assert.equal(filters.excludedMethods.has('carta'), false);
+    assert.equal(filters.methods.has('carta'), true);
+    assert(methodChips[0].classList.contains('active'));
+    assert.equal(methodChips[0]['aria-pressed'], 'true');
+
+    longPress(methodChips[0]);
+    assert.equal(filters.methods.has('carta'), false);
+    assert.equal(filters.excludedMethods.has('carta'), true);
+
+    longPress(methodChips[0]);
+    assert.equal(filters.excludedMethods.has('carta'), false);
+    assert(!methodChips[0].classList.contains('excluded'));
 
     state.selectionActive = true;
     FilterController.syncFilterUI(options);
     assert(!elements['selection-filter-section'].classList.contains('hidden'));
     elements['filter-selected-only'].listeners.click();
     assert.equal(filters.selectedOnly, true);
+    assert.equal(filters.excludedSelectedOnly, false);
     assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
     assert(elements['filter-selected-only'].classList.contains('active'));
+
+    state.selectedIds.add('casa');
+    longPress(elements['filter-selected-only']);
+    assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, true);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
+    assert(elements['filter-selected-only'].classList.contains('excluded'));
+    assert.equal(elements['filter-selected-only']['aria-pressed'], 'mixed');
+
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, true);
+    assert.equal(filters.excludedSelectedOnly, false);
+    assert.deepEqual(Array.from(filters.selectedOnlyIds), ['bar']);
+    assert(elements['filter-selected-only'].classList.contains('active'));
+
+    elements['filter-selected-only'].listeners.click();
+    assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, false);
+    assert.equal(filters.selectedOnlyIds.size, 0);
+    assert(!elements['filter-selected-only'].classList.contains('active'));
+    assert(!elements['filter-selected-only'].classList.contains('excluded'));
 
     elements['search-input'].value = ' caffe ';
     elements['search-input'].listeners.input();
     assert.equal(filters.query, 'caffe');
     assert(calls.includes('filter-change'));
 
+    let simulatedTimelineScrollTop = 0;
+    Object.defineProperty(elements['app-main'], 'scrollTop', {
+        configurable: true,
+        get() {
+            return simulatedTimelineScrollTop;
+        },
+        set(value) {
+            const maxScrollTop = elements['timeline-summary'].classList
+                .contains('filter-panel-collapsed') ? 140 : Infinity;
+            simulatedTimelineScrollTop = Math.min(Number(value) || 0, maxScrollTop);
+        }
+    });
+    elements['app-main'].scrollTop = 200;
     FilterController.openFilterPanel(options);
+    assert.equal(elements['app-main'].scrollTop, 140);
+    assert.equal(state.pageScrollTop.timeline, 140);
+    assert.equal(
+        elements['app-main'].style.marginTop,
+        'calc(var(--header-h) + 96px)'
+    );
+    assert(elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
+    assert(!elements['timeline-summary'].classList.contains('hidden'));
+    assert(elements['app-main'].classList.contains('filter-layout-transition'));
+    assert.equal(elements['filter-panel']['aria-hidden'], 'false');
+    transitionTimers.shift()();
+    assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(!elements['advanced-filters'].classList.contains('hidden'));
     assert.equal(elements['btn-advanced-toggle'].title, 'Espandi pannello filtri');
     elements['search-input'].listeners.focus();
@@ -1975,15 +2567,34 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     assert(!doc.body.classList.contains('no-scroll'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'scroll-to'));
 
-    FilterController.closeFilterPanel(options);
+    scrollContainer.scrollTop = 120;
+    elements['btn-filter-toggle'].listeners.click({ preventDefault() { } });
     assert.equal(state.filterOpen, false);
     assert.equal(state.advancedFiltersOpen, false);
+    assert(elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert.equal(scrollContainer.scrollTop, 120);
+    assert(!elements['filter-panel'].classList.contains('hidden'));
+    assert(!elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
+    assert(elements['app-main'].classList.contains('filter-layout-transition'));
+    assert(!elements['page-timeline'].classList.contains('filter-open'));
+    assert(!elements['advanced-filters'].classList.contains('hidden'));
+    transitionTimers.shift()();
+    assert(elements['filter-panel'].classList.contains('hidden'));
+    assert(!elements['filter-panel'].classList.contains('filter-panel-closing'));
+    assert(!elements['page-timeline'].classList.contains('filter-open'));
+    assert(!elements['app-main'].classList.contains('filter-layout-transition'));
     assert(elements['advanced-filters'].classList.contains('hidden'));
     assert(!elements['input-bar'].classList.contains('hidden'));
     assert(!elements['app-main'].classList.contains('no-input-bar'));
+    assert.equal(scrollContainer.scrollTop, 0);
+    assert.equal(elements['app-main'].scrollTop, 200);
+    assert.equal(state.pageScrollTop.timeline, 200);
     assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
+    scrollContainer.scrollTop = 120;
     FilterController.openFilterPanel(options);
+    transitionTimers.shift()();
+    assert.equal(scrollContainer.scrollTop, 0);
     FilterController.openAdvancedFilters(options);
     scrollContainer.scrollTop = 120;
     FilterController.closeAdvancedFilters(options);
@@ -1996,9 +2607,12 @@ test('Controller filtri coordina pannello, ricerca e slider fuori da App', () =>
     FilterController.resetFilters(options);
     assert.equal(filters.query, '');
     assert.equal(filters.categories.size, 0);
+    assert.equal(filters.excludedCategories.size, 0);
     assert.equal(filters.methods.size, 0);
+    assert.equal(filters.excludedMethods.size, 0);
     assert.equal(filters.amountMax, Infinity);
     assert.equal(filters.selectedOnly, false);
+    assert.equal(filters.excludedSelectedOnly, false);
     assert.equal(filters.selectedOnlyIds.size, 0);
     assert(!elements['filter-selected-only'].classList.contains('active'));
     assert(calls.some(call => Array.isArray(call) && call[0] === 'toast'));
@@ -2996,6 +3610,24 @@ test('Controller timeline in modalita selezione non apre la modale al click card
     assert.deepEqual(calls, [['toggle', 'a']]);
 });
 
+test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
+    const { NavigationController } = loadUiViews();
+
+    assert.equal(NavigationController.getSwipeTargetPage('timeline', -80, 10), 'stats');
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 10), 'settings');
+    assert.equal(NavigationController.getSwipeTargetPage('settings', 80, 10), 'stats');
+    assert.equal(NavigationController.getSwipeTargetPage('timeline', 80, 10), null);
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -40, 5), null);
+    assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 75), null);
+
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 60, 393), true, 'Un flick molto breve ma deciso completa lo swipe');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 2, 90, 393), false, 'Lo stesso spostamento lento resta sulla pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-12, 1, 25, 393), true, 'Un micro flick molto rapido completa lo swipe');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-12, 1, 30, 393), false, 'Un micro spostamento non abbastanza rapido resta sulla pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-11, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-22, 20, 40, 393), false, 'Un gesto diagonale non viene trattato come flick');
+});
+
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
     const { NavigationController } = loadUiViews();
     const calls = [];
@@ -3003,11 +3635,11 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     function makeClassList(initial = []) {
         const classes = new Set(initial);
         return {
-            add(cls) {
-                classes.add(cls);
+            add(...items) {
+                items.forEach(cls => classes.add(cls));
             },
-            remove(cls) {
-                classes.delete(cls);
+            remove(...items) {
+                items.forEach(cls => classes.delete(cls));
             },
             contains(cls) {
                 return classes.has(cls);
@@ -3034,6 +3666,30 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
         stats: makeElement('page-stats', ['hidden']),
         settings: makeElement('page-settings', ['hidden'])
     };
+    const timelineBanner = makeElement('timeline-summary');
+    let simulateTimelineStickyLag = false;
+    let timelineNaturalReads = 0;
+    timelineBanner.getBoundingClientRect = () => {
+        if (simulateTimelineStickyLag &&
+            !pages.timeline.classList.contains('page-swipe-preview') &&
+            timelineBanner.style.transform === '') {
+            timelineNaturalReads += 1;
+            return { top: timelineNaturalReads === 1 ? 167 : 68, height: 84 };
+        }
+        return {
+            top: pages.timeline.classList.contains('page-swipe-preview') ? 167 : 68,
+            height: 84
+        };
+    };
+    const statsBanner = makeElement('stats-sticky-header');
+    statsBanner.getBoundingClientRect = () => ({
+        top: pages.stats.classList.contains('page-swipe-preview') ? 90 : 68,
+        height: 84
+    });
+    pages.timeline.getBoundingClientRect = () => ({ top: -304 });
+    pages.timeline.querySelector = selector => selector.includes('timeline-summary') ? timelineBanner : null;
+    pages.stats.querySelector = selector => selector.includes('stats-sticky-header') ? statsBanner : null;
+    pages.settings.querySelector = () => null;
     const navTimeline = makeElement('nav-timeline', ['active']);
     navTimeline.dataset.page = 'timeline';
     const navStats = makeElement('nav-stats');
@@ -3042,9 +3698,46 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     navSettings.dataset.page = 'settings';
     const navButtons = [navTimeline, navStats, navSettings];
     const main = makeElement('app-main');
+    const scrollAssignments = [];
+    let mainScrollTop = 0;
+    Object.defineProperty(main, 'scrollTop', {
+        get() {
+            return mainScrollTop;
+        },
+        set(value) {
+            mainScrollTop = Number(value) || 0;
+            scrollAssignments.push({
+                value: mainScrollTop,
+                targetWasPreview: pages.stats.classList.contains('page-swipe-preview') ||
+                    pages.timeline.classList.contains('page-swipe-preview')
+            });
+        }
+    });
+    main.clientWidth = 393;
+    main.clientHeight = 700;
     main.scrollTop = 17;
+    scrollAssignments.length = 0;
+    main.getBoundingClientRect = () => ({ top: 56 });
     const inputBar = makeElement('input-bar');
     const filterToggle = makeElement('btn-filter-toggle');
+    const bannerResetSnapshots = [];
+    let statsBannerTransform = '';
+    Object.defineProperty(statsBanner.style, 'transform', {
+        configurable: true,
+        enumerable: true,
+        get() {
+            return statsBannerTransform;
+        },
+        set(value) {
+            statsBannerTransform = value;
+            if (value === '') {
+                bannerResetSnapshots.push({
+                    scrollTop: main.scrollTop,
+                    targetWasPreview: pages.stats.classList.contains('page-swipe-preview')
+                });
+            }
+        }
+    });
 
     const doc = {
         getElementById(id) {
@@ -3083,6 +3776,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     let pendingSettingsNavigation = null;
     const options = {
         document: doc,
+        window: { getComputedStyle: () => ({ paddingTop: '12px' }) },
         pageScrollTop: state.pageScrollTop,
         getCurrentPage: () => state.currentPage,
         setCurrentPage: page => { state.currentPage = page; },
@@ -3109,7 +3803,8 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
             calls.push(['confirm-settings']);
         },
         requestAnimationFrame: callback => callback(),
-        defer: callback => callback()
+        defer: callback => callback(),
+        setTimeout: callback => callback()
     };
 
     NavigationController.init(options);
@@ -3154,6 +3849,7 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'stats');
     assert(pages.timeline.classList.contains('hidden'));
     assert(!pages.stats.classList.contains('hidden'));
+    assert(pages.stats.classList.contains('page-nav-enter'));
     assert(!navTimeline.classList.contains('active'));
     assert(navStats.classList.contains('active'));
     assert(inputBar.classList.contains('hidden'));
@@ -3192,6 +3888,267 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert.equal(state.currentPage, 'timeline');
     assert(!inputBar.classList.contains('hidden'));
     assert(!main.classList.contains('no-input-bar'));
+
+    assert.equal(typeof main.listeners.touchstart, 'function');
+    assert.equal(typeof main.listeners.touchmove, 'function');
+    assert.equal(typeof main.listeners.touchend, 'function');
+    const pendingNavigationFrames = [];
+    options.requestAnimationFrame = callback => {
+        pendingNavigationFrames.push(callback);
+        return pendingNavigationFrames.length;
+    };
+    const flushNavigationFrame = () => {
+        assert(pendingNavigationFrames.length > 0);
+        pendingNavigationFrames.shift()();
+    };
+    main.listeners.touchstart({
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+
+    let preventedSwipe = 0;
+    const statsRendersBeforeSwipe = calls.filter(call => call === 'render-stats').length;
+    main.listeners.touchmove({
+        touches: [{ clientX: 220, clientY: 205 }],
+        preventDefault: () => {
+            preventedSwipe += 1;
+        }
+    });
+
+    assert.equal(preventedSwipe, 1);
+    assert.equal(state.currentPage, 'timeline');
+    assert(!pages.stats.classList.contains('hidden'));
+    assert(!pages.timeline.classList.contains('page-nav-enter'));
+    assert(!pages.stats.classList.contains('page-nav-enter'));
+    assert.equal(pages.timeline.style.transform, 'translate3d(-80px, 0, 0)');
+    assert.equal(pages.stats.style.transform, 'translate3d(313px, 0, 0)');
+    assert.equal(pages.stats.style.top, '57px');
+    assert.equal(pages.stats.style.height, '742px');
+    assert.equal(statsBanner.style.transform, 'translate3d(0, -22px, 0)');
+    assert(pages.stats.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.stats.style['--page-swipe-banner-y'], '-22px');
+    assert(inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '-80px');
+    assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
+
+    main.listeners.touchend({
+        changedTouches: [{ clientX: 180, clientY: 205 }],
+        preventDefault() {}
+    });
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(main.scrollTop, 42);
+    assert.equal(pendingNavigationFrames.length, 0);
+    const completedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
+    assert.equal(completedSwipeScroll.value, 42);
+    assert.equal(completedSwipeScroll.targetWasPreview, false);
+    assert.equal(pages.stats.style.transform, '');
+    assert(!pages.stats.classList.contains('page-nav-enter'));
+    assert.equal(statsBanner.style.transform, '');
+    const completedBannerReset = bannerResetSnapshots[bannerResetSnapshots.length - 1];
+    assert.equal(completedBannerReset.scrollTop, 42);
+    assert.equal(completedBannerReset.targetWasPreview, false);
+
+    assert(!pages.stats.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.stats.style['--page-swipe-banner-y'], '');
+    assert(inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
+    assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
+    timelineBanner.classList.add('hidden');
+    pages.timeline.classList.add('filter-open');
+    main.listeners.touchstart({
+        timeStamp: 2000,
+        touches: [{ clientX: 180, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        touches: [{ clientX: 220, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert(!pages.timeline.classList.contains('hidden'));
+    assert.equal(pages.stats.style.transform, 'translate3d(40px, 0, 0)');
+    assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '348px');
+    assert(!inputBar.classList.contains('hidden'));
+    assert(inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '-353px');
+
+    main.listeners.touchend({
+        timeStamp: 2200,
+        changedTouches: [{ clientX: 220, clientY: 202 }],
+        preventDefault() {}
+    });
+    assert.equal(state.currentPage, 'stats');
+    assert(pages.timeline.classList.contains('hidden'));
+    assert.equal(pages.stats.style.transform, '');
+    assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
+    assert(inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
+
+    timelineBanner.classList.remove('hidden');
+    pages.timeline.classList.remove('filter-open');
+    simulateTimelineStickyLag = true;
+    main.listeners.touchstart({
+        touches: [{ clientX: 180, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        touches: [{ clientX: 260, clientY: 202 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        changedTouches: [{ clientX: 260, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(main.scrollTop, 99);
+    assert.equal(state.pageScrollTop.stats, 42);
+    assert.equal(state.pageScrollTop.timeline, 99);
+    assert.equal(pendingNavigationFrames.length, 1);
+    const returnedSwipeScroll = scrollAssignments[scrollAssignments.length - 1];
+    assert.equal(returnedSwipeScroll.value, 99);
+    assert.equal(returnedSwipeScroll.targetWasPreview, false);
+    assert(!pages.timeline.classList.contains('hidden'));
+    assert(pages.stats.classList.contains('hidden'));
+    assert.equal(timelineBanner.style.transform, 'translate3d(0, -99px, 0)');
+    assert(pages.timeline.classList.contains('page-swipe-mask-aligned'));
+
+    flushNavigationFrame();
+
+    assert.equal(pendingNavigationFrames.length, 0);
+    assert.equal(timelineBanner.style.transform, '');
+    assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
+    assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
+    assert(!inputBar.classList.contains('hidden'));
+    assert(!inputBar.classList.contains('page-swipe-input'));
+    assert.equal(inputBar.style['--page-swipe-input-x'], '');
+
+    const queuedSwipeTimers = new Map();
+    let nextSwipeTimerId = 1;
+    options.setTimeout = (callback, delay) => {
+        assert.equal(delay, 240, 'La transizione usa un assestamento piu calmo');
+        const id = nextSwipeTimerId++;
+        queuedSwipeTimers.set(id, callback);
+        return id;
+    };
+    options.clearTimeout = id => {
+        queuedSwipeTimers.delete(id);
+    };
+    const flushSwipeTimer = () => {
+        const entry = queuedSwipeTimers.entries().next().value;
+        assert(entry, 'Timer swipe atteso');
+        const [id, callback] = entry;
+        queuedSwipeTimers.delete(id);
+        callback();
+    };
+
+    main.listeners.touchstart({
+        timeStamp: 1000,
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        timeStamp: 1020,
+        touches: [{ clientX: 278, clientY: 201 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        timeStamp: 1040,
+        changedTouches: [{ clientX: 278, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(pages.timeline.style.transition, 'transform 240ms cubic-bezier(0.18, 0.9, 0.22, 1)');
+    assert.equal(queuedSwipeTimers.size, 1);
+
+    main.listeners.touchstart({
+        timeStamp: 1050,
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(queuedSwipeTimers.size, 0);
+
+    main.listeners.touchmove({
+        timeStamp: 1080,
+        touches: [{ clientX: 220, clientY: 201 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        timeStamp: 1100,
+        changedTouches: [{ clientX: 210, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(queuedSwipeTimers.size, 1);
+    flushSwipeTimer();
+    assert.equal(state.currentPage, 'settings');
+    assert.equal(queuedSwipeTimers.size, 0);
+});
+
+test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
+    const css = readAppFile('css/style.css');
+    const summaryCollapsedRule = css.match(/#timeline-summary\.filter-panel-collapsed\s*\{([^}]*)\}/);
+    const closingPanelRule = css.match(/\.filter-panel\.filter-panel-closing\s*\{([^}]*)\}/);
+    const mainTransitionRule = css.match(/#app-main\.filter-layout-transition\s*\{([^}]*)\}/);
+
+    const timelineFadeRule = css.match(/#page-timeline::before\s*\{([^}]*)\}/);
+    assert(summaryCollapsedRule, 'Regola collasso riepilogo filtri non trovata');
+    assert(css.includes('--filter-panel-content-offset: 6px'));
+    assert(closingPanelRule, 'Regola chiusura animata pannello filtri non trovata');
+    assert(mainTransitionRule, 'Regola transizione layout filtri non trovata');
+    assert(/height\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(/margin-bottom\s*:\s*var\(--filter-panel-content-offset\)/.test(summaryCollapsedRule[1]));
+    assert(timelineFadeRule, 'Regola sfumatura Timeline non trovata');
+    assert(/opacity\s*:\s*0/.test(summaryCollapsedRule[1]));
+    assert(/overflow-anchor\s*:\s*none/.test(mainTransitionRule[1]));
+    assert(/transform\s*:\s*translateY\(-10px\)/.test(closingPanelRule[1]));
+    assert(/transition\s*:[^;]*height\s+200ms/.test(timelineFadeRule[1]));
+    assert(/margin-bottom\s+200ms/.test(timelineFadeRule[1]));
+    assert(/opacity\s+160ms/.test(timelineFadeRule[1]));
+});
+
+test('CSS impedisce il collasso dell offset verticale del contenuto', () => {
+    const css = readAppFile('css/style.css');
+    const bodyRule = css.match(/body\s*\{([^}]*)\}/);
+
+    assert(bodyRule, 'Regola body non trovata');
+    assert(/display\s*:\s*flow-root/.test(bodyRule[1]));
+});
+
+test('CSS separa il fade della bottom nav dallo slide dello swipe', () => {
+    const css = readAppFile('css/style.css');
+    const basePageRule = css.match(/\.page\s*\{([^}]*)\}/);
+    const navEnterRule = css.match(/\.page\.page-nav-enter\s*\{([^}]*)\}/);
+    const timelineBannerRule = css.match(/#timeline-summary\s*\{([^}]*)\}/);
+    const statsBannerRule = css.match(/\.stats-sticky-header\s*\{([^}]*)\}/);
+    const compactFilterFadeRule = css.match(/#page-timeline\.filter-open::before\s*\{([^}]*)\}/);
+
+    assert(basePageRule, 'Regola base .page non trovata');
+    assert(navEnterRule, 'Regola .page.page-nav-enter non trovata');
+    assert(timelineBannerRule, 'Regola #timeline-summary non trovata');
+    assert(statsBannerRule, 'Regola .stats-sticky-header non trovata');
+    assert(compactFilterFadeRule, 'Sfumatura filtri compatti non trovata');
+    assert(css.includes('--page-banner-h: 84px'));
+    assert(/height\s*:\s*var\(--page-banner-h\)/.test(timelineBannerRule[1]));
+    assert(/height\s*:\s*var\(--page-banner-h\)/.test(statsBannerRule[1]));
+    assert(/border-radius\s*:\s*var\(--radius\)/.test(timelineBannerRule[1]));
+    assert(/border-radius\s*:\s*var\(--radius\)/.test(statsBannerRule[1]));
+    assert(/height\s*:\s*10px/.test(compactFilterFadeRule[1]));
+    assert(!/\banimation\s*:/.test(basePageRule[1]));
+    assert(/animation\s*:\s*fadeIn/.test(navEnterRule[1]));
+    assert(css.includes('#input-bar.page-swipe-input'));
+    assert(css.includes('--page-swipe-input-x'));
+    assert(css.includes('.page.page-swipe-mask-aligned::before'));
+    assert(css.includes('--page-swipe-banner-y'));
 });
 
 test('Vista statistiche separa template da dati e conserva gli stati vuoti', () => {
@@ -3220,6 +4177,29 @@ test('Vista statistiche separa template da dati e conserva gli stati vuoti', () 
     assert(html.includes('data-period="month"'));
     assert(html.includes('chart-doughnut'));
     assert(html.includes('Dettaglio categorie'));
+});
+
+test('Colori categoria restano fissi indipendentemente dai totali', () => {
+    const { StatsCharts } = loadUiViews();
+    const transportColor = StatsCharts.getCategoryColor('trasporti');
+    const barColor = StatsCharts.getCategoryColor('bar');
+    const clothingColor = StatsCharts.getCategoryColor('abbigliamento');
+    const travelColor = StatsCharts.getCategoryColor('viaggi');
+
+    assert.equal(transportColor, StatsCharts.COLORS[3]);
+    assert.equal(barColor, StatsCharts.COLORS[2]);
+    assert.equal(travelColor, StatsCharts.COLORS[20]);
+    assert.notEqual(travelColor, clothingColor);
+
+    const config = StatsCharts.buildDoughnutConfig([
+        expense({ importo: 100, categoria: 'bar' }),
+        expense({ importo: 10, categoria: 'trasporti' })
+    ], {
+        getCategory: id => ({ nome: id })
+    });
+
+    assert.deepEqual(config.data.labels, ['bar', 'trasporti']);
+    assert.deepEqual(config.data.datasets[0].backgroundColor, [barColor, transportColor]);
 });
 
 test('Configurazione grafici statistiche separa Chart.js da app.js', () => {
@@ -3386,6 +4366,9 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
     }
 
     let period = 'month';
+    const now = new Date();
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 10, 10).toISOString();
+    const olderMonth = new Date(now.getFullYear(), now.getMonth() - 2, 10, 10).toISOString();
     let offset = -1;
     let rerenderCount = 0;
     const result = StatsController.render({
@@ -3398,8 +4381,8 @@ test('Controller statistiche coordina render, periodo e grafici senza App', () =
         },
         container,
         spese: [
-            expense({ id: 'old', data: '2026-04-10T10:00:00.000Z', importo: 100 }),
-            expense({ id: 'current', data: '2026-05-10T10:00:00.000Z', importo: 12 })
+            expense({ id: 'old', data: olderMonth, importo: 100 }),
+            expense({ id: 'current', data: previousMonth, importo: 12 })
         ],
         period,
         offset,
@@ -4661,7 +5644,9 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         SettingsActions.normalizeFilterSnapshot({
             query: ' caffe ',
             categories: ['bar', 2],
+            excludedCategories: new Set(['bollette']),
             methods: new Set(['carta']),
+            excludedMethods: ['contanti'],
             amountMin: '3',
             amountMax: null,
             dateFrom: '2026-06-01',
@@ -4670,12 +5655,15 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
         {
             query: 'caffe',
             categories: ['bar', '2'],
+            excludedCategories: ['bollette'],
             methods: ['carta'],
+            excludedMethods: ['contanti'],
             amountMin: 3,
             amountMax: Infinity,
             dateFrom: '2026-06-01',
             dateTo: '',
-            selectedOnly: true
+            selectedOnly: true,
+            excludedSelectedOnly: false
         }
     );
 
@@ -4694,6 +5682,8 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
                 filters: {
                     query: 'pane',
                     categories: ['spesa'],
+                    excludedCategories: ['bar'],
+                    excludedSelectedOnly: true,
                     amountMax: 40
                 }
             }
@@ -4704,6 +5694,8 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
     assert.deepEqual(normalizedPrefs.lastExport.selectedIds, ['b']);
     assert.equal(normalizedPrefs.lastExport.filters.query, 'pane');
     assert.deepEqual(normalizedPrefs.lastExport.filters.categories, ['spesa']);
+    assert.deepEqual(normalizedPrefs.lastExport.filters.excludedCategories, ['bar']);
+    assert.equal(normalizedPrefs.lastExport.filters.excludedSelectedOnly, true);
     assert.deepEqual(
         SettingsActions.normalizeExportPreferences({
             lastExport: {
@@ -4716,12 +5708,15 @@ test('Azioni impostazioni isolano formati, scelte e download', () => {
             filters: {
                 query: 'solo impostazioni',
                 categories: [],
+                excludedCategories: [],
                 methods: [],
+                excludedMethods: [],
                 amountMin: 0,
                 amountMax: Infinity,
                 dateFrom: '',
                 dateTo: '',
-                selectedOnly: false
+                selectedOnly: false,
+                excludedSelectedOnly: false
             }
         }
     );
@@ -5551,15 +6546,18 @@ test('Controller impostazioni apre export dalle impostazioni su ultimi filtri', 
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls, [
-        ['apply-filters', { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false }, ['a', 'c']],
+        ['apply-filters', { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false }, ['a', 'c']],
         ['begin-selection', { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }],
         ['push', { panel: 'export-modal' }]
     ]);
@@ -6121,16 +7119,19 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6146,16 +7147,19 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: '',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: '', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: '', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'b']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6192,17 +7196,20 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'c']);
     assert.deepEqual(calls[calls.length - 2], [
         'apply-filters',
-        { query: 'pane', categories: [], methods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false },
+        { query: 'pane', categories: [], excludedCategories: [], methods: [], excludedMethods: [], amountMin: 0, amountMax: Infinity, dateFrom: '', dateTo: '', selectedOnly: false, excludedSelectedOnly: false },
         ['a', 'c']
     ]);
     assert.deepEqual(calls[calls.length - 1], [
@@ -6241,12 +7248,15 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: '',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'b', 'c', 'manual']);
     assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
@@ -6255,12 +7265,15 @@ test('Controller impostazioni gestisce toggle memoria export custom', () => {
     assert.deepEqual(currentFilters, {
         query: 'latte',
         categories: ['bar'],
+        excludedCategories: [],
         methods: ['carta'],
+        excludedMethods: [],
         amountMin: 1,
         amountMax: 5,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['manual']);
 
@@ -6385,12 +7398,15 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
     assert.deepEqual(currentFilters, {
         query: 'pane',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['a', 'c']);
 
@@ -6399,12 +7415,15 @@ test('Controller impostazioni usa le opzioni aggiornate quando riusa la modale e
     assert.deepEqual(currentFilters, {
         query: 'latte',
         categories: [],
+        excludedCategories: [],
         methods: [],
+        excludedMethods: [],
         amountMin: 0,
         amountMax: Infinity,
         dateFrom: '',
         dateTo: '',
-        selectedOnly: false
+        selectedOnly: false,
+        excludedSelectedOnly: false
     });
     assert.deepEqual(currentIds, ['manual']);
 
@@ -6726,6 +7745,9 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     first.currentPage = 'stats';
     first.filters.query = 'caffe';
     first.filters.categories.add('bar');
+    first.filters.excludedCategories.add('bollette');
+    first.filters.excludedMethods.add('contanti');
+    first.filters.excludedSelectedOnly = true;
     first.filters.selectedOnlyIds.add('expense-a');
     first.pageScrollTop.timeline = 120;
     first.timelineSelectionActive = true;
@@ -6737,6 +7759,9 @@ test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
     assert.equal(second.currentPage, 'timeline');
     assert.equal(second.filters.query, '');
     assert.equal(second.filters.categories.size, 0);
+    assert.equal(second.filters.excludedCategories.size, 0);
+    assert.equal(second.filters.excludedMethods.size, 0);
+    assert.equal(second.filters.excludedSelectedOnly, false);
     assert.equal(second.filters.selectedOnlyIds.size, 0);
     assert.equal(second.pageScrollTop.timeline, 0);
     assert.deepEqual(second._sdInstances, {});
@@ -6889,6 +7914,10 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
             callback();
             return 22;
         },
+        clearTimeout(id) {
+            assert.equal(this, fakeWindow);
+            calls.push(['clear-timeout', id]);
+        },
         setInterval(callback, delay) {
             assert.equal(this, fakeWindow);
             calls.push(['interval', delay]);
@@ -6919,6 +7948,7 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
 
     wiring.filterOptions().requestAnimationFrame(() => calls.push('filter-callback'));
     wiring.navigationOptions().defer(() => calls.push('defer-callback'));
+    wiring.navigationOptions().clearTimeout(22);
     wiring.inputBarOptions().cancelAnimationFrame(11);
     wiring.modalMobileOptions().setInterval(() => calls.push('interval-callback'), 120);
     wiring.modalMobileOptions().clearInterval(33);
@@ -6929,6 +7959,7 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
         'filter-callback',
         ['timeout', 0],
         'defer-callback',
+        ['clear-timeout', 22],
         ['cancel', 11],
         ['interval', 120],
         'interval-callback',
@@ -7175,7 +8206,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
     };
     app.filters.query = 'pane';
     app.filters.categories = new Set(['alimentari']);
+    app.filters.excludedCategories = new Set(['bar']);
     app.filters.methods = new Set(['carta']);
+    app.filters.excludedMethods = new Set(['contanti']);
     app.filters.amountMin = 2;
     app.filters.amountMax = 20;
     app.filters.dateFrom = '2026-06-01';
@@ -7211,7 +8244,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
     TimelineSelectionController.enter(options, 'a');
     app.filters.query = 'bus';
     app.filters.categories = new Set(['trasporti']);
+    app.filters.excludedCategories = new Set(['ristorante']);
     app.filters.methods = new Set(['contanti']);
+    app.filters.excludedMethods = new Set(['carta']);
     app.filters.amountMin = 0;
     app.filters.amountMax = 10;
     app.filters.dateFrom = '';
@@ -7221,7 +8256,9 @@ test('Wiring app ripristina i filtri precedenti quando termina la selezione', ()
 
     assert.equal(app.filters.query, 'pane');
     assert.deepEqual(Array.from(app.filters.categories), ['alimentari']);
+    assert.deepEqual(Array.from(app.filters.excludedCategories), ['bar']);
     assert.deepEqual(Array.from(app.filters.methods), ['carta']);
+    assert.deepEqual(Array.from(app.filters.excludedMethods), ['contanti']);
     assert.equal(app.filters.amountMin, 2);
     assert.equal(app.filters.amountMax, 20);
     assert.equal(app.filters.dateFrom, '2026-06-01');

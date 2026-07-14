@@ -7,8 +7,34 @@ const StatsCharts = (() => {
         '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
         '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
         '#14b8a6', '#e11d48', '#0ea5e9', '#a855f7', '#eab308',
-        '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf'
+        '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf',
+        '#2563eb'
     ];
+
+    const CATEGORY_COLOR_INDEX = {
+        abbigliamento: 0,
+        accessori: 1,
+        bar: 2,
+        bollette: 19,
+        casa: 4,
+        cura: 5,
+        drink: 6,
+        formazione: 7,
+        intrattenimento: 8,
+        'produttivit\u00e0': 9,
+        regali: 10,
+        ristorante: 11,
+        salute: 12,
+        supermercato: 13,
+        sport: 14,
+        tabacchi: 15,
+        takeaway: 16,
+        tech: 17,
+        telefono: 18,
+        trasporti: 3,
+        viaggi: 20,
+        altro: 1
+    };
 
     const DEFAULT_THEME = {
         text: '#0f172a',
@@ -46,6 +72,19 @@ const StatsCharts = (() => {
         };
     }
 
+    function getCategoryColor(categoryId, colors = COLORS) {
+        const palette = Array.isArray(colors) && colors.length > 0 ? colors : COLORS;
+        const id = String(categoryId || 'altro');
+        const configuredIndex = CATEGORY_COLOR_INDEX[id];
+
+        if (Number.isInteger(configuredIndex)) {
+            return palette[configuredIndex % palette.length];
+        }
+
+        const hash = Array.from(id).reduce((total, char) => total + char.codePointAt(0), 0);
+        return palette[hash % palette.length];
+    }
+
     function buildDoughnutConfig(spese, options = {}) {
         const themeColors = options.themeColors || DEFAULT_THEME;
         const chartColors = options.chartColors || COLORS;
@@ -63,7 +102,7 @@ const StatsCharts = (() => {
                 }),
                 datasets: [{
                     data: categoryTotals.map(([, value]) => Math.round(value * 100) / 100),
-                    backgroundColor: categoryTotals.map((_, index) => chartColors[index % chartColors.length]),
+                    backgroundColor: categoryTotals.map(([id]) => getCategoryColor(id, chartColors)),
                     borderColor: themeColors.cardBg,
                     borderWidth: 3,
                     hoverOffset: 6
@@ -170,6 +209,8 @@ const StatsCharts = (() => {
 
     return {
         COLORS,
+        CATEGORY_COLOR_INDEX,
+        getCategoryColor,
         getThemeColors,
         buildDoughnutConfig,
         buildBarConfig,

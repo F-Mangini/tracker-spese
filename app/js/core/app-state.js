@@ -7,12 +7,15 @@ const AppState = (() => {
         return {
             query: '',
             categories: new Set(),
+            excludedCategories: new Set(),
             methods: new Set(),
+            excludedMethods: new Set(),
             amountMin: 0,
             amountMax: Infinity,
             dateFrom: '',
             dateTo: '',
             selectedOnly: false,
+            excludedSelectedOnly: false,
             selectedOnlyIds: new Set()
         };
     }

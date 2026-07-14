@@ -22,9 +22,12 @@ const FilterView = (() => {
     }
 
     function renderChips(items) {
-        return (Array.isArray(items) ? items : []).map(item =>
-            `<button class="filter-chip" data-id="${AppUI.escapeHtml(item.id)}">${AppUI.escapeHtml(item.emoji)} ${AppUI.escapeHtml(item.nome)}</button>`
-        ).join('');
+        return (Array.isArray(items) ? items : []).map(item => {
+            const id = AppUI.escapeHtml(item.id);
+            const name = AppUI.escapeHtml(item.nome);
+
+            return `<button type="button" class="filter-chip" data-id="${id}" data-label="${name}" aria-pressed="false" aria-label="${name}: neutro">${AppUI.escapeHtml(item.emoji)} ${name}</button>`;
+        }).join('');
     }
 
     function renderFooterInfo(options = {}) {

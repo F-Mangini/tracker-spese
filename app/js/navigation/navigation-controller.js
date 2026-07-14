@@ -9,6 +9,10 @@ const NavigationController = (() => {
     const PAGE_ORDER = ['timeline', 'stats', 'settings'];
     const SWIPE_MIN_DISTANCE = 60;
     const SWIPE_AXIS_RATIO = 1.25;
+    const SWIPE_FLICK_MIN_DISTANCE = 24;
+    const SWIPE_FLICK_MIN_VELOCITY = 0.45;
+    const SWIPE_FLICK_MAX_DURATION_MS = 220;
+    const SWIPE_TRANSITION_MS = 180;
 
     function noop() { }
 
@@ -59,6 +63,13 @@ const NavigationController = (() => {
     function deferTick(options, callback) {
         const defer = options.defer || (callback => setTimeout(callback, 0));
         defer(callback);
+    }
+
+    function getEventTime(event) {
+        const eventTime = Number(event && event.timeStamp);
+        return Number.isFinite(eventTime) && eventTime >= 0
+            ? eventTime
+            : Date.now();
     }
 
     function getNavigationHistoryAction(options, payload) {
@@ -137,6 +148,22 @@ const NavigationController = (() => {
         return getAdjacentPage(currentPage, deltaX);
     }
 
+    function shouldCompleteSwipeGesture(deltaX, deltaY, durationMs, width = 360) {
+        const horizontalDistance = Math.abs(Number(deltaX) || 0);
+        const verticalDistance = Math.abs(Number(deltaY) || 0);
+        const distanceThreshold = Math.max(SWIPE_MIN_DISTANCE, width * 0.18);
+
+        if (horizontalDistance >= distanceThreshold) return true;
+
+        const duration = Number(durationMs);
+        if (!Number.isFinite(duration) || duration <= 0 ||
+            duration > SWIPE_FLICK_MAX_DURATION_MS) return false;
+
+        return horizontalDistance >= SWIPE_FLICK_MIN_DISTANCE &&
+            horizontalDistance >= verticalDistance * SWIPE_AXIS_RATIO &&
+            horizontalDistance / duration >= SWIPE_FLICK_MIN_VELOCITY;
+    }
+
     function shouldIgnoreSwipeTarget(target) {
         if (!target || typeof target.closest !== 'function') return false;
         return !!target.closest('input, textarea, select, button, a, canvas, [data-page-swipe-ignore]');
@@ -144,7 +171,9 @@ const NavigationController = (() => {
 
     function setSwipeTransform(element, x, animate = false) {
         if (!element || !element.style) return;
-        element.style.transition = animate ? 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+        element.style.transition = animate
+            ? `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+            : 'none';
         element.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
@@ -205,13 +234,20 @@ const NavigationController = (() => {
         state.horizontal = false;
         state.vertical = false;
         state.deltaX = 0;
+        state.deltaY = 0;
+        state.gestureDurationMs = 0;
         state.transitioning = false;
+        state.transitionTimer = null;
+        state.settleTransition = null;
         if (state.preparedPages && typeof state.preparedPages.clear === 'function') {
             state.preparedPages.clear();
         }
     }
 
-    function settleSwipeBanners(options, state, main, onSettled, attempt = 0) {
+    function settleSwipeBanners(options, state, main, onSettled, attempt = 0,
+        transitionToken = state.transitionToken) {
+        if (transitionToken !== state.transitionToken) return;
+
         const mainRect = typeof main.getBoundingClientRect === 'function'
             ? main.getBoundingClientRect()
             : { top: 0 };
@@ -240,7 +276,14 @@ const NavigationController = (() => {
 
         if (needsAnotherFrame && attempt < 3) {
             deferFrame(options, () => {
-                settleSwipeBanners(options, state, main, onSettled, attempt + 1);
+                settleSwipeBanners(
+                    options,
+                    state,
+                    main,
+                    onSettled,
+                    attempt + 1,
+                    transitionToken
+                );
             });
             return;
         }
@@ -384,7 +427,7 @@ const NavigationController = (() => {
         setStyleProperty(
             state.inputBar,
             '--page-swipe-input-transition',
-            'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
+            `transform ${SWIPE_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
         );
     }
 
@@ -398,7 +441,8 @@ const NavigationController = (() => {
     }
 
     function cleanupSwipe(options, main, state, keepTargetVisible = false,
-        beforeBannerReset = null, settleVisibleBanner = false) {
+        beforeBannerReset = null, settleVisibleBanner = false,
+        transitionToken = state.transitionToken) {
         if (main.classList) main.classList.remove('page-swipe-active');
         resetSwipeInput(state, keepTargetVisible);
         resetSwipeElement(state.currentElement);
@@ -411,7 +455,14 @@ const NavigationController = (() => {
         if (typeof beforeBannerReset === 'function') beforeBannerReset();
 
         if (settleVisibleBanner) {
-            settleSwipeBanners(options, state, main, () => finalizeSwipeState(state));
+            settleSwipeBanners(
+                options,
+                state,
+                main,
+                () => finalizeSwipeState(state),
+                0,
+                transitionToken
+            );
             return;
         }
 
@@ -474,6 +525,7 @@ const NavigationController = (() => {
 
         if (event && typeof event.preventDefault === 'function') event.preventDefault();
         state.deltaX = deltaX;
+        state.deltaY = deltaY;
 
         const targetPage = getAdjacentPage(getCurrentPage(options), deltaX);
         if (!targetPage) {
@@ -520,8 +572,14 @@ const NavigationController = (() => {
         const width = main.clientWidth || 360;
         const targetPage = state.targetPage;
         const shouldComplete = !forceCancel && !!targetPage &&
-            Math.abs(state.deltaX) >= Math.max(SWIPE_MIN_DISTANCE, width * 0.18);
+            shouldCompleteSwipeGesture(
+                state.deltaX,
+                state.deltaY,
+                state.gestureDurationMs,
+                width
+            );
         state.transitioning = true;
+        const transitionToken = ++state.transitionToken;
 
         setSwipeTransform(state.currentElement, shouldComplete
             ? (state.deltaX < 0 ? -width : width)
@@ -534,7 +592,17 @@ const NavigationController = (() => {
         const setTimer = options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : (callback => callback()));
 
-        setTimer(() => {
+        const settleTransition = () => {
+            if (!state.transitioning || transitionToken !== state.transitionToken) return;
+
+            const clearTimer = options.clearTimeout ||
+                (typeof clearTimeout === 'function' ? clearTimeout : null);
+            if (clearTimer && state.transitionTimer != null) {
+                clearTimer(state.transitionTimer);
+            }
+            state.transitionTimer = null;
+            state.settleTransition = null;
+
             let navigated = false;
             if (shouldComplete) {
                 navigateTo(options, targetPage, false, {
@@ -546,8 +614,26 @@ const NavigationController = (() => {
             }
             cleanupSwipe(options, main, state, navigated, navigated ? () => {
                 restorePageScroll(options, targetPage, { immediate: true });
-            } : null, navigated);
-        }, 180);
+            } : null, navigated, transitionToken);
+        };
+
+        state.settleTransition = settleTransition;
+        const timerId = setTimer(settleTransition, SWIPE_TRANSITION_MS);
+        if (state.transitioning && state.settleTransition === settleTransition) {
+            state.transitionTimer = timerId;
+        }
+    }
+
+    function interruptSwipeTransition(options, main, state) {
+        if (!state.transitioning) return;
+
+        const settleTransition = state.settleTransition;
+        if (typeof settleTransition === 'function') settleTransition();
+        if (!state.transitioning) return;
+
+        state.transitionToken += 1;
+        resetSwipeBanners(state);
+        finalizeSwipeState(state);
     }
 
     function setupPageSwipe(options = {}) {
@@ -563,7 +649,12 @@ const NavigationController = (() => {
             horizontal: false,
             vertical: false,
             deltaX: 0,
+            deltaY: 0,
+            gestureDurationMs: 0,
             transitioning: false,
+            transitionToken: 0,
+            transitionTimer: null,
+            settleTransition: null,
             bannerRecords: [],
             preparedPages: new Set(),
             inputBar: null,
@@ -572,17 +663,23 @@ const NavigationController = (() => {
         };
 
         main.addEventListener('touchstart', event => {
-            if (state.transitioning) return;
+            interruptSwipeTransition(options, main, state);
             const touch = event.touches && event.touches[0];
             if (!touch || shouldIgnoreSwipeTarget(event.target)) {
                 state.touchStart = null;
                 return;
             }
 
-            state.touchStart = { x: touch.clientX, y: touch.clientY };
+            state.touchStart = {
+                x: touch.clientX,
+                y: touch.clientY,
+                time: getEventTime(event)
+            };
             state.horizontal = false;
             state.vertical = false;
             state.deltaX = 0;
+            state.deltaY = 0;
+            state.gestureDurationMs = 0;
         }, { passive: true });
 
         main.addEventListener('touchmove', event => {
@@ -603,16 +700,18 @@ const NavigationController = (() => {
             const touch = event.changedTouches && event.changedTouches[0];
             if (!state.touchStart || !touch) return;
 
-            if (!state.horizontal && !state.vertical) {
-                updateSwipePreview(
-                    options,
-                    main,
-                    state,
-                    touch.clientX - state.touchStart.x,
-                    touch.clientY - state.touchStart.y,
-                    event
-                );
-            }
+            state.gestureDurationMs = Math.max(
+                0,
+                getEventTime(event) - state.touchStart.time
+            );
+            updateSwipePreview(
+                options,
+                main,
+                state,
+                touch.clientX - state.touchStart.x,
+                touch.clientY - state.touchStart.y,
+                event
+            );
             finishSwipe(options, main, state);
         }, { passive: false });
 
@@ -773,6 +872,7 @@ const NavigationController = (() => {
         init,
         setupPageScrollTracking,
         getSwipeTargetPage,
+        shouldCompleteSwipeGesture,
         setupPageSwipe,
         rememberCurrentPageScroll,
         restorePageScroll,

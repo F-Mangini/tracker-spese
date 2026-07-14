@@ -158,12 +158,17 @@ Da riprendere solo quando servira:
 - Parsing di `.<categoria>` per forzare una categoria, con precedenza all'ultima direttiva valida.
 - Swipe orizzontale interattivo tra Timeline, Statistiche e Impostazioni: le pagine seguono il dito prima del rilascio e completano o annullano lo slide in base alla soglia; l'animazione e separata dal fade usato dalla bottom nav, mantiene banner sticky e barra di inserimento alla quota corretta e avvia una sola volta le normali animazioni dei grafici durante l'anteprima.
 - Ricerca tag solo tramite prefisso `#`, confronto per inizio tag e combinazione AND tra testo libero e uno o piu tag in qualsiasi ordine.
-- Colori categoria fissi nelle statistiche, mantenendo la palette esistente.
+- Colori categoria fissi nelle statistiche, con blu dedicato per `Viaggi` distinto dal verde di `Abbigliamento`.
 
 ## Miglioramenti filtri completati il 2026-07-13
 
 - Filtri negativi tri-state per categorie, metodi di pagamento e filtro speciale `Selezionate`: neutro, incluso verde con tap ed escluso rosso con pressione lunga, con inclusioni ed esclusioni combinabili e conservate negli snapshot dell'export custom. La sezione dinamica della modalita selezione mostra la stessa spunta grigia del toggle `Seleziona tutte` nell'header.
 - Filtro rapido tramite pressione prolungata sul pulsante filtri: salvataggio dal pannello completamente aperto e attivazione dal pannello chiuso o compatto. Quando la configurazione corrente coincide con il rapido viene ripristinata l'ultima combinazione diversa osservata, anche se il rapido era stato raggiunto manualmente; il reset diventa una nuova base vuota e il filtro `Selezionate` non viene memorizzato.
+
+## Miglioramenti navigazione completati il 2026-07-14
+
+- Swipe pagina piu responsivo: i flick brevi ma veloci possono completare il cambio senza raggiungere la soglia di distanza, mentre i gesti lenti o diagonali restano protetti da cambi accidentali.
+- Concatenazione degli swipe: un nuovo gesto puo iniziare durante l'assestamento del precedente, che viene concluso immediatamente prima di passare alla pagina successiva.
 
 ## Filtri e Ricerca
 

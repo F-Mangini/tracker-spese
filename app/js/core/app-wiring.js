@@ -417,7 +417,8 @@ const AppWiring = (() => {
                 isTimelineSelectionActive: () => app.timelineSelectionActive,
                 requestAnimationFrame: callback => deps.requestAnimationFrame(callback),
                 defer: callback => deps.setTimeout(callback, 0),
-                setTimeout: (callback, delay) => deps.setTimeout(callback, delay)
+                setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
+                clearTimeout: timerId => deps.clearTimeout(timerId)
             };
         }
 

@@ -3619,6 +3619,11 @@ test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
     assert.equal(NavigationController.getSwipeTargetPage('timeline', 80, 10), null);
     assert.equal(NavigationController.getSwipeTargetPage('stats', -40, 5), null);
     assert.equal(NavigationController.getSwipeTargetPage('stats', -80, 75), null);
+
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 2, 40, 393), true, 'Un flick breve e veloce completa lo swipe');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 2, 180, 393), false, 'Lo stesso spostamento lento resta sulla pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-18, 0, 20, 393), false, 'Una vibrazione troppo corta non cambia pagina');
+    assert.equal(NavigationController.shouldCompleteSwipeGesture(-32, 30, 40, 393), false, 'Un gesto diagonale non viene trattato come flick');
 });
 
 test('Controller navigazione coordina pagine, history e scroll fuori da App', () => {
@@ -4018,6 +4023,69 @@ test('Controller navigazione coordina pagine, history e scroll fuori da App', ()
     assert(!inputBar.classList.contains('hidden'));
     assert(!inputBar.classList.contains('page-swipe-input'));
     assert.equal(inputBar.style['--page-swipe-input-x'], '');
+
+    const queuedSwipeTimers = new Map();
+    let nextSwipeTimerId = 1;
+    options.setTimeout = callback => {
+        const id = nextSwipeTimerId++;
+        queuedSwipeTimers.set(id, callback);
+        return id;
+    };
+    options.clearTimeout = id => {
+        queuedSwipeTimers.delete(id);
+    };
+    const flushSwipeTimer = () => {
+        const entry = queuedSwipeTimers.entries().next().value;
+        assert(entry, 'Timer swipe atteso');
+        const [id, callback] = entry;
+        queuedSwipeTimers.delete(id);
+        callback();
+    };
+
+    main.listeners.touchstart({
+        timeStamp: 1000,
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+    main.listeners.touchmove({
+        timeStamp: 1020,
+        touches: [{ clientX: 278, clientY: 201 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        timeStamp: 1040,
+        changedTouches: [{ clientX: 268, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'timeline');
+    assert.equal(queuedSwipeTimers.size, 1);
+
+    main.listeners.touchstart({
+        timeStamp: 1050,
+        touches: [{ clientX: 300, clientY: 200 }],
+        target: { closest: () => null }
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(queuedSwipeTimers.size, 0);
+
+    main.listeners.touchmove({
+        timeStamp: 1080,
+        touches: [{ clientX: 220, clientY: 201 }],
+        preventDefault() {}
+    });
+    main.listeners.touchend({
+        timeStamp: 1100,
+        changedTouches: [{ clientX: 210, clientY: 202 }],
+        preventDefault() {}
+    });
+
+    assert.equal(state.currentPage, 'stats');
+    assert.equal(queuedSwipeTimers.size, 1);
+    flushSwipeTimer();
+    assert.equal(state.currentPage, 'settings');
+    assert.equal(queuedSwipeTimers.size, 0);
 });
 
 test('CSS coordina pannello filtri e riepilogo senza rimbalzo', () => {
@@ -7840,6 +7908,10 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
             callback();
             return 22;
         },
+        clearTimeout(id) {
+            assert.equal(this, fakeWindow);
+            calls.push(['clear-timeout', id]);
+        },
         setInterval(callback, delay) {
             assert.equal(this, fakeWindow);
             calls.push(['interval', delay]);
@@ -7870,6 +7942,7 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
 
     wiring.filterOptions().requestAnimationFrame(() => calls.push('filter-callback'));
     wiring.navigationOptions().defer(() => calls.push('defer-callback'));
+    wiring.navigationOptions().clearTimeout(22);
     wiring.inputBarOptions().cancelAnimationFrame(11);
     wiring.modalMobileOptions().setInterval(() => calls.push('interval-callback'), 120);
     wiring.modalMobileOptions().clearInterval(33);
@@ -7880,6 +7953,7 @@ test('Wiring app richiama timer e frame browser con binding window corretto', ()
         'filter-callback',
         ['timeout', 0],
         'defer-callback',
+        ['clear-timeout', 22],
         ['cancel', 11],
         ['interval', 120],
         'interval-callback',

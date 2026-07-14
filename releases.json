@@ -1,11 +1,19 @@
 {
-    "recommended": "v2026.06.12",
+    "recommended": "v2026.07.14",
     "releases": [
+        {
+            "id": "v2026.07.14",
+            "path": "releases/v2026.07.14/",
+            "date": "2026-07-14",
+            "status": "recommended",
+            "notes": "Stable con swipe tra pagine, filtri rapidi e negativi, ricerca tag con #, categoria forzata e colori categoria stabili.",
+            "schemaVersion": 1
+        },
         {
             "id": "v2026.06.12",
             "path": "releases/v2026.06.12/",
             "date": "2026-06-12",
-            "status": "recommended",
+            "status": "stable",
             "notes": "Stable con export custom stabilizzato, roadmap aggiornata e backlog del 12/06 recepito.",
             "schemaVersion": 1
         },

@@ -47,6 +47,7 @@ File e aree considerate:
 - `releases/v2026.05.30/`;
 - `releases/v2026.06.03/`;
 - `releases/v2026.06.12/`;
+- `releases/v2026.07.14/`;
 - `.github/workflows/pages.yml`;
 - manifest stabile/dev/release;
 - documentazione PWA, stato corrente, roadmap e strategia deploy.
@@ -88,7 +89,7 @@ Lo stato attuale e corretto per la privacy:
 
 - `/` e `/dev/` non registrano service worker;
 - `/stable/` registra `stable-launch-service-worker.js` solo con scope `./`;
-- le release versionate, oggi `releases/v2026.05.30/`, `releases/v2026.06.03/` e `releases/v2026.06.12/`, registrano `service-worker.js` solo con scope `./`;
+- le release versionate, oggi `releases/v2026.05.30/`, `releases/v2026.06.03/`, `releases/v2026.06.12/` e `releases/v2026.07.14/`, registrano `service-worker.js` solo con scope `./`;
 - i service worker intercettano solo richieste `GET`, same-origin e dentro `self.registration.scope`;
 - le cache hanno prefissi namespaced e non cancellano cache di altre release.
 
@@ -163,6 +164,7 @@ https://f-mangini.github.io/tracker-spese/dev/
 https://f-mangini.github.io/tracker-spese/releases/v2026.05.30/
 https://f-mangini.github.io/tracker-spese/releases/v2026.06.03/
 https://f-mangini.github.io/tracker-spese/releases/v2026.06.12/
+https://f-mangini.github.io/tracker-spese/releases/v2026.07.14/
 ```
 
 La separazione stabile/dev e mitigata dalla chiave dev dedicata. Le release stabili versionate usano invece la chiave stabile: questa scelta e intenzionale, perche devono leggere gli stessi dati quotidiani della stabile.

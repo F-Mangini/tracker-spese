@@ -1,11 +1,11 @@
-const {
+import {
     assert,
     loadStats,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Statistiche aggregano dati giornalieri includendo giorni vuoti', () => {
         const StatsData = loadStats();
         const spese = [

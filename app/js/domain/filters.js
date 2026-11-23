@@ -2,7 +2,7 @@
    FILTERS - Logica pura condivisa
    ============================================ */
 
-const ExpenseFilters = (() => {
+export const ExpenseFilters = (() => {
     function toSet(value) {
         if (value instanceof Set) return value;
         if (

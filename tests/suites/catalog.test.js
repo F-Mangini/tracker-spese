@@ -1,11 +1,11 @@
-const {
+import {
     assert,
     loadCatalog,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Catalog espone default immutabili con 22 categorie, 8 metodi e colori stabili', () => {
         const { Catalog, CATEGORIES, PAYMENT_METHODS } = loadCatalog();
         const palette = Catalog.getColorPalette();

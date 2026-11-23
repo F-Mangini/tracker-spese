@@ -2,7 +2,11 @@
    STATS CHARTS - configurazione Chart.js
    ============================================ */
 
-const StatsCharts = (() => {
+import { Catalog } from '../domain/categories.js';
+import { StatsData } from '../domain/stats.js';
+import { AppUI } from '../ui/ui-utils.js';
+
+export const StatsCharts = (() => {
     const COLORS = (typeof Catalog !== 'undefined' && Catalog && Array.isArray(Catalog.COLOR_PALETTE))
         ? Catalog.COLOR_PALETTE
         : [];
@@ -30,7 +34,10 @@ const StatsCharts = (() => {
             return { ...DEFAULT_THEME };
         }
 
-        const target = root || document.documentElement;
+        const target = root || (typeof document !== 'undefined' ? document.documentElement : null);
+        if (!target) {
+            return { ...DEFAULT_THEME };
+        }
         const style = getComputedStyle(target);
         const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
 

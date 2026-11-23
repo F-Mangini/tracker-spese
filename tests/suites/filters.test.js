@@ -1,12 +1,12 @@
-const {
+import {
     assert,
     createLocalStorage,
     loadFilters,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Filtri combinano ricerca, categoria, metodo, importo e date', () => {
         const ExpenseFilters = loadFilters();
         const spese = [

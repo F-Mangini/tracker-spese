@@ -4,16 +4,16 @@ Questo documento descrive lo stato tecnico implementato oggi. Non e un diario de
 
 ## Sintesi
 
-Where's My Money? e una web app statica, local-first, senza backend e senza build system. I dati vivono in `localStorage`; l'app e pensata prima di tutto per uso quotidiano su Android.
+Where's My Money? e una web app statica, local-first, senza backend e senza build system, basata su ES Modules nativi (`<script type="module">`). I dati vivono in `localStorage`; l'app e pensata prima di tutto per uso quotidiano su Android.
 
-Lo spacchettamento primario di `app/js/core/app.js` e completato. `app.js` resta il punto di boot e orchestrazione sottile; stato iniziale, wiring, rendering, controller, logica dati e workaround principali sono in moduli dedicati, organizzati in cartelle per area dentro `app/js/`.
+Lo spacchettamento primario di `app/js/core/app.js` e completato e tutti i moduli in `app/js/` (eccetto `core/config.js`, lasciato script classico per compatibilita con il deploy multi-canale di `.github/workflows/pages.yml`) usano `import`/`export` ESM espliciti. Lo stato volatile dei controller e consolidato in strutture esplicite e resettabili (`AppState`, `WeakMap`/`WeakSet`, oggetti `volatileState`), senza salvare stato nascosto su nodi DOM.
 
 ## Architettura
 
 | Area | File principali | Responsabilita |
 | --- | --- | --- |
-| Boot e stato | `core/app.js`, `core/app-state.js`, `core/app-wiring.js`, `core/app-wiring-modal.js` | Avvio app, stato iniziale, option factory e collegamento tra controller, stato condiviso, history e DOM. |
-| Config e dominio statico | `core/config.js`, `domain/categories.js` | Config runtime minima, chiave storage configurabile e registro unico `Catalog` (categorie, metodi di pagamento e colori centralizzati). |
+| Boot e stato | `core/app.js`, `core/app-state.js`, `core/app-wiring.js`, `core/app-wiring-modal.js` | Entrypoint `<script type="module">`, stato iniziale esplicito, option factory e collegamento tra controller, stato condiviso, history e DOM. |
+| Config e dominio statico | `core/config.js`, `domain/categories.js` | Script classico per config runtime multi-canale (`SPESA_TRACKER_CONFIG`) e registro unico `Catalog` (categorie, metodi di pagamento e colori centralizzati). |
 | Persistenza e dati derivati | `data/schema-normalizer.js`, `data/csv-codec.js`, `data/storage.js`, `data/expense-store.js`, `domain/expense-query.js`, `core/app-refresh.js` | Normalizzazione schema, codec CSV, storage protetto, cache UI, modelli filtrati/statistici e policy di refresh post-commit. |
 | Inserimento e spese | `domain/parser.js`, `domain/expense-actions.js`, `input/expense-submit-controller.js`, `input/expense-input-controller.js`, `input/input-bar-controller.js` | Parser testuale, add/update/delete, submit rapido, dettatura, focus mobile e layout barra input. |
 | Timeline e filtri | `timeline/timeline-view.js`, `timeline/timeline-controller.js`, `timeline/timeline-selection-controller.js`, `domain/filters.js`, `filters/filter-view.js`, `filters/quick-filter-controller.js`, `filters/filter-controller.js` | Rendering timeline, selezione multipla volatile, modello filtrato, pannello filtri, filtro rapido, slider, badge e ricerca. |
@@ -180,7 +180,7 @@ Il runner locale e:
 node tests/run-tests.js
 ```
 
-Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, selezione timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.
+Esegue direttamente le suite Node in formato ES Module nativo (senza `vm.runInContext`), resettando lo stato volatile tra un test e l'altro. Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, selezione timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history, grafo ES Modules e wiring applicativo.
 
 Mancano ancora test automatici su browser mobile reale, tastiera Android reale e interazioni DOM complete.
 

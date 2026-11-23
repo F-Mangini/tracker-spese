@@ -1,11 +1,11 @@
-const {
+import {
     assert,
     createLocalStorage,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Controller impostazioni collega finestra export a history e selezione timeline', () => {
         const { SettingsController, SettingsActions } = loadUiViews();
         const classes = new Set(['hidden']);
@@ -685,6 +685,10 @@ module.exports = function register(test) {
         assert.equal(input.readOnly, true);
         assert(!jsonItem.classList.contains('highlighted'));
         assert.deepEqual(calls.slice(-2), ['focus', ['push', { panel: 'export-format' }]]);
+        assert.equal(SettingsController.getExportModalState(options).formatInteraction, true);
+        assert.equal(modal['__settingsExportOptions'], undefined);
+        assert.equal(modal.dataset.bound, undefined);
+        assert.equal(modal.dataset.exportFormatInteraction, undefined);
         assert.equal(SettingsController.isExportFormatDropdownOpen(options), true);
         assert.equal(modal.style.paddingBottom, undefined);
         assert.equal(exportPanel.style.maxHeight, undefined);
@@ -693,6 +697,7 @@ module.exports = function register(test) {
 
         SettingsController.clearExportModalInteraction(options, true);
         assert.equal(classes.has('open'), false);
+        assert.equal(SettingsController.getExportModalState(options).formatInteraction, false);
         assert.equal(modal.dataset.exportFormatInteraction, undefined);
         assert.equal(exportBody.style.paddingBottom, undefined);
         assert(!calls.includes('consume'));
@@ -722,7 +727,12 @@ module.exports = function register(test) {
         assert.equal(prefs.includeData, true);
         assert.equal(prefs.includeSettings, false);
         assert.equal(prefs.includePersonalizzazioni, false);
-        assert.equal(modal.dataset.exportPreCsvContents, '{"includeData":false,"includeSettings":true,"includePersonalizzazioni":true}');
+        assert.deepEqual(SettingsController.getExportModalState(options).preCsvContents, {
+            includeData: false,
+            includeSettings: true,
+            includePersonalizzazioni: true
+        });
+        assert.equal(modal.dataset.exportPreCsvContents, undefined);
         assert(calls.includes('consume'));
 
         field.value = 'csv';
@@ -828,7 +838,8 @@ module.exports = function register(test) {
             'begin-selection',
             { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }
         ]);
-        assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+        assert.deepEqual(SettingsController.getExportModalState(options).toggleBaseSelection, ['manual']);
+        assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
         assert(body.innerHTML.includes('export-toggle-last-selection'));
         assert(body.innerHTML.includes('export-memory-toggle active'));
 
@@ -856,7 +867,8 @@ module.exports = function register(test) {
             'begin-selection',
             { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
         ]);
-        assert.equal(modal.dataset.exportToggleBaseSelection, '["manual"]');
+        assert.deepEqual(SettingsController.getExportModalState(options).toggleBaseSelection, ['manual']);
+        assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
         assert(body.innerHTML.includes('id="export-toggle-last-filters"'));
         assert(body.innerHTML.includes('id="export-toggle-last-filters"\n                        class="export-memory-toggle active"'));
 
@@ -884,6 +896,8 @@ module.exports = function register(test) {
             'begin-selection',
             { selectedIds: ['a', 'b'], selectFilteredWhenEmpty: false }
         ]);
+        assert.equal(SettingsController.getExportModalState(options).toggleBaseFilterSelection, null);
+        assert.equal(SettingsController.getExportModalState(options).toggleBaseFilters, null);
         assert.equal(modal.dataset.exportToggleBaseFilterSelection, undefined);
         assert.equal(modal.dataset.exportToggleBaseFilters, undefined);
 
@@ -893,6 +907,7 @@ module.exports = function register(test) {
             'begin-selection',
             { selectedIds: ['manual'], selectFilteredWhenEmpty: false }
         ]);
+        assert.equal(SettingsController.getExportModalState(options).toggleBaseSelection, null);
         assert.equal(modal.dataset.exportToggleBaseSelection, undefined);
 
         currentIds = ['a', 'c'];
@@ -934,7 +949,8 @@ module.exports = function register(test) {
             'begin-selection',
             { selectedIds: ['a', 'c'], selectFilteredWhenEmpty: false }
         ]);
-        assert.equal(modal.dataset.exportToggleBaseFilterSelection, '["a","c"]');
+        assert.deepEqual(SettingsController.getExportModalState(options).toggleBaseFilterSelection, ['a', 'c']);
+        assert.equal(modal.dataset.exportToggleBaseFilterSelection, undefined);
 
         clickHandler({ target: { id: 'btn-export-filters' } });
         assert.deepEqual(calls.slice(-2), [

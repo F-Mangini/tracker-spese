@@ -2,7 +2,7 @@
    UI STACK - decisioni pure per back/popstate
    ============================================ */
 
-const UIStack = (() => {
+export const UIStack = (() => {
     const ACTIONS = Object.freeze({
         IGNORE: 'ignore',
         CLOSE_CONFIRM: 'close-confirm',

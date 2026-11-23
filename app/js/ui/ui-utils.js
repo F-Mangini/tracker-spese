@@ -2,7 +2,10 @@
    UI UTILS - formattazione e helper piccoli
    ============================================ */
 
-const AppUI = (() => {
+import { Catalog } from '../domain/categories.js';
+import { StatsData } from '../domain/stats.js';
+
+export const AppUI = (() => {
     function money(value) {
         const amount = Number(value || 0);
         const safeAmount = Number.isFinite(amount) ? amount : 0;

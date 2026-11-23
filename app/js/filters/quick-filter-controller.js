@@ -2,11 +2,13 @@
    QUICK FILTER CONTROLLER - snapshot rapido e long-press
    ============================================ */
 
-const QuickFilterController = (() => {
+export const QuickFilterController = (() => {
     const QUICK_FILTER_LONG_PRESS_MS = 450;
     const LONG_PRESS_RELEASE_TOLERANCE_MS = 24;
     const QUICK_FILTER_STORAGE_SUFFIX = ':quick-filter';
-    let activeQuickFilterState = null;
+    let volatileState = {
+        activeState: null
+    };
 
     function noop() { }
 
@@ -14,7 +16,7 @@ const QuickFilterController = (() => {
         return options.window || (typeof window !== 'undefined' ? window : null);
     }
 
-    function getState(options, getter, prop, fallback) {
+    function readOptionState(options, getter, prop, fallback) {
         if (typeof options[getter] === 'function') return options[getter]();
         if (options.state && Object.prototype.hasOwnProperty.call(options.state, prop)) {
             return options.state[prop];
@@ -24,11 +26,11 @@ const QuickFilterController = (() => {
     }
 
     function getFilterOpen(options) {
-        return !!getState(options, 'getFilterOpen', 'filterOpen', false);
+        return !!readOptionState(options, 'getFilterOpen', 'filterOpen', false);
     }
 
     function getAdvancedFiltersOpen(options) {
-        return !!getState(options, 'getAdvancedFiltersOpen', 'advancedFiltersOpen', false);
+        return !!readOptionState(options, 'getAdvancedFiltersOpen', 'advancedFiltersOpen', false);
     }
 
     function normalizeIdList(value) {
@@ -149,7 +151,7 @@ const QuickFilterController = (() => {
         };
     }
 
-    function observeQuickFilterChange(options = {}, state = activeQuickFilterState) {
+    function observeQuickFilterChange(options = {}, state = volatileState.activeState) {
         if (!state) return;
 
         const current = createCurrentQuickFilterSnapshot(options);
@@ -304,7 +306,7 @@ const QuickFilterController = (() => {
     }
 
     function bindQuickFilterLongPress(button, options = {}, state = {}) {
-        activeQuickFilterState = state;
+        volatileState.activeState = state;
         return bindLongPressGesture(
             button,
             options,
@@ -313,10 +315,28 @@ const QuickFilterController = (() => {
         );
     }
 
-    function forgetQuickFilterRestore(state = activeQuickFilterState) {
+    function forgetQuickFilterRestore(state = volatileState.activeState) {
         if (!state) return;
         state.restoreSnapshot = null;
         state.lastObservedSnapshot = null;
+    }
+
+    function getState() {
+        return {
+            activeState: volatileState.activeState
+                ? {
+                    savedSnapshot: volatileState.activeState.savedSnapshot || null,
+                    restoreSnapshot: volatileState.activeState.restoreSnapshot || null,
+                    lastObservedSnapshot: volatileState.activeState.lastObservedSnapshot || null
+                }
+                : null
+        };
+    }
+
+    function resetState() {
+        volatileState = {
+            activeState: null
+        };
     }
 
     return {
@@ -331,6 +351,8 @@ const QuickFilterController = (() => {
         createCurrentSnapshot: createCurrentQuickFilterSnapshot,
         applySnapshot: applyQuickFilterSnapshot,
         createState,
+        getState,
+        resetState,
         observeChange: observeQuickFilterChange,
         handleLongPress: handleQuickFilterLongPress,
         bindLongPressGesture,

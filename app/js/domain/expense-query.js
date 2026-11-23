@@ -2,7 +2,10 @@
    EXPENSE QUERY - modelli dati derivati per UI
    ============================================ */
 
-const ExpenseQuery = (() => {
+import { ExpenseFilters } from './filters.js';
+import { StatsData } from './stats.js';
+
+export const ExpenseQuery = (() => {
     function list(spese) {
         return Array.isArray(spese) ? spese : [];
     }

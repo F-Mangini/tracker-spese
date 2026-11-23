@@ -1,11 +1,11 @@
-const {
+import {
     assert,
     loadParser,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Parser conserva il flusso base di inserimento rapido', () => {
         const Parser = loadParser();
         const result = Parser.parse('caffe 1,50 #colazione contanti');

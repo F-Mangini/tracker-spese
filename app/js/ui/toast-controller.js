@@ -2,8 +2,10 @@
    TOAST CONTROLLER - notifiche leggere
    ============================================ */
 
-const ToastController = (() => {
-    let timerId = null;
+export const ToastController = (() => {
+    let volatileState = {
+        timerId: null
+    };
 
     function resetPosition(toast) {
         toast.style.bottom = '';
@@ -41,27 +43,37 @@ const ToastController = (() => {
             resetPosition(toast);
         }
 
-        if (timerId && clearTimer) clearTimer(timerId);
+        if (volatileState.timerId && clearTimer) clearTimer(volatileState.timerId);
 
         if (!setTimer) return null;
 
-        timerId = setTimer(() => {
+        volatileState.timerId = setTimer(() => {
             toast.classList.add('hidden');
             resetPosition(toast);
-            timerId = null;
+            volatileState.timerId = null;
         }, duration);
 
-        return timerId;
+        return volatileState.timerId;
     }
 
     function clear(options = {}) {
         const clearTimer = options.clearTimeout || (typeof clearTimeout !== 'undefined' ? clearTimeout : null);
-        if (timerId && clearTimer) clearTimer(timerId);
-        timerId = null;
+        if (volatileState.timerId && clearTimer) clearTimer(volatileState.timerId);
+        volatileState.timerId = null;
+    }
+
+    function getState() {
+        return { ...volatileState };
+    }
+
+    function resetState(options = {}) {
+        clear(options);
     }
 
     return {
         show,
-        clear
+        clear,
+        getState,
+        resetState
     };
 })();

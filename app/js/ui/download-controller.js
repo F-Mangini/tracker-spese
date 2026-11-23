@@ -2,7 +2,7 @@
    DOWNLOAD CONTROLLER - download file temporanei
    ============================================ */
 
-const DownloadController = (() => {
+export const DownloadController = (() => {
     function getDocument(options) {
         return options.document || document;
     }

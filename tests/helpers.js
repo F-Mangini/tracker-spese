@@ -1,8 +1,59 @@
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import { Catalog, CATEGORIES, PAYMENT_METHODS } from '../app/js/domain/categories.js';
+import { SchemaNormalizer } from '../app/js/data/schema-normalizer.js';
+import { CsvCodec } from '../app/js/data/csv-codec.js';
+import { createStorage, Storage } from '../app/js/data/storage.js';
+import { ExpenseStore } from '../app/js/data/expense-store.js';
+import { Parser } from '../app/js/domain/parser.js';
+import { ExpenseFilters } from '../app/js/domain/filters.js';
+import { StatsData } from '../app/js/domain/stats.js';
+import { ExpenseQuery } from '../app/js/domain/expense-query.js';
+import { ExpenseActions } from '../app/js/domain/expense-actions.js';
+import { AppRefresh } from '../app/js/core/app-refresh.js';
+import { ExpenseSubmitController } from '../app/js/input/expense-submit-controller.js';
+import { ExpenseInputController } from '../app/js/input/expense-input-controller.js';
+import { InputBarController } from '../app/js/input/input-bar-controller.js';
+import { AppUI } from '../app/js/ui/ui-utils.js';
+import { DownloadController } from '../app/js/ui/download-controller.js';
+import { HeaderTitleController } from '../app/js/ui/header-title-controller.js';
+import { FilterView } from '../app/js/filters/filter-view.js';
+import { QuickFilterController } from '../app/js/filters/quick-filter-controller.js';
+import { FilterController } from '../app/js/filters/filter-controller.js';
+import { TimelineView } from '../app/js/timeline/timeline-view.js';
+import { TimelineController } from '../app/js/timeline/timeline-controller.js';
+import { TimelineSelectionController } from '../app/js/timeline/timeline-selection-controller.js';
+import { NavigationController } from '../app/js/navigation/navigation-controller.js';
+import { StatsView } from '../app/js/stats/stats-view.js';
+import { StatsCharts } from '../app/js/stats/stats-charts.js';
+import { StatsController } from '../app/js/stats/stats-controller.js';
+import { ModalView } from '../app/js/modal/modal-view.js';
+import { ModalFormController } from '../app/js/modal/modal-form-controller.js';
+import { ModalMobileController } from '../app/js/modal/modal-mobile-controller.js';
+import { ModalInteractions } from '../app/js/modal/modal-interactions.js';
+import { ModalController } from '../app/js/modal/modal-controller.js';
+import { SettingsView } from '../app/js/settings/settings-view.js';
+import { SettingsActions } from '../app/js/settings/settings-actions.js';
+import { ReleaseModalController } from '../app/js/settings/release-modal-controller.js';
+import { ExportModalController } from '../app/js/settings/export-modal-controller.js';
+import { SettingsController } from '../app/js/settings/settings-controller.js';
+import { UIStack } from '../app/js/navigation/ui-stack.js';
+import { HistoryController } from '../app/js/navigation/history-controller.js';
+import { UIStackEffects } from '../app/js/navigation/ui-stack-effects.js';
+import { UIStackController } from '../app/js/navigation/ui-stack-controller.js';
+import { ConfirmDialog } from '../app/js/ui/confirm-dialog.js';
+import { ConfirmController } from '../app/js/ui/confirm-controller.js';
+import { ThemeController } from '../app/js/ui/theme-controller.js';
+import { ToastController } from '../app/js/ui/toast-controller.js';
+import { AppState } from '../app/js/core/app-state.js';
+import { AppWiringModal } from '../app/js/core/app-wiring-modal.js';
+import { AppWiring } from '../app/js/core/app-wiring.js';
+import { App } from '../app/js/core/app.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 function readAppScript(relativePath) {
@@ -33,19 +84,117 @@ function normalizeStablePrecachePath(value) {
         .replace(/^\.?\//, '');
 }
 
-function getLocalIndexAssetPaths() {
-    const html = readAppFile('index.html');
+function extractRelativeModuleSpecifiers(source) {
+    const specifiers = [];
+    const lines = String(source || '').split(/\r?\n/);
+    let buffer = '';
+    let collecting = false;
+
+    for (const line of lines) {
+        if (!collecting) {
+            if (/^\s*(?:import|export\s+(?:\*|\{))/.test(line)) {
+                collecting = true;
+                buffer = line;
+            } else {
+                continue;
+            }
+        } else {
+            buffer += ' ' + line;
+        }
+
+        const bareMatch = buffer.match(/^\s*import\s+["'](\.[^"']+)["']\s*;?/);
+        if (bareMatch) {
+            specifiers.push(bareMatch[1]);
+            collecting = false;
+            buffer = '';
+            continue;
+        }
+
+        const fromMatch = buffer.match(/\bfrom\s+["'](\.[^"']+)["']/);
+        if (fromMatch) {
+            specifiers.push(fromMatch[1]);
+            collecting = false;
+            buffer = '';
+            continue;
+        }
+
+        if (buffer.includes(';')) {
+            collecting = false;
+            buffer = '';
+        }
+    }
+
+    return specifiers;
+}
+
+function collectModuleGraph(baseDir, entryRelativePath) {
+    const visited = new Set();
+    const visiting = new Set();
+    const cycles = [];
+    const files = [];
+
+    function visit(relPosixPath) {
+        const normalized = path.posix.normalize(String(relPosixPath || '').replace(/\\/g, '/').replace(/^\.\//, ''));
+        if (visiting.has(normalized)) {
+            cycles.push(normalized);
+            return;
+        }
+        if (visited.has(normalized)) return;
+
+        const fullPath = path.resolve(baseDir, normalized);
+        assert(fs.existsSync(fullPath), `Modulo ES non trovato: ${normalized}`);
+
+        visiting.add(normalized);
+        const source = fs.readFileSync(fullPath, 'utf8');
+        const dir = path.posix.dirname(normalized);
+
+        for (const specifier of extractRelativeModuleSpecifiers(source)) {
+            const target = path.posix.normalize(path.posix.join(dir, specifier));
+            visit(target);
+        }
+
+        visiting.delete(normalized);
+        visited.add(normalized);
+        files.push(normalized);
+    }
+
+    visit(entryRelativePath);
+
+    return { files, cycles };
+}
+
+function getIndexAssetPaths(baseDir) {
+    const html = fs.readFileSync(path.join(baseDir, 'index.html'), 'utf8');
     const paths = [];
-    const attrPattern = /<(script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g;
+    const tagPattern = /<(script|link)\b([^>]*)>/gi;
     let match;
 
-    while ((match = attrPattern.exec(html))) {
-        const value = match[2];
+    while ((match = tagPattern.exec(html))) {
+        const tagName = match[1].toLowerCase();
+        const attrs = match[2];
+        const attrMatch = tagName === 'script'
+            ? /\bsrc=["']([^"']+)["']/i.exec(attrs)
+            : /\bhref=["']([^"']+)["']/i.exec(attrs);
+
+        if (!attrMatch) continue;
+
+        const value = attrMatch[1];
         if (!value || /^(https?:|data:|#)/i.test(value)) continue;
+
         paths.push(normalizeStablePrecachePath(value));
+
+        if (tagName === 'script' && /\btype\s*=\s*["']module["']/i.test(attrs)) {
+            const graph = collectModuleGraph(baseDir, value);
+            assert.deepEqual(graph.cycles, [], `Dipendenze circolari rilevate nel grafo ESM: ${graph.cycles.join(', ')}`);
+            graph.files.forEach(file => paths.push(normalizeStablePrecachePath(file)));
+        }
     }
 
     return Array.from(new Set(paths)).sort();
+}
+
+function getLocalIndexAssetPaths() {
+    return getIndexAssetPaths(path.join(root, 'app'));
 }
 
 function getStableLaunchPrecachePaths() {
@@ -61,18 +210,7 @@ function getStableLaunchPrecachePaths() {
 }
 
 function getReleaseIndexAssetPaths(releasePath) {
-    const html = readRepoFile(path.join(releasePath, 'index.html'));
-    const paths = [];
-    const attrPattern = /<(script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g;
-    let match;
-
-    while ((match = attrPattern.exec(html))) {
-        const value = match[2];
-        if (!value || /^(https?:|data:|#)/i.test(value)) continue;
-        paths.push(normalizeStablePrecachePath(value));
-    }
-
-    return Array.from(new Set(paths)).sort();
+    return getIndexAssetPaths(path.join(root, releasePath));
 }
 
 function getReleasePrecachePaths(releasePath) {
@@ -106,286 +244,112 @@ function createLocalStorage() {
     };
 }
 
-function loadStorage() {
-    const context = {
-        console,
-        localStorage: createLocalStorage(),
-        window: {
-            SPESA_TRACKER_CONFIG: {
-                storageKey: 'test-storage'
-            }
-        }
-    };
+function resetAppState() {
+    Catalog.reset();
+    ExpenseStore.reset();
+    FilterController.resetState();
+    QuickFilterController.resetState();
+    TimelineController.resetState();
+    TimelineSelectionController.resetState();
+    ExportModalController.resetState();
+    ReleaseModalController.resetState();
+    HeaderTitleController.resetState();
+    ToastController.resetState();
+}
 
-    vm.createContext(context);
-    const schemaNormalizerCode = readAppScript('data/schema-normalizer.js');
-    const csvCodecCode = readAppScript('data/csv-codec.js');
-    const storageCode = readAppScript('data/storage.js');
-    vm.runInContext(
-        `${schemaNormalizerCode}\n${csvCodecCode}\n${storageCode}\nglobalThis.SchemaNormalizer = SchemaNormalizer;\nglobalThis.CsvCodec = CsvCodec;\nglobalThis.Storage = Storage;`,
-        context
-    );
+function loadStorage() {
+    resetAppState();
+    const localStorage = createLocalStorage();
+    const storageInstance = createStorage({
+        localStorage,
+        key: 'test-storage'
+    });
 
     return {
-        Storage: context.Storage,
-        SchemaNormalizer: context.SchemaNormalizer,
-        CsvCodec: context.CsvCodec,
-        localStorage: context.localStorage
+        Storage: storageInstance,
+        SchemaNormalizer,
+        CsvCodec,
+        localStorage
     };
 }
 
 function loadCatalog() {
-    const context = { console };
-    vm.createContext(context);
-
-    const categoriesCode = readAppScript('domain/categories.js');
-    vm.runInContext(
-        `${categoriesCode}\nglobalThis.Catalog = Catalog;\nglobalThis.CATEGORIES = CATEGORIES;\nglobalThis.PAYMENT_METHODS = PAYMENT_METHODS;`,
-        context
-    );
-
+    resetAppState();
     return {
-        Catalog: context.Catalog,
-        CATEGORIES: context.CATEGORIES,
-        PAYMENT_METHODS: context.PAYMENT_METHODS
+        Catalog,
+        CATEGORIES,
+        PAYMENT_METHODS
     };
 }
 
 function loadParser() {
-    const context = { console };
-    vm.createContext(context);
-
-    const categoriesCode = readAppScript('domain/categories.js');
-    const parserCode = readAppScript('domain/parser.js');
-    vm.runInContext(
-        `${categoriesCode}\n${parserCode}\nglobalThis.Catalog = Catalog;\nglobalThis.Parser = Parser;`,
-        context
-    );
-
-    return context.Parser;
+    resetAppState();
+    return Parser;
 }
 
 function loadFilters() {
-    const context = { console };
-    vm.createContext(context);
-
-    const filtersCode = readAppScript('domain/filters.js');
-    vm.runInContext(`${filtersCode}\nglobalThis.ExpenseFilters = ExpenseFilters;`, context);
-
-    return context.ExpenseFilters;
+    resetAppState();
+    return ExpenseFilters;
 }
 
 function loadStats() {
-    const context = { console };
-    vm.createContext(context);
-
-    const statsCode = readAppScript('domain/stats.js');
-    vm.runInContext(`${statsCode}\nglobalThis.StatsData = StatsData;`, context);
-
-    return context.StatsData;
+    resetAppState();
+    return StatsData;
 }
 
-function loadUiViews(globals = {}) {
-    const context = { console, URL, ...globals };
-    vm.createContext(context);
-
-    const categoriesCode = readAppScript('domain/categories.js');
-    const parserCode = readAppScript('domain/parser.js');
-    const schemaNormalizerCode = readAppScript('data/schema-normalizer.js');
-    const csvCodecCode = readAppScript('data/csv-codec.js');
-    const expenseStoreCode = readAppScript('data/expense-store.js');
-    const filtersCode = readAppScript('domain/filters.js');
-    const statsCode = readAppScript('domain/stats.js');
-    const expenseQueryCode = readAppScript('domain/expense-query.js');
-    const appRefreshCode = readAppScript('core/app-refresh.js');
-    const expenseActionsCode = readAppScript('domain/expense-actions.js');
-    const expenseSubmitControllerCode = readAppScript('input/expense-submit-controller.js');
-    const expenseInputControllerCode = readAppScript('input/expense-input-controller.js');
-    const inputBarControllerCode = readAppScript('input/input-bar-controller.js');
-    const uiCode = readAppScript('ui/ui-utils.js');
-    const downloadControllerCode = readAppScript('ui/download-controller.js');
-    const headerTitleControllerCode = readAppScript('ui/header-title-controller.js');
-    const filterViewCode = readAppScript('filters/filter-view.js');
-    const quickFilterControllerCode = readAppScript('filters/quick-filter-controller.js');
-    const filterControllerCode = readAppScript('filters/filter-controller.js');
-    const timelineViewCode = readAppScript('timeline/timeline-view.js');
-    const timelineControllerCode = readAppScript('timeline/timeline-controller.js');
-    const timelineSelectionControllerCode = readAppScript('timeline/timeline-selection-controller.js');
-    const navigationControllerCode = readAppScript('navigation/navigation-controller.js');
-    const statsViewCode = readAppScript('stats/stats-view.js');
-    const statsChartsCode = readAppScript('stats/stats-charts.js');
-    const statsControllerCode = readAppScript('stats/stats-controller.js');
-    const modalViewCode = readAppScript('modal/modal-view.js');
-    const modalFormControllerCode = readAppScript('modal/modal-form-controller.js');
-    const modalMobileControllerCode = readAppScript('modal/modal-mobile-controller.js');
-    const modalInteractionsCode = readAppScript('modal/modal-interactions.js');
-    const modalControllerCode = readAppScript('modal/modal-controller.js');
-    const settingsViewCode = readAppScript('settings/settings-view.js');
-    const settingsActionsCode = readAppScript('settings/settings-actions.js');
-    const releaseModalControllerCode = readAppScript('settings/release-modal-controller.js');
-    const exportModalControllerCode = readAppScript('settings/export-modal-controller.js');
-    const settingsControllerCode = readAppScript('settings/settings-controller.js');
-    const uiStackCode = readAppScript('navigation/ui-stack.js');
-    const historyControllerCode = readAppScript('navigation/history-controller.js');
-    const uiStackEffectsCode = readAppScript('navigation/ui-stack-effects.js');
-    const uiStackControllerCode = readAppScript('navigation/ui-stack-controller.js');
-    const confirmDialogCode = readAppScript('ui/confirm-dialog.js');
-    const confirmControllerCode = readAppScript('ui/confirm-controller.js');
-    const themeControllerCode = readAppScript('ui/theme-controller.js');
-    const toastControllerCode = readAppScript('ui/toast-controller.js');
-    const appStateCode = readAppScript('core/app-state.js');
-    const appWiringModalCode = readAppScript('core/app-wiring-modal.js');
-    const appWiringCode = readAppScript('core/app-wiring.js');
-
-    vm.runInContext(
-        [
-            categoriesCode,
-            parserCode,
-            schemaNormalizerCode,
-            csvCodecCode,
-            expenseStoreCode,
-            filtersCode,
-            statsCode,
-            expenseQueryCode,
-            appRefreshCode,
-            expenseActionsCode,
-            expenseSubmitControllerCode,
-            expenseInputControllerCode,
-            inputBarControllerCode,
-            uiCode,
-            downloadControllerCode,
-            headerTitleControllerCode,
-            filterViewCode,
-            quickFilterControllerCode,
-            filterControllerCode,
-            timelineViewCode,
-            timelineControllerCode,
-            timelineSelectionControllerCode,
-            navigationControllerCode,
-            statsViewCode,
-            statsChartsCode,
-            statsControllerCode,
-            modalViewCode,
-            modalFormControllerCode,
-            modalMobileControllerCode,
-            modalInteractionsCode,
-            modalControllerCode,
-            settingsViewCode,
-            settingsActionsCode,
-            releaseModalControllerCode,
-            exportModalControllerCode,
-            settingsControllerCode,
-            uiStackCode,
-            historyControllerCode,
-            uiStackEffectsCode,
-            uiStackControllerCode,
-            confirmDialogCode,
-            confirmControllerCode,
-            themeControllerCode,
-            toastControllerCode,
-            appStateCode,
-            appWiringModalCode,
-            appWiringCode,
-            'globalThis.Catalog = Catalog;',
-            'globalThis.CATEGORIES = CATEGORIES;',
-            'globalThis.PAYMENT_METHODS = PAYMENT_METHODS;',
-            'globalThis.Parser = Parser;',
-            'globalThis.SchemaNormalizer = SchemaNormalizer;',
-            'globalThis.CsvCodec = CsvCodec;',
-            'globalThis.ExpenseStore = ExpenseStore;',
-            'globalThis.ExpenseFilters = ExpenseFilters;',
-            'globalThis.ExpenseQuery = ExpenseQuery;',
-            'globalThis.AppRefresh = AppRefresh;',
-            'globalThis.AppUI = AppUI;',
-            'globalThis.DownloadController = DownloadController;',
-            'globalThis.HeaderTitleController = HeaderTitleController;',
-            'globalThis.ExpenseActions = ExpenseActions;',
-            'globalThis.ExpenseSubmitController = ExpenseSubmitController;',
-            'globalThis.ExpenseInputController = ExpenseInputController;',
-            'globalThis.InputBarController = InputBarController;',
-            'globalThis.FilterView = FilterView;',
-            'globalThis.QuickFilterController = QuickFilterController;',
-            'globalThis.FilterController = FilterController;',
-            'globalThis.TimelineView = TimelineView;',
-            'globalThis.TimelineController = TimelineController;',
-            'globalThis.TimelineSelectionController = TimelineSelectionController;',
-            'globalThis.NavigationController = NavigationController;',
-            'globalThis.StatsView = StatsView;',
-            'globalThis.StatsCharts = StatsCharts;',
-            'globalThis.StatsController = StatsController;',
-            'globalThis.ModalView = ModalView;',
-            'globalThis.ModalFormController = ModalFormController;',
-            'globalThis.ModalMobileController = ModalMobileController;',
-            'globalThis.ModalInteractions = ModalInteractions;',
-            'globalThis.ModalController = ModalController;',
-            'globalThis.SettingsView = SettingsView;',
-            'globalThis.SettingsActions = SettingsActions;',
-            'globalThis.ReleaseModalController = ReleaseModalController;',
-            'globalThis.ExportModalController = ExportModalController;',
-            'globalThis.SettingsController = SettingsController;',
-            'globalThis.UIStack = UIStack;',
-            'globalThis.HistoryController = HistoryController;',
-            'globalThis.UIStackEffects = UIStackEffects;',
-            'globalThis.UIStackController = UIStackController;',
-            'globalThis.ConfirmDialog = ConfirmDialog;',
-            'globalThis.ConfirmController = ConfirmController;',
-            'globalThis.ThemeController = ThemeController;',
-            'globalThis.ToastController = ToastController;',
-            'globalThis.AppState = AppState;',
-            'globalThis.AppWiringModal = AppWiringModal;',
-            'globalThis.AppWiring = AppWiring;'
-        ].join('\n'),
-        context
-    );
-
+function loadUiViews() {
+    resetAppState();
     return {
-        Catalog: context.Catalog,
-        CATEGORIES: context.CATEGORIES,
-        PAYMENT_METHODS: context.PAYMENT_METHODS,
-        Parser: context.Parser,
-        SchemaNormalizer: context.SchemaNormalizer,
-        CsvCodec: context.CsvCodec,
-        AppUI: context.AppUI,
-        DownloadController: context.DownloadController,
-        HeaderTitleController: context.HeaderTitleController,
-        ExpenseStore: context.ExpenseStore,
-        ExpenseQuery: context.ExpenseQuery,
-        AppRefresh: context.AppRefresh,
-        ExpenseActions: context.ExpenseActions,
-        ExpenseSubmitController: context.ExpenseSubmitController,
-        ExpenseInputController: context.ExpenseInputController,
-        InputBarController: context.InputBarController,
-        FilterView: context.FilterView,
-        QuickFilterController: context.QuickFilterController,
-        FilterController: context.FilterController,
-        TimelineView: context.TimelineView,
-        TimelineController: context.TimelineController,
-        TimelineSelectionController: context.TimelineSelectionController,
-        NavigationController: context.NavigationController,
-        StatsView: context.StatsView,
-        StatsCharts: context.StatsCharts,
-        StatsController: context.StatsController,
-        ModalView: context.ModalView,
-        ModalFormController: context.ModalFormController,
-        ModalMobileController: context.ModalMobileController,
-        ModalInteractions: context.ModalInteractions,
-        ModalController: context.ModalController,
-        SettingsView: context.SettingsView,
-        SettingsActions: context.SettingsActions,
-        ReleaseModalController: context.ReleaseModalController,
-        ExportModalController: context.ExportModalController,
-        SettingsController: context.SettingsController,
-        UIStack: context.UIStack,
-        HistoryController: context.HistoryController,
-        UIStackEffects: context.UIStackEffects,
-        UIStackController: context.UIStackController,
-        ConfirmDialog: context.ConfirmDialog,
-        ConfirmController: context.ConfirmController,
-        ThemeController: context.ThemeController,
-        ToastController: context.ToastController,
-        AppState: context.AppState,
-        AppWiringModal: context.AppWiringModal,
-        AppWiring: context.AppWiring
+        Catalog,
+        CATEGORIES,
+        PAYMENT_METHODS,
+        Parser,
+        SchemaNormalizer,
+        CsvCodec,
+        Storage,
+        createStorage,
+        AppUI,
+        DownloadController,
+        HeaderTitleController,
+        ExpenseStore,
+        ExpenseQuery,
+        AppRefresh,
+        ExpenseActions,
+        ExpenseSubmitController,
+        ExpenseInputController,
+        InputBarController,
+        FilterView,
+        QuickFilterController,
+        FilterController,
+        TimelineView,
+        TimelineController,
+        TimelineSelectionController,
+        NavigationController,
+        StatsView,
+        StatsCharts,
+        StatsController,
+        ModalView,
+        ModalFormController,
+        ModalMobileController,
+        ModalInteractions,
+        ModalController,
+        SettingsView,
+        SettingsActions,
+        ReleaseModalController,
+        ExportModalController,
+        SettingsController,
+        UIStack,
+        HistoryController,
+        UIStackEffects,
+        UIStackController,
+        ConfirmDialog,
+        ConfirmController,
+        ThemeController,
+        ToastController,
+        AppState,
+        AppWiringModal,
+        AppWiring,
+        App
     };
 }
 
@@ -405,7 +369,7 @@ function expense(overrides = {}) {
     };
 }
 
-module.exports = {
+export {
     assert,
     root,
     readAppScript,
@@ -413,11 +377,13 @@ module.exports = {
     readRepoFile,
     readAppCss,
     normalizeStablePrecachePath,
+    collectModuleGraph,
     getLocalIndexAssetPaths,
     getStableLaunchPrecachePaths,
     getReleaseIndexAssetPaths,
     getReleasePrecachePaths,
     createLocalStorage,
+    resetAppState,
     loadStorage,
     loadCatalog,
     loadParser,

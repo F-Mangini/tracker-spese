@@ -1,10 +1,10 @@
-const {
+import {
     assert,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Store spese centralizza cache e invalidazione senza toccare Storage', () => {
         const { ExpenseStore } = loadUiViews();
         const listeners = {};
@@ -29,7 +29,7 @@ module.exports = function register(test) {
         ExpenseStore.init({ storage, window: win });
 
         const first = ExpenseStore.getSpese();
-        first[0].descrizione = 'Mutata fuori';
+        assert.throws(() => { first[0].descrizione = 'Mutata fuori'; }, TypeError);
 
         assert.equal(ExpenseStore.getSpese()[0].descrizione, 'Caffe');
         assert.equal(ExpenseStore.getSpese(), first);

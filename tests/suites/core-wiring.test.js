@@ -1,11 +1,17 @@
-const {
+import fs from 'node:fs';
+import path from 'node:path';
+import {
     assert,
+    root,
+    readAppFile,
+    collectModuleGraph,
     createLocalStorage,
+    resetAppState,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Stato app iniziale resta isolato e ricreabile fuori da app.js', () => {
         const { AppState } = loadUiViews();
 
@@ -200,13 +206,9 @@ module.exports = function register(test) {
             }
         };
         const fakeDocument = { body: {} };
-        const { AppWiring } = loadUiViews({
-            window: fakeWindow,
-            document: fakeDocument,
-            history: {}
-        });
+        const { AppWiring, AppState } = loadUiViews();
         const app = {
-            ...loadUiViews().AppState.create(),
+            ...AppState.create(),
             renderTimeline: () => {},
             renderStats: () => {},
             renderSettings: () => {},
@@ -214,7 +216,11 @@ module.exports = function register(test) {
             submitExpense: () => {},
             refreshExpenseViews: () => {}
         };
-        const wiring = AppWiring.create(app);
+        const wiring = AppWiring.create(app, {
+            window: fakeWindow,
+            document: fakeDocument,
+            history: {}
+        });
 
         wiring.filterOptions().requestAnimationFrame(() => calls.push('filter-callback'));
         wiring.navigationOptions().defer(() => calls.push('defer-callback'));
@@ -909,5 +915,221 @@ module.exports = function register(test) {
         assert.deepEqual(historyActions.map(action => [action.type, action.delta]), [
             [UIStack.HISTORY_ACTIONS.GO, -2]
         ]);
+    });
+
+    test('App carica ES Modules nativi senza cicli e resta importabile in Node', () => {
+        const { App, AppWiring } = loadUiViews();
+        const html = readAppFile('index.html');
+        const scriptMatches = Array.from(html.matchAll(/<script\b([^>]*)>/gi)).map(match => {
+            const attrs = match[1];
+            const srcMatch = /\bsrc=["']([^"']+)["']/i.exec(attrs);
+            return {
+                src: srcMatch ? srcMatch[1] : null,
+                isModule: /\btype\s*=\s*["']module["']/i.test(attrs)
+            };
+        });
+
+        assert.deepEqual(scriptMatches, [
+            { src: 'vendor/chart.umd.min.js', isModule: false },
+            { src: 'js/core/config.js', isModule: false },
+            { src: 'js/core/app.js', isModule: true }
+        ]);
+
+        function listAppJs(dir) {
+            let out = [];
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) out = out.concat(listAppJs(full));
+                else if (entry.name.endsWith('.js')) {
+                    out.push(path.relative(path.join(root, 'app'), full).replace(/\\/g, '/'));
+                }
+            }
+            return out.sort();
+        }
+
+        const allJsFiles = listAppJs(path.join(root, 'app/js'));
+        const graph = collectModuleGraph(path.join(root, 'app'), 'js/core/app.js');
+        assert.deepEqual(graph.cycles, []);
+        assert.deepEqual(
+            graph.files.slice().sort(),
+            allJsFiles.filter(file => file !== 'js/core/config.js')
+        );
+        assert.equal(allJsFiles.includes('js/core/config.js'), true);
+
+        assert.equal(typeof App.init, 'function');
+        const wiring = AppWiring.create(App);
+        assert.equal(typeof wiring.filterOptions, 'function');
+        assert.equal(typeof wiring.settingsOptions, 'function');
+    });
+
+    test('Stato volatile dei controller e consolidato, resettabile e assente dal DOM', () => {
+        const {
+            AppState,
+            ExportModalController,
+            ReleaseModalController,
+            HeaderTitleController,
+            TimelineSelectionController,
+            FilterController,
+            QuickFilterController,
+            TimelineController,
+            ToastController,
+            ExpenseStore
+        } = loadUiViews();
+
+        const initial = AppState.create();
+        assert.deepEqual(initial._afterSuppressedPopstates, []);
+
+        const makeClassList = (seed = []) => {
+            const set = new Set(seed);
+            return {
+                add: (...cls) => cls.forEach(c => set.add(c)),
+                remove: (...cls) => cls.forEach(c => set.delete(c)),
+                toggle: (c, force) => {
+                    const active = force == null ? !set.has(c) : !!force;
+                    if (active) set.add(c);
+                    else set.delete(c);
+                    return active;
+                },
+                contains: c => set.has(c)
+            };
+        };
+        const makeEl = (id, classes = []) => ({
+            id,
+            innerHTML: '',
+            textContent: '',
+            disabled: false,
+            dataset: {},
+            style: {},
+            attributes: {},
+            listeners: {},
+            classList: makeClassList(classes),
+            setAttribute(name, val) {
+                this.attributes[name] = val;
+            },
+            addEventListener(name, handler) {
+                this.listeners[name] = handler;
+            },
+            querySelector() {
+                return null;
+            }
+        });
+
+        const exportModal = makeEl('export-modal-overlay', ['hidden']);
+        const exportOptions = {
+            document: { getElementById: id => (id === 'export-modal-overlay' ? exportModal : null) },
+            storage: { KEY: 'test-key', getSpese: () => [] },
+            localStorage: createLocalStorage()
+        };
+        ExportModalController.bind(exportOptions);
+        assert.deepEqual(ExportModalController.getState(exportOptions), {
+            bound: true,
+            formatInteraction: false,
+            preCsvContents: null,
+            toggleBaseSelection: null,
+            toggleBaseFilterSelection: null,
+            toggleBaseFilters: null
+        });
+        assert.equal(exportModal['__settingsExportOptions'], undefined);
+        assert.equal(exportModal.dataset.bound, undefined);
+
+        const releaseModal = makeEl('release-modal-overlay', ['hidden']);
+        const releaseOptions = {
+            document: { getElementById: id => (id === 'release-modal-overlay' ? releaseModal : null) }
+        };
+        ReleaseModalController.bind(releaseOptions);
+        assert.equal(ReleaseModalController.isBound(releaseModal), true);
+        assert.equal(ReleaseModalController.getState(releaseOptions).bound, true);
+        assert.equal(releaseModal.dataset.bound, undefined);
+
+        const titleEl = makeEl('title');
+        titleEl.innerHTML = 'App';
+        HeaderTitleController.init({ document: { querySelector: () => titleEl } });
+        HeaderTitleController.syncDefaultTitle(titleEl);
+        assert.deepEqual(HeaderTitleController.getState(titleEl), {
+            defaultHtml: 'App',
+            showingDate: false,
+            animating: false
+        });
+        assert.equal(titleEl.dataset.defaultHtml, undefined);
+        assert.equal(titleEl.dataset.showingDate, undefined);
+
+        const bottomNav = makeEl('bottom-nav');
+        const btnAll = makeEl('btn-selection-select-all');
+        const btnCopy = makeEl('btn-selection-copy');
+        const btnExport = makeEl('btn-selection-export');
+        const btnDelete = makeEl('btn-selection-delete');
+        const selDoc = {
+            getElementById(id) {
+                if (id === 'bottom-nav') return bottomNav;
+                if (id === 'btn-selection-select-all') return btnAll;
+                if (id === 'btn-selection-copy') return btnCopy;
+                if (id === 'btn-selection-export') return btnExport;
+                if (id === 'btn-selection-delete') return btnDelete;
+                return null;
+            }
+        };
+        TimelineSelectionController.bindHeader({ document: selDoc });
+        TimelineSelectionController.setBottomNavSet(bottomNav, 'actions');
+        assert.equal(TimelineSelectionController.getBottomNavSet(bottomNav), 'actions');
+        assert.deepEqual(TimelineSelectionController.getState(bottomNav), {
+            selectionSet: 'actions',
+            pagerBound: true
+        });
+        assert.equal(bottomNav.dataset.selectionSet, undefined);
+        assert.equal(bottomNav.dataset.selectionPagerBound, undefined);
+        assert.equal(btnExport.dataset.selectionBound, undefined);
+
+        const quickState = QuickFilterController.createState({});
+        QuickFilterController.bindQuickFilterLongPress(makeEl('qf'), {}, quickState);
+        assert.notEqual(QuickFilterController.getState().activeState, null);
+        assert.equal(FilterController.getState().filterLayoutTransitionToken, 0);
+
+        const card = makeEl('card-1');
+        card.dataset.id = 'exp-99';
+        const scheduledTimers = [];
+        const cleared = [];
+        TimelineController.bindExpenseCard(card, {
+            setTimeout: (cb, delay) => {
+                const id = scheduledTimers.length + 1;
+                scheduledTimers.push({ id, cb, delay });
+                return id;
+            },
+            clearTimeout: id => cleared.push(id)
+        });
+        card.listeners.pointerdown({ button: 0, clientX: 0, clientY: 0 });
+        scheduledTimers[0].cb();
+        assert.equal(TimelineController.getState().suppressedLongPressClickId, 'exp-99');
+        assert.equal(TimelineController.getState().suppressedLongPressClickTimer, 2);
+
+        const toastEl = makeEl('toast');
+        ToastController.show('Ciao', 'info', {
+            document: { getElementById: () => toastEl },
+            setTimeout: () => 77
+        });
+        assert.equal(ToastController.getState().timerId, 77);
+
+        let removedListener = false;
+        ExpenseStore.init({
+            storage: { KEY: 'k', getSpese: () => [] },
+            window: {
+                addEventListener() {},
+                removeEventListener() { removedListener = true; }
+            }
+        });
+        ExpenseStore.getSpese();
+        assert.equal(ExpenseStore.getState().hasCachedSpese, true);
+
+        resetAppState();
+        ToastController.resetState({ clearTimeout: id => cleared.push(id) });
+        assert.equal(ExportModalController.getState(exportOptions), null);
+        assert.equal(ReleaseModalController.isBound(releaseModal), false);
+        assert.equal(HeaderTitleController.getState(titleEl), null);
+        assert.equal(TimelineSelectionController.getBottomNavSet(bottomNav), null);
+        assert.equal(TimelineSelectionController.getState(bottomNav).pagerBound, false);
+        assert.equal(QuickFilterController.getState().activeState, null);
+        assert.equal(TimelineController.getState().suppressedLongPressClickId, null);
+        assert.equal(ToastController.getState().timerId, null);
+        assert.equal(removedListener, true);
+        assert.equal(ExpenseStore.getState().hasCachedSpese, false);
     });
 };

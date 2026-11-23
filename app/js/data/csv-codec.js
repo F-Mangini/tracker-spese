@@ -2,7 +2,9 @@
    CSV CODEC - Serializzazione e parsing CSV puro
    ============================================ */
 
-const CsvCodec = (() => {
+import { SchemaNormalizer } from './schema-normalizer.js';
+
+export const CsvCodec = (() => {
     function getNormalizer(options = {}) {
         if (options && options.normalizer) return options.normalizer;
         return typeof SchemaNormalizer !== 'undefined' ? SchemaNormalizer : null;

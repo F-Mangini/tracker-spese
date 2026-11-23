@@ -2,7 +2,7 @@
    THEME CONTROLLER - tema persistente e toggle temporaneo
    ============================================ */
 
-const ThemeController = (() => {
+export const ThemeController = (() => {
     function getSystemTheme(win) {
         const activeWindow = win || (typeof window !== 'undefined' ? window : null);
         const prefersDark = activeWindow &&

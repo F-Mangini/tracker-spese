@@ -2,7 +2,7 @@
    STATS - Date, riepiloghi e aggregazioni pure
    ============================================ */
 
-const StatsData = (() => {
+export const StatsData = (() => {
     const DAY_MS = 86400000;
 
     function dateKey(date) {

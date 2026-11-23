@@ -2,7 +2,10 @@
    UI STACK CONTROLLER - glue back/popstate
    ============================================ */
 
-const UIStackController = (() => {
+import { UIStack } from './ui-stack.js';
+import { UIStackEffects } from './ui-stack-effects.js';
+
+export const UIStackController = (() => {
     function noop() { }
 
     function getDocument(options) {

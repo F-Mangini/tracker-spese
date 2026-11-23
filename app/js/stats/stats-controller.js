@@ -2,7 +2,11 @@
    STATS CONTROLLER - wiring pagina statistiche
    ============================================ */
 
-const StatsController = (() => {
+import { StatsData } from '../domain/stats.js';
+import { StatsCharts } from './stats-charts.js';
+import { StatsView } from './stats-view.js';
+
+export const StatsController = (() => {
     function destroyCharts(charts = {}) {
         return {
             doughnut: StatsCharts.destroy(charts.doughnut),

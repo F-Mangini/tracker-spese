@@ -2,7 +2,7 @@
    CATALOG - Registro unico categorie, metodi e colori
    ============================================ */
 
-const Catalog = (() => {
+export const Catalog = (() => {
     const DEFAULT_CATEGORY_ID = 'altro';
     const DEFAULT_METHOD_ID = 'carta';
     const FALLBACK_METHOD_ID = 'altro_pag';
@@ -142,13 +142,18 @@ const Catalog = (() => {
     const DEFAULT_CATEGORIES = DEFAULT_CATEGORY_BUNDLE.all;
     const DEFAULT_PAYMENT_METHODS = DEFAULT_METHOD_BUNDLE.all;
 
-    let allCategories = DEFAULT_CATEGORIES;
-    let activeCategories = DEFAULT_CATEGORIES;
-    let categoryById = DEFAULT_CATEGORY_BUNDLE.byId;
+    function createDefaultState() {
+        return {
+            allCategories: DEFAULT_CATEGORIES,
+            activeCategories: DEFAULT_CATEGORIES,
+            categoryById: DEFAULT_CATEGORY_BUNDLE.byId,
+            allMethods: DEFAULT_PAYMENT_METHODS,
+            activeMethods: DEFAULT_PAYMENT_METHODS,
+            methodById: DEFAULT_METHOD_BUNDLE.byId
+        };
+    }
 
-    let allMethods = DEFAULT_PAYMENT_METHODS;
-    let activeMethods = DEFAULT_PAYMENT_METHODS;
-    let methodById = DEFAULT_METHOD_BUNDLE.byId;
+    let state = createDefaultState();
 
     function applyState(rawCategories, rawMethods) {
         let nextCategories = rawCategories === DEFAULT_CATEGORIES
@@ -165,17 +170,18 @@ const Catalog = (() => {
             nextMethods = DEFAULT_METHOD_BUNDLE;
         }
 
-        allCategories = nextCategories.all;
-        activeCategories = nextCategories.active;
-        categoryById = nextCategories.byId;
-
-        allMethods = nextMethods.all;
-        activeMethods = nextMethods.active;
-        methodById = nextMethods.byId;
+        state = {
+            allCategories: nextCategories.all,
+            activeCategories: nextCategories.active,
+            categoryById: nextCategories.byId,
+            allMethods: nextMethods.all,
+            activeMethods: nextMethods.active,
+            methodById: nextMethods.byId
+        };
 
         return {
-            categories: activeCategories,
-            methods: activeMethods
+            categories: state.activeCategories,
+            methods: state.activeMethods
         };
     }
 
@@ -183,10 +189,10 @@ const Catalog = (() => {
         const opts = options && typeof options === 'object' ? options : {};
         const nextRawCategories = opts.categories !== undefined
             ? (Array.isArray(opts.categories) && opts.categories.length > 0 ? opts.categories : DEFAULT_CATEGORIES)
-            : allCategories;
+            : state.allCategories;
         const nextRawMethods = opts.methods !== undefined
             ? (Array.isArray(opts.methods) && opts.methods.length > 0 ? opts.methods : DEFAULT_PAYMENT_METHODS)
-            : allMethods;
+            : state.allMethods;
 
         return applyState(nextRawCategories, nextRawMethods);
     }
@@ -208,11 +214,11 @@ const Catalog = (() => {
     }
 
     function getCategories(options = {}) {
-        return options && options.includeInactive ? allCategories : activeCategories;
+        return options && options.includeInactive ? state.allCategories : state.activeCategories;
     }
 
     function getPaymentMethods(options = {}) {
-        return options && options.includeInactive ? allMethods : activeMethods;
+        return options && options.includeInactive ? state.allMethods : state.activeMethods;
     }
 
     function getCategory(id, customList = null) {
@@ -223,9 +229,9 @@ const Catalog = (() => {
                 {};
         }
 
-        return categoryById.get(id) ||
-            categoryById.get(DEFAULT_CATEGORY_ID) ||
-            allCategories[allCategories.length - 1] ||
+        return state.categoryById.get(id) ||
+            state.categoryById.get(DEFAULT_CATEGORY_ID) ||
+            state.allCategories[state.allCategories.length - 1] ||
             {};
     }
 
@@ -237,10 +243,10 @@ const Catalog = (() => {
                 {};
         }
 
-        return methodById.get(id) ||
-            methodById.get(FALLBACK_METHOD_ID) ||
-            methodById.get(DEFAULT_METHOD_ID) ||
-            allMethods[0] ||
+        return state.methodById.get(id) ||
+            state.methodById.get(FALLBACK_METHOD_ID) ||
+            state.methodById.get(DEFAULT_METHOD_ID) ||
+            state.allMethods[0] ||
             {};
     }
 
@@ -248,7 +254,7 @@ const Catalog = (() => {
         const id = String(categoryId || DEFAULT_CATEGORY_ID);
         const hasCustomPalette = Array.isArray(colors) && colors.length > 0 && colors !== COLOR_PALETTE;
         const palette = hasCustomPalette ? colors : COLOR_PALETTE;
-        const category = categoryById.get(id);
+        const category = state.categoryById.get(id);
 
         if (category && category.color) {
             if (!hasCustomPalette) {
@@ -286,5 +292,5 @@ const Catalog = (() => {
     };
 })();
 
-const CATEGORIES = Catalog.getDefaultCategories();
-const PAYMENT_METHODS = Catalog.getDefaultPaymentMethods();
+export const CATEGORIES = Catalog.getDefaultCategories();
+export const PAYMENT_METHODS = Catalog.getDefaultPaymentMethods();

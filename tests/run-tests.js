@@ -1,6 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resetAppState } from './helpers.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const suitesDir = path.join(__dirname, 'suites');
 const filters = process.argv.slice(2)
     .map(arg => String(arg || '').trim().toLowerCase())
@@ -30,27 +33,28 @@ if (selectedSuites.length === 0) {
     }
 
     for (const file of selectedSuites) {
-        require(path.join(suitesDir, file))(test);
+        const suiteUrl = pathToFileURL(path.join(suitesDir, file)).href;
+        const suiteModule = await import(suiteUrl);
+        suiteModule.default(test);
     }
 
     let failed = 0;
 
-    (async () => {
-        for (const { name, fn } of tests) {
-            try {
-                await fn();
-                console.log(`ok - ${name}`);
-            } catch (error) {
-                failed += 1;
-                console.error(`not ok - ${name}`);
-                console.error(error);
-            }
+    for (const { name, fn } of tests) {
+        try {
+            resetAppState();
+            await fn();
+            console.log(`ok - ${name}`);
+        } catch (error) {
+            failed += 1;
+            console.error(`not ok - ${name}`);
+            console.error(error);
         }
+    }
 
-        if (failed > 0) {
-            process.exitCode = 1;
-        } else {
-            console.log(`\n${tests.length} test superati.`);
-        }
-    })();
+    if (failed > 0) {
+        process.exitCode = 1;
+    } else {
+        console.log(`\n${tests.length} test superati.`);
+    }
 }

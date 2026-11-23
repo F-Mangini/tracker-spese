@@ -2,7 +2,10 @@
    CONFIRM CONTROLLER - dialog conferme + history
    ============================================ */
 
-const ConfirmController = (() => {
+import { UIStack } from '../navigation/ui-stack.js';
+import { ConfirmDialog } from './confirm-dialog.js';
+
+export const ConfirmController = (() => {
     function call(fn, ...args) {
         if (typeof fn === 'function') return fn(...args);
         return undefined;

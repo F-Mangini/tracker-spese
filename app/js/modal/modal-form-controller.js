@@ -2,7 +2,7 @@
    MODAL FORM CONTROLLER - campi form modifica
    ============================================ */
 
-const ModalFormController = (() => {
+export const ModalFormController = (() => {
     const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
     const PLAIN_FIELD_IDS = ['edit-importo', 'edit-descrizione', 'edit-nota'];
 

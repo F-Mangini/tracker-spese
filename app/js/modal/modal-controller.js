@@ -2,7 +2,10 @@
    MODAL CONTROLLER - lifecycle modifica spesa
    ============================================ */
 
-const ModalController = (() => {
+import { ModalFormController } from './modal-form-controller.js';
+import { ModalMobileController } from './modal-mobile-controller.js';
+
+export const ModalController = (() => {
     function getDocument(options) {
         return options.document || document;
     }

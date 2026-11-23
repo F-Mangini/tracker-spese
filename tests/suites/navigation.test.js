@@ -1,11 +1,11 @@
-const {
+import {
     assert,
     readAppFile,
     readAppCss,
     loadUiViews
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Swipe orizzontale sceglie solo pagine adiacenti', () => {
         const { NavigationController } = loadUiViews();
 

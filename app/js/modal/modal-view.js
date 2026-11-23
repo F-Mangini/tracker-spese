@@ -2,7 +2,9 @@
    MODAL VIEW - rendering e logica pura modale
    ============================================ */
 
-const ModalView = (() => {
+import { AppUI } from '../ui/ui-utils.js';
+
+export const ModalView = (() => {
     function formatDropdownItem(item = {}) {
         return `${item.emoji || ''} ${item.nome || ''}`.trim();
     }

@@ -2,7 +2,7 @@
    EXPENSE ACTIONS - operazioni spesa testabili
    ============================================ */
 
-const ExpenseActions = (() => {
+export const ExpenseActions = (() => {
     function addFromText(options = {}) {
         const parser = options.parser;
         const storage = options.storage;

@@ -2,7 +2,9 @@
    HISTORY CONTROLLER - esecuzione azioni history
    ============================================ */
 
-const HistoryController = (() => {
+import { UIStack } from './ui-stack.js';
+
+export const HistoryController = (() => {
     function getActionTypes(options) {
         if (options.actionTypes) return options.actionTypes;
         if (options.stack && options.stack.HISTORY_ACTIONS) return options.stack.HISTORY_ACTIONS;

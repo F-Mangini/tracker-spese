@@ -2,13 +2,24 @@
    TIMELINE SELECTION CONTROLLER - modalita selezione timeline
    ============================================ */
 
-const TimelineSelectionController = (() => {
+import { HeaderTitleController } from '../ui/header-title-controller.js';
+
+export const TimelineSelectionController = (() => {
     const NAV_SET_ACTIONS = 'actions';
     const NAV_SET_MAIN = 'main';
     const NAV_SWIPE_THRESHOLD = 42;
     const NAV_WHEEL_THRESHOLD = 8;
     const TAP_MOVE_LIMIT = 10;
     const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
+
+    function createVolatileState() {
+        return {
+            boundElements: new WeakSet(),
+            navSets: new WeakMap()
+        };
+    }
+
+    let volatileState = createVolatileState();
 
     function noop() { }
 
@@ -185,14 +196,7 @@ const TimelineSelectionController = (() => {
         const title = header.querySelector('h1');
         if (!title) return;
 
-        const dataset = title.dataset || {};
-        if (typeof dataset.defaultHtml !== 'string') {
-            dataset.defaultHtml = title.innerHTML;
-        }
-
-        if (dataset.showingDate !== 'true') {
-            title.innerHTML = dataset.defaultHtml;
-        }
+        HeaderTitleController.syncDefaultTitle(title);
     }
 
     function setNavSetAccessibility(bottomNav, active, set) {
@@ -210,11 +214,18 @@ const TimelineSelectionController = (() => {
         }
     }
 
+    function getBottomNavSet(bottomNav) {
+        if (!bottomNav || typeof bottomNav !== 'object') return null;
+        return volatileState.navSets.get(bottomNav) || null;
+    }
+
     function setBottomNavSet(bottomNav, set = NAV_SET_ACTIONS) {
         if (!bottomNav) return false;
 
         const nextSet = set === NAV_SET_MAIN ? NAV_SET_MAIN : NAV_SET_ACTIONS;
-        if (bottomNav.dataset) bottomNav.dataset.selectionSet = nextSet;
+        if (typeof bottomNav === 'object') {
+            volatileState.navSets.set(bottomNav, nextSet);
+        }
         if (bottomNav.classList && typeof bottomNav.classList.toggle === 'function') {
             bottomNav.classList.toggle('selection-show-main', nextSet === NAV_SET_MAIN);
         }
@@ -230,7 +241,9 @@ const TimelineSelectionController = (() => {
         const actionsAvailable = !!options.actionsAvailable;
 
         if (!selectionModeActive) {
-            if (bottomNav.dataset) delete bottomNav.dataset.selectionSet;
+            if (typeof bottomNav === 'object') {
+                volatileState.navSets.delete(bottomNav);
+            }
             if (bottomNav.classList && typeof bottomNav.classList.remove === 'function') {
                 bottomNav.classList.remove('selection-show-main');
             }
@@ -243,7 +256,7 @@ const TimelineSelectionController = (() => {
             return;
         }
 
-        const currentSet = bottomNav.dataset && bottomNav.dataset.selectionSet === NAV_SET_MAIN
+        const currentSet = getBottomNavSet(bottomNav) === NAV_SET_MAIN
             ? NAV_SET_MAIN
             : NAV_SET_ACTIONS;
         setBottomNavSet(bottomNav, currentSet);
@@ -685,6 +698,18 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
+    function markElementBound(element) {
+        if (!element || typeof element !== 'object' || volatileState.boundElements.has(element)) {
+            return false;
+        }
+        volatileState.boundElements.add(element);
+        return true;
+    }
+
+    function isElementBound(element) {
+        return !!(element && typeof element === 'object' && volatileState.boundElements.has(element));
+    }
+
     function bindHeader(options = {}) {
         const doc = getDocument(options);
         const selectAllButton = doc.getElementById('btn-selection-select-all');
@@ -692,23 +717,19 @@ const TimelineSelectionController = (() => {
         const exportButton = doc.getElementById('btn-selection-export');
         const deleteButton = doc.getElementById('btn-selection-delete');
 
-        if (selectAllButton && selectAllButton.dataset.selectionBound !== 'true') {
-            selectAllButton.dataset.selectionBound = 'true';
+        if (markElementBound(selectAllButton)) {
             bindImmediateTap(selectAllButton, () => selectVisible(options));
         }
 
-        if (copyButton && copyButton.dataset.selectionBound !== 'true') {
-            copyButton.dataset.selectionBound = 'true';
+        if (markElementBound(copyButton)) {
             bindImmediateTap(copyButton, () => copySelected(options));
         }
 
-        if (exportButton && exportButton.dataset.selectionBound !== 'true') {
-            exportButton.dataset.selectionBound = 'true';
+        if (markElementBound(exportButton)) {
             bindImmediateTap(exportButton, () => showExportChoices(options));
         }
 
-        if (deleteButton && deleteButton.dataset.selectionBound !== 'true') {
-            deleteButton.dataset.selectionBound = 'true';
+        if (markElementBound(deleteButton)) {
             bindImmediateTap(deleteButton, () => showDeleteConfirm(options));
         }
 
@@ -719,11 +740,7 @@ const TimelineSelectionController = (() => {
     function bindBottomNavPager(options = {}) {
         const doc = getDocument(options);
         const bottomNav = doc.getElementById('bottom-nav');
-        if (!bottomNav) return false;
-        if (!bottomNav.dataset) bottomNav.dataset = {};
-        if (bottomNav.dataset.selectionPagerBound === 'true') return false;
-
-        bottomNav.dataset.selectionPagerBound = 'true';
+        if (!bottomNav || !markElementBound(bottomNav)) return false;
 
         let startX = 0;
         let startY = 0;
@@ -777,6 +794,17 @@ const TimelineSelectionController = (() => {
         return true;
     }
 
+    function getState(bottomNav = null) {
+        return {
+            selectionSet: getBottomNavSet(bottomNav),
+            pagerBound: isElementBound(bottomNav)
+        };
+    }
+
+    function resetState() {
+        volatileState = createVolatileState();
+    }
+
     return {
         getSelectedIds,
         getSelectedSpese,
@@ -794,7 +822,10 @@ const TimelineSelectionController = (() => {
         showDeleteConfirm,
         deleteSelected,
         clearDeletePending,
+        getBottomNavSet,
         setBottomNavSet,
+        getState,
+        resetState,
         bindHeader
     };
 })();

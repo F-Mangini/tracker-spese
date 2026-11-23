@@ -1,10 +1,10 @@
-const {
+import {
     assert,
     loadStorage,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Storage aggiunge e normalizza una spesa prima del salvataggio', () => {
         const { Storage } = loadStorage();
 

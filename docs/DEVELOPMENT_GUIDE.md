@@ -16,6 +16,8 @@ Questa guida definisce come lavorare sul progetto durante manutenzione, hardenin
 - Mantenere il progetto statico e semplice finche possibile.
 - Evitare framework, build system o dipendenze nuove senza un beneficio evidente.
 - Preferire moduli piccoli e funzioni pure quando si estrae logica da `app/js/core/app.js` o dal wiring applicativo.
+- Usare ES Modules nativi con import relativi espliciti (`.js`) e grafo aciclico; lasciare `app/js/core/config.js` come script classico (`window.SPESA_TRACKER_CONFIG`) caricato prima di `<script type="module" src="js/core/app.js">`, perche `.github/workflows/pages.yml` lo rigenera per il canale `/dev/`.
+- Non salvare stato applicativo o delle interazioni su nodi DOM (`__...` o JSON serializzato in `dataset`): consolidare lo stato volatile in `AppState`, `WeakMap`/`WeakSet` o oggetti di stato controller resettabili (`getState` / `resetState`).
 - Non cambiare schema dati senza prevedere compatibilita o migrazione leggera.
 - Non rompere backup JSON esistenti.
 - Non forzare aggiornamenti automatici sulla release offline/installabile: una versione locale stabile deve restare stabile finche l'utente non sceglie di aggiornare.

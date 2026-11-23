@@ -1,7 +1,29 @@
 /* ============================================
    APP
    ============================================ */
-const App = {
+import { AppState } from './app-state.js';
+import { AppRefresh } from './app-refresh.js';
+import { AppWiring } from './app-wiring.js';
+import { ExpenseStore } from '../data/expense-store.js';
+import { Storage } from '../data/storage.js';
+import { ExpenseQuery } from '../domain/expense-query.js';
+import { FilterController } from '../filters/filter-controller.js';
+import { ExpenseInputController } from '../input/expense-input-controller.js';
+import { ExpenseSubmitController } from '../input/expense-submit-controller.js';
+import { ModalController } from '../modal/modal-controller.js';
+import { ModalMobileController } from '../modal/modal-mobile-controller.js';
+import { NavigationController } from '../navigation/navigation-controller.js';
+import { UIStackController } from '../navigation/ui-stack-controller.js';
+import { SettingsActions } from '../settings/settings-actions.js';
+import { SettingsController } from '../settings/settings-controller.js';
+import { StatsController } from '../stats/stats-controller.js';
+import { TimelineController } from '../timeline/timeline-controller.js';
+import { TimelineSelectionController } from '../timeline/timeline-selection-controller.js';
+import { HeaderTitleController } from '../ui/header-title-controller.js';
+import { ThemeController } from '../ui/theme-controller.js';
+import { ToastController } from '../ui/toast-controller.js';
+
+export const App = {
     ...AppState.create(),
 
     /* =====================
@@ -184,9 +206,16 @@ const App = {
 };
 
 /* --- Boot --- */
-document.addEventListener('DOMContentLoaded', () => App.init());
-window.addEventListener('pageshow', event => {
-    if (event.persisted) {
-        App.replaceWithPreferredLaunch();
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    } else {
+        App.init();
     }
-});
+
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) {
+            App.replaceWithPreferredLaunch();
+        }
+    });
+}

@@ -2,7 +2,9 @@
    MODAL INTERACTIONS - eventi dropdown/tag modale
    ============================================ */
 
-const ModalInteractions = (() => {
+import { ModalView } from './modal-view.js';
+
+export const ModalInteractions = (() => {
     const DEFAULT_MODAL_SELECTOR = '#edit-modal';
 
     function call(fn, ...args) {
@@ -22,10 +24,11 @@ const ModalInteractions = (() => {
             return !!options.hasOpenDropdown();
         }
 
-        if (typeof document === 'undefined') return false;
+        const activeDocument = getDocument(options);
+        if (!activeDocument || typeof activeDocument.querySelector !== 'function') return false;
 
         const modalSelector = options.modalSelector || DEFAULT_MODAL_SELECTOR;
-        return !!document.querySelector(`${modalSelector} .searchable-dropdown.open`);
+        return !!activeDocument.querySelector(`${modalSelector} .searchable-dropdown.open`);
     }
 
     function getDocument(options = {}) {
@@ -46,7 +49,7 @@ const ModalInteractions = (() => {
     function releaseInteractionAfterClose(options, wasOpen) {
         if (!wasOpen || !isInteractionActive(options) || isInteractionReleaseSuspended(options)) return;
 
-        setTimeout(() => {
+        getDefer(options)(() => {
             if (!hasOpenDropdown(options) && isInteractionActive(options)) {
                 call(options.releaseInteractionState);
             }
@@ -54,10 +57,11 @@ const ModalInteractions = (() => {
     }
 
     function createSearchableDropdown(options = {}) {
-        if (typeof document === 'undefined') return null;
-
         const activeDocument = getDocument(options);
-        const container = options.container || document.getElementById(options.containerId);
+        const container = options.container ||
+            (activeDocument && typeof activeDocument.getElementById === 'function'
+                ? activeDocument.getElementById(options.containerId)
+                : null);
         const items = Array.isArray(options.items) ? options.items : [];
         if (!container) return null;
 
@@ -244,11 +248,15 @@ const ModalInteractions = (() => {
     }
 
     function createTagInput(options = {}) {
-        if (typeof document === 'undefined') return null;
-
         const activeDocument = getDocument(options);
-        const container = options.container || document.getElementById(options.containerId || 'sd-tags');
-        const chipsEl = options.chipsEl || document.getElementById(options.chipsId || 'tag-chips');
+        const container = options.container ||
+            (activeDocument && typeof activeDocument.getElementById === 'function'
+                ? activeDocument.getElementById(options.containerId || 'sd-tags')
+                : null);
+        const chipsEl = options.chipsEl ||
+            (activeDocument && typeof activeDocument.getElementById === 'function'
+                ? activeDocument.getElementById(options.chipsId || 'tag-chips')
+                : null);
         if (!container || !chipsEl) return null;
 
         container.innerHTML = ModalView.renderTagInputShell();

@@ -7,7 +7,7 @@ L'app nasce per essere veloce da usare, soprattutto da smartphone Android: si ap
 ## Principi
 
 - **Local-first e privata**: i dati sono salvati in `localStorage`, senza server applicativo.
-- **Semplice da mantenere**: HTML, CSS e JavaScript vanilla, con deploy statico.
+- **Semplice da mantenere**: HTML, CSS ed ES Modules JavaScript vanilla (`<script type="module">`), senza build step, con deploy statico.
 - **Mobile-first pragmatico**: Android e uso quotidiano personale sono la priorita; iOS e browser desktop vanno mantenuti dignitosi senza complicare troppo il progetto.
 - **Backup esplicito**: l'app supporta import/export JSON e CSV; ogni modifica ai dati deve rispettare questa possibilita.
 - **Aggiornamenti controllati**: l'app installabile/offline resta su una versione scelta e si aggiorna solo su richiesta esplicita dell'utente.
@@ -36,6 +36,7 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 .
 +-- README.md
 +-- AGENTS.md
++-- package.json
 +-- releases.json
 +-- releases/
 |   +-- v2026.05.30/
@@ -93,16 +94,15 @@ Questa lista deve restare completa: se nasce un nuovo documento, va aggiunto qui
 
 ## Sviluppo Locale
 
-L'app non richiede build. Si puo aprire direttamente `app/index.html` oppure servire la cartella con un server statico.
+L'app usa ES Modules nativi (`<script type="module">`) e non richiede build step. Va servita tramite un server HTTP locale (non tramite `file://`, bloccato dai browser per i moduli ES).
 
-Esempio:
+Esempio (dalla root del repository):
 
 ```powershell
-cd app
 python -m http.server 8000
 ```
 
-Poi aprire `http://localhost:8000`.
+Poi aprire `http://localhost:8000/app/`.
 
 Test leggeri disponibili:
 

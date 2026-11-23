@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const {
+import fs from 'node:fs';
+import path from 'node:path';
+import {
     assert,
     root,
     readRepoFile,
@@ -11,9 +11,9 @@ const {
     createLocalStorage,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Vista impostazioni renderizza info, guardrail e preview import escapata', () => {
         const { SettingsView } = loadUiViews();
         const spese = [

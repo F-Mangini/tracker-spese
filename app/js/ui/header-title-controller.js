@@ -2,11 +2,49 @@
    HEADER TITLE CONTROLLER - toggle titolo/data
    ============================================ */
 
-const HeaderTitleController = (() => {
+export const HeaderTitleController = (() => {
     const FADE_DURATION_MS = 90;
+    let titleStates = new WeakMap();
 
     function getDocument(options) {
         return options.document || document;
+    }
+
+    function ensureTitleState(title) {
+        if (!title || typeof title !== 'object') return null;
+
+        let state = titleStates.get(title);
+        if (!state) {
+            state = {
+                defaultHtml: typeof title.innerHTML === 'string' ? title.innerHTML : '',
+                showingDate: false,
+                animating: false
+            };
+            titleStates.set(title, state);
+        }
+
+        return state;
+    }
+
+    function syncDefaultTitle(title) {
+        const state = ensureTitleState(title);
+        if (!state) return false;
+
+        if (!state.showingDate) {
+            title.innerHTML = state.defaultHtml;
+        }
+
+        return true;
+    }
+
+    function getState(title) {
+        if (!title || typeof title !== 'object') return null;
+        const state = titleStates.get(title);
+        return state ? { ...state } : null;
+    }
+
+    function resetState() {
+        titleStates = new WeakMap();
     }
 
     function formatToday(date, locale = 'it-IT') {
@@ -24,9 +62,7 @@ const HeaderTitleController = (() => {
         const title = doc.querySelector('#app-header h1');
         if (!title) return null;
 
-        const dataset = title.dataset || {};
-        if (typeof dataset.defaultHtml !== 'string') dataset.defaultHtml = title.innerHTML;
-        dataset.showingDate = dataset.showingDate === 'true' ? 'true' : 'false';
+        const state = ensureTitleState(title);
 
         if (typeof title.setAttribute === 'function') {
             title.setAttribute('role', 'button');
@@ -43,21 +79,18 @@ const HeaderTitleController = (() => {
         const reducedMotion = activeWindow &&
             typeof activeWindow.matchMedia === 'function' &&
             activeWindow.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        let animating = false;
 
         const applyToggle = () => {
-            const showingDate = dataset.showingDate === 'true';
-
-            if (showingDate) {
-                title.innerHTML = dataset.defaultHtml;
-                dataset.showingDate = 'false';
+            if (state.showingDate) {
+                title.innerHTML = state.defaultHtml;
+                state.showingDate = false;
                 if (typeof title.setAttribute === 'function') {
                     title.setAttribute('aria-label', 'Mostra la data di oggi');
                 }
             } else {
                 const now = typeof options.now === 'function' ? options.now() : new Date();
                 title.textContent = formatToday(now, options.locale || 'it-IT');
-                dataset.showingDate = 'true';
+                state.showingDate = true;
                 if (typeof title.setAttribute === 'function') {
                     title.setAttribute('aria-label', "Mostra il nome dell'app");
                 }
@@ -65,14 +98,14 @@ const HeaderTitleController = (() => {
         };
 
         const toggle = () => {
-            if (animating) return;
+            if (state.animating) return;
 
             if (reducedMotion || !title.classList) {
                 applyToggle();
                 return;
             }
 
-            animating = true;
+            state.animating = true;
             title.classList.add('header-title-fade-out');
 
             setTimer(() => {
@@ -80,7 +113,7 @@ const HeaderTitleController = (() => {
                 title.classList.remove('header-title-fade-out');
 
                 setTimer(() => {
-                    animating = false;
+                    state.animating = false;
                 }, FADE_DURATION_MS);
             }, FADE_DURATION_MS);
         };
@@ -95,5 +128,11 @@ const HeaderTitleController = (() => {
         return { toggle, title };
     }
 
-    return { formatToday, init };
+    return {
+        formatToday,
+        init,
+        syncDefaultTitle,
+        getState,
+        resetState
+    };
 })();

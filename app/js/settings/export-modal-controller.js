@@ -2,8 +2,35 @@
    EXPORT MODAL CONTROLLER - finestra esportazione custom
    ============================================ */
 
-const ExportModalController = (() => {
-    const EXPORT_MODAL_OPTIONS_KEY = '__settingsExportOptions';
+import { SettingsActions } from './settings-actions.js';
+import { SettingsView } from './settings-view.js';
+
+export const ExportModalController = (() => {
+    let modalStates = new WeakMap();
+
+    function createModalState() {
+        return {
+            bound: false,
+            options: null,
+            formatInteraction: false,
+            preCsvContents: null,
+            toggleBaseSelection: null,
+            toggleBaseFilterSelection: null,
+            toggleBaseFilters: null
+        };
+    }
+
+    function getModalState(modal, create = true) {
+        if (!modal || typeof modal !== 'object') return null;
+
+        let state = modalStates.get(modal);
+        if (!state && create) {
+            state = createModalState();
+            modalStates.set(modal, state);
+        }
+
+        return state || null;
+    }
 
     function getSpese(options = {}) {
         if (typeof options.getSpese === 'function') return options.getSpese();
@@ -18,13 +45,15 @@ const ExportModalController = (() => {
     }
 
     function setExportModalOptions(modal, options = {}) {
-        if (!modal) return;
-        modal[EXPORT_MODAL_OPTIONS_KEY] = options;
+        const state = getModalState(modal);
+        if (!state) return;
+        state.options = options;
     }
 
     function getBoundExportModalOptions(modal, fallback = {}) {
-        return modal && modal[EXPORT_MODAL_OPTIONS_KEY]
-            ? modal[EXPORT_MODAL_OPTIONS_KEY]
+        const state = getModalState(modal, false);
+        return state && state.options
+            ? state.options
             : fallback;
     }
 
@@ -189,80 +218,74 @@ const ExportModalController = (() => {
     }
 
     function clearExportMemoryBase(modal) {
-        if (!modal || !modal.dataset) return;
-        delete modal.dataset.exportToggleBaseSelection;
-        delete modal.dataset.exportToggleBaseFilterSelection;
-        delete modal.dataset.exportToggleBaseFilters;
+        const state = getModalState(modal, false);
+        if (!state) return;
+        state.toggleBaseSelection = null;
+        state.toggleBaseFilterSelection = null;
+        state.toggleBaseFilters = null;
     }
 
     function readExportMemoryBase(modal) {
-        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseSelection) {
+        const state = getModalState(modal, false);
+        if (!state || !Array.isArray(state.toggleBaseSelection)) {
             return null;
         }
 
-        try {
-            return normalizeSelectionIds(JSON.parse(modal.dataset.exportToggleBaseSelection));
-        } catch (_) {
-            return null;
-        }
+        return normalizeSelectionIds(state.toggleBaseSelection);
     }
 
     function writeExportMemoryBase(modal, selectedIds) {
-        if (!modal || !modal.dataset) return;
-        modal.dataset.exportToggleBaseSelection = JSON.stringify(normalizeSelectionIds(selectedIds));
+        const state = getModalState(modal);
+        if (!state) return;
+        state.toggleBaseSelection = normalizeSelectionIds(selectedIds).slice();
     }
 
     function clearExportFilterMemoryBase(modal) {
-        if (!modal || !modal.dataset) return;
-        delete modal.dataset.exportToggleBaseFilterSelection;
-        delete modal.dataset.exportToggleBaseFilters;
+        const state = getModalState(modal, false);
+        if (!state) return;
+        state.toggleBaseFilterSelection = null;
+        state.toggleBaseFilters = null;
     }
 
     function readExportFilterSelectionBase(modal) {
-        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseFilterSelection) {
+        const state = getModalState(modal, false);
+        if (!state || !Array.isArray(state.toggleBaseFilterSelection)) {
             return null;
         }
 
-        try {
-            return normalizeSelectionIds(JSON.parse(modal.dataset.exportToggleBaseFilterSelection));
-        } catch (_) {
-            return null;
-        }
+        return normalizeSelectionIds(state.toggleBaseFilterSelection);
     }
 
     function readExportFilterSnapshotBase(modal) {
-        if (!modal || !modal.dataset || !modal.dataset.exportToggleBaseFilters) {
+        const state = getModalState(modal, false);
+        if (!state || !state.toggleBaseFilters) {
             return null;
         }
 
-        try {
-            return SettingsActions.normalizeFilterSnapshot(JSON.parse(modal.dataset.exportToggleBaseFilters));
-        } catch (_) {
-            return null;
-        }
+        return SettingsActions.normalizeFilterSnapshot(state.toggleBaseFilters);
     }
 
     function writeExportFilterMemoryBase(modal, selectedIds, filters) {
-        if (!modal || !modal.dataset) return;
-        modal.dataset.exportToggleBaseFilterSelection = JSON.stringify(normalizeSelectionIds(selectedIds));
-        modal.dataset.exportToggleBaseFilters = JSON.stringify(
-            SettingsActions.normalizeFilterSnapshot(filters)
-        );
+        const state = getModalState(modal);
+        if (!state) return;
+        state.toggleBaseFilterSelection = normalizeSelectionIds(selectedIds).slice();
+        state.toggleBaseFilters = SettingsActions.normalizeFilterSnapshot(filters);
     }
 
     function syncExportMemoryBaseState(modal, memory = {}) {
-        if (!modal || !modal.dataset) return;
+        const state = getModalState(modal, false);
+        if (!state) return;
 
-        if (modal.dataset.exportToggleBaseFilterSelection && !memory.lastFiltersActive) {
+        if (state.toggleBaseFilterSelection && !memory.lastFiltersActive) {
             clearExportFilterMemoryBase(modal);
         }
 
         if (
-            modal.dataset.exportToggleBaseSelection &&
+            state.toggleBaseSelection &&
             !memory.lastSelectionActive &&
             !memory.lastFiltersActive
         ) {
-            delete modal.dataset.exportToggleBaseSelection;
+            state.toggleBaseSelection = null;
         }
     }
 
@@ -338,8 +361,9 @@ const ExportModalController = (() => {
             if (baseIds) {
                 applyExportSelection(baseIds, options);
             }
-            if (modal && modal.dataset) {
-                delete modal.dataset.exportToggleBaseSelection;
+            const state = getModalState(modal, false);
+            if (state) {
+                state.toggleBaseSelection = null;
             }
             renderExportModal(options);
             return;
@@ -494,18 +518,20 @@ const ExportModalController = (() => {
     }
 
     function ensureExportFormatInteraction(modal, options = {}) {
-        if (!modal || !modal.dataset || modal.dataset.exportFormatInteraction === 'true') return;
+        const state = getModalState(modal);
+        if (!state || state.formatInteraction) return;
 
-        modal.dataset.exportFormatInteraction = 'true';
+        state.formatInteraction = true;
         if (typeof options.pushUiState === 'function') {
             options.pushUiState({ panel: 'export-format' });
         }
     }
 
     function releaseExportFormatInteraction(modal, options = {}, config = {}) {
-        if (!modal || !modal.dataset || modal.dataset.exportFormatInteraction !== 'true') return;
+        const state = getModalState(modal, false);
+        if (!state || !state.formatInteraction) return;
 
-        delete modal.dataset.exportFormatInteraction;
+        state.formatInteraction = false;
         if (!config.fromPopstate && typeof options.consumeUiState === 'function') {
             options.consumeUiState();
         }
@@ -690,16 +716,15 @@ const ExportModalController = (() => {
     }
 
     function readPreCsvContentDraft(modal) {
-        if (!modal || !modal.dataset || !modal.dataset.exportPreCsvContents) return null;
+        const state = getModalState(modal, false);
+        const draft = state && state.preCsvContents;
+        if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return null;
 
-        try {
-            const draft = JSON.parse(modal.dataset.exportPreCsvContents);
-            return draft && typeof draft === 'object' && !Array.isArray(draft)
-                ? draft
-                : null;
-        } catch (_) {
-            return null;
-        }
+        return {
+            includeData: !!draft.includeData,
+            includeSettings: !!draft.includeSettings,
+            includePersonalizzazioni: !!draft.includePersonalizzazioni
+        };
     }
 
     function saveFormatDraft(modal, value, options = {}) {
@@ -710,8 +735,15 @@ const ExportModalController = (() => {
         const leavingCsv = value !== 'csv' && previousFormat === 'csv';
         let contentDraft = getExportContentDraft(modal);
 
-        if (enteringCsv && modal.dataset) {
-            modal.dataset.exportPreCsvContents = JSON.stringify(contentDraft);
+        if (enteringCsv) {
+            const state = getModalState(modal);
+            if (state) {
+                state.preCsvContents = {
+                    includeData: !!contentDraft.includeData,
+                    includeSettings: !!contentDraft.includeSettings,
+                    includePersonalizzazioni: !!contentDraft.includePersonalizzazioni
+                };
+            }
         }
 
         if (leavingCsv) {
@@ -815,11 +847,12 @@ const ExportModalController = (() => {
         const modal = getExportModal(options);
         if (!modal) return;
 
+        const state = getModalState(modal);
         setExportModalOptions(modal, options);
 
-        if (modal.dataset.bound === 'true') return;
+        if (state.bound) return;
 
-        modal.dataset.bound = 'true';
+        state.bound = true;
 
         const closeBtn = modal.querySelector('#export-modal-close');
         if (closeBtn) {
@@ -906,12 +939,55 @@ const ExportModalController = (() => {
         });
     }
 
+    function resolveModal(optionsOrModal) {
+        if (!optionsOrModal || typeof optionsOrModal !== 'object') {
+            return getExportModal({});
+        }
+
+        if (
+            optionsOrModal.id === 'export-modal-overlay' ||
+            typeof optionsOrModal.querySelector === 'function' ||
+            typeof optionsOrModal.addEventListener === 'function'
+        ) {
+            return optionsOrModal;
+        }
+
+        return getExportModal(optionsOrModal);
+    }
+
+    function getState(optionsOrModal = {}) {
+        const modal = resolveModal(optionsOrModal);
+        const state = getModalState(modal, false);
+        if (!state) return null;
+
+        return {
+            bound: !!state.bound,
+            formatInteraction: !!state.formatInteraction,
+            preCsvContents: state.preCsvContents ? { ...state.preCsvContents } : null,
+            toggleBaseSelection: Array.isArray(state.toggleBaseSelection)
+                ? state.toggleBaseSelection.slice()
+                : null,
+            toggleBaseFilterSelection: Array.isArray(state.toggleBaseFilterSelection)
+                ? state.toggleBaseFilterSelection.slice()
+                : null,
+            toggleBaseFilters: state.toggleBaseFilters
+                ? SettingsActions.normalizeFilterSnapshot(state.toggleBaseFilters)
+                : null
+        };
+    }
+
+    function resetState() {
+        modalStates = new WeakMap();
+    }
+
     return {
         open,
         close,
         isOpen,
         isFormatDropdownOpen,
         clearInteraction,
+        getState,
+        resetState,
         bind
     };
 })();

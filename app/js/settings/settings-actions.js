@@ -2,7 +2,7 @@
    SETTINGS ACTIONS - decisioni pure impostazioni
    ============================================ */
 
-const SettingsActions = (() => {
+export const SettingsActions = (() => {
     const LAUNCH_TARGET_KEY = 'spesa-tracker-launch-target';
     const EXPORT_PREFS_SUFFIX = ':export-custom';
     const DEFAULT_EXPORT_PREFS = Object.freeze({

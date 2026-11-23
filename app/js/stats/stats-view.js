@@ -2,7 +2,9 @@
    STATS VIEW - rendering puro della pagina statistiche
    ============================================ */
 
-const StatsView = (() => {
+import { AppUI } from '../ui/ui-utils.js';
+
+export const StatsView = (() => {
     function renderEmptyState() {
         return '<div class="stats-empty stats-empty-initial">\uD83D\uDCCA<br>Aggiungi qualche spesa per vedere le statistiche</div>';
     }

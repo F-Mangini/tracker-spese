@@ -1,9 +1,9 @@
-const {
+import {
     assert,
     loadUiViews
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Titolo header alterna nome app e data odierna con fade e accessibilita tastiera', () => {
         const { HeaderTitleController } = loadUiViews();
         const listeners = {};
@@ -36,13 +36,16 @@ module.exports = function register(test) {
         });
 
         listeners.click();
-        assert.equal(title.dataset.showingDate, 'false');
+        assert.equal(HeaderTitleController.getState(title).showingDate, false);
+        assert.equal(title.dataset.defaultHtml, undefined);
+        assert.equal(title.dataset.showingDate, undefined);
         assert(classes.has('header-title-fade-out'));
         assert.equal(timers[0].delay, 90);
 
         timers.shift().callback();
         assert.equal(title.textContent, '12 luglio 2026');
-        assert.equal(title.dataset.showingDate, 'true');
+        assert.equal(HeaderTitleController.getState(title).showingDate, true);
+        assert.equal(title.dataset.showingDate, undefined);
         assert(!classes.has('header-title-fade-out'));
         timers.shift().callback();
 
@@ -57,7 +60,8 @@ module.exports = function register(test) {
         assert(classes.has('header-title-fade-out'));
         timers.shift().callback();
         assert.equal(title.innerHTML, "Where's My Money?");
-        assert.equal(title.dataset.showingDate, 'false');
+        assert.equal(HeaderTitleController.getState(title).showingDate, false);
+        assert.equal(title.dataset.showingDate, undefined);
         timers.shift().callback();
         assert.equal(attributes.role, 'button');
         assert.equal(controller.title, title);

@@ -2,7 +2,7 @@
    INPUT BAR CONTROLLER - layout tastiera/input
    ============================================ */
 
-const InputBarController = (() => {
+export const InputBarController = (() => {
     function noop() { }
 
     function getDocument(options) {

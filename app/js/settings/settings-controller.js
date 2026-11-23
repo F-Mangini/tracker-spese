@@ -2,7 +2,12 @@
    SETTINGS CONTROLLER - wiring pagina impostazioni
    ============================================ */
 
-const SettingsController = (() => {
+import { ExportModalController } from './export-modal-controller.js';
+import { ReleaseModalController } from './release-modal-controller.js';
+import { SettingsActions } from './settings-actions.js';
+import { SettingsView } from './settings-view.js';
+
+export const SettingsController = (() => {
     function normalizeOptions(optionsOrStorage = {}) {
         return optionsOrStorage.storage
             ? optionsOrStorage
@@ -274,6 +279,11 @@ const SettingsController = (() => {
         ReleaseModalController.loadReleases(container, options);
     }
 
+    function resetState() {
+        ExportModalController.resetState();
+        ReleaseModalController.resetState();
+    }
+
     return {
         getRenderModel,
         createExportChoices,
@@ -290,6 +300,8 @@ const SettingsController = (() => {
         bindReleaseModal: ReleaseModalController.bind,
         bindExportModal: ExportModalController.bind,
         installReleaseFromLink: ReleaseModalController.installReleaseFromLink,
+        getExportModalState: ExportModalController.getState,
+        resetState,
         render
     };
 })();

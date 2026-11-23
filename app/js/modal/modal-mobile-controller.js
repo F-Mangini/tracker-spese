@@ -2,7 +2,7 @@
    MODAL MOBILE CONTROLLER - focus/picker/back
    ============================================ */
 
-const ModalMobileController = (() => {
+export const ModalMobileController = (() => {
     const PICKER_FIELD_IDS = ['edit-data', 'edit-ora'];
     const KEYBOARD_TRANSITION_THRESHOLD = 100;
 

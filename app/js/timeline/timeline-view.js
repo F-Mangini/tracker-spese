@@ -2,7 +2,9 @@
    TIMELINE VIEW - rendering puro della timeline
    ============================================ */
 
-const TimelineView = (() => {
+import { AppUI } from '../ui/ui-utils.js';
+
+export const TimelineView = (() => {
     function renderSummary(options = {}) {
         const filtered = Array.isArray(options.filtered) ? options.filtered : [];
         const isFiltered = !!options.isFiltered;

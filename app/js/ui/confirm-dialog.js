@@ -2,7 +2,7 @@
    CONFIRM DIALOG - scelte e conferme riusabili
    ============================================ */
 
-const ConfirmDialog = (() => {
+export const ConfirmDialog = (() => {
     function getDocument(doc) {
         if (doc) return doc;
         if (typeof document !== 'undefined') return document;

@@ -1,10 +1,10 @@
-const {
+import {
     assert,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Vista timeline renderizza riepilogo e card escapando il testo utente', () => {
         const { TimelineView } = loadUiViews();
         const html = TimelineView.renderExpenseCard(
@@ -592,7 +592,8 @@ module.exports = function register(test) {
         assert.equal(elements['btn-selection-copy'].disabled, true);
         assert.equal(elements['btn-selection-export'].disabled, true);
         assert.equal(elements['btn-selection-delete'].disabled, true);
-        assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
+        assert.equal(TimelineSelectionController.getBottomNavSet(elements['bottom-nav']), 'main');
+        assert.equal(elements['bottom-nav'].dataset.selectionSet, undefined);
         assert(elements['bottom-nav'].classList.contains('selection-show-main'));
         assert.equal(mainSet.attributes['aria-hidden'], 'false');
         assert.equal(selectionSet.attributes['aria-hidden'], 'true');
@@ -673,7 +674,8 @@ module.exports = function register(test) {
         assert(elements['btn-selection-select-all'].classList.contains('hidden'));
         assert.equal(elements['btn-selection-select-all'].textContent, '☑️');
         assert(elements['bottom-nav'].classList.contains('selection-show-main'));
-        assert.equal(elements['bottom-nav'].dataset.selectionSet, 'main');
+        assert.equal(TimelineSelectionController.getBottomNavSet(elements['bottom-nav']), 'main');
+        assert.equal(elements['bottom-nav'].dataset.selectionSet, undefined);
         assert.equal(mainSet.attributes['aria-hidden'], 'false');
         assert.equal(selectionSet.attributes['aria-hidden'], 'true');
     });
@@ -770,7 +772,8 @@ module.exports = function register(test) {
             }
         });
         assert(bottomNav.classList.contains('selection-show-main'));
-        assert.equal(bottomNav.dataset.selectionSet, 'main');
+        assert.equal(TimelineSelectionController.getBottomNavSet(bottomNav), 'main');
+        assert.equal(bottomNav.dataset.selectionSet, undefined);
         assert.equal(preventedWheel, 1);
 
         listeners.wheel.handler({
@@ -781,7 +784,8 @@ module.exports = function register(test) {
             }
         });
         assert(!bottomNav.classList.contains('selection-show-main'));
-        assert.equal(bottomNav.dataset.selectionSet, 'actions');
+        assert.equal(TimelineSelectionController.getBottomNavSet(bottomNav), 'actions');
+        assert.equal(bottomNav.dataset.selectionSet, undefined);
         assert.equal(preventedWheel, 2);
 
         listeners.touchstart.handler({

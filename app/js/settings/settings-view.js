@@ -2,7 +2,10 @@
    SETTINGS VIEW - rendering pagina impostazioni
    ============================================ */
 
-const SettingsView = (() => {
+import { SettingsActions } from './settings-actions.js';
+import { AppUI } from '../ui/ui-utils.js';
+
+export const SettingsView = (() => {
     function getDateRange(spese) {
         const list = Array.isArray(spese) ? spese : [];
         if (list.length === 0) return '\u2014';

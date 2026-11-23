@@ -2,7 +2,7 @@
    SCHEMA NORMALIZER - Validazione e normalizzazione pura dati
    ============================================ */
 
-const SchemaNormalizer = (() => {
+export const SchemaNormalizer = (() => {
     const SCHEMA_VERSION = 1;
 
     function ok(payload = {}) {

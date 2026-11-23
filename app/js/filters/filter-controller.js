@@ -2,12 +2,34 @@
    FILTER CONTROLLER - wiring pannello filtri
    ============================================ */
 
-const FilterController = (() => {
+import { ExpenseFilters } from '../domain/filters.js';
+import { StatsData } from '../domain/stats.js';
+import { FilterView } from './filter-view.js';
+import { QuickFilterController } from './quick-filter-controller.js';
+import { UIStack } from '../navigation/ui-stack.js';
+
+export const FilterController = (() => {
     const FILTER_LAYOUT_TRANSITION_MS = 200;
-    let filterLayoutTransitionToken = 0;
-    let timelineScrollBeforeFilterOpen = null;
-    let timelineScrollWithFilterOpen = null;
-    let resetFilterScrollOnNextOpen = false;
+
+    function createVolatileState() {
+        return {
+            filterLayoutTransitionToken: 0,
+            timelineScrollBeforeFilterOpen: null,
+            timelineScrollWithFilterOpen: null,
+            resetFilterScrollOnNextOpen: false
+        };
+    }
+
+    let volatileState = createVolatileState();
+
+    function getState() {
+        return { ...volatileState };
+    }
+
+    function resetState() {
+        volatileState = createVolatileState();
+        QuickFilterController.resetState();
+    }
 
     function noop() { }
 
@@ -32,7 +54,7 @@ const FilterController = (() => {
     }
 
     function beginFilterLayoutTransition(options, main, onComplete = noop) {
-        const token = ++filterLayoutTransitionToken;
+        const token = ++volatileState.filterLayoutTransitionToken;
         const schedule = options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : null);
 
@@ -45,7 +67,7 @@ const FilterController = (() => {
         }
 
         schedule(() => {
-            if (token !== filterLayoutTransitionToken) return;
+            if (token !== volatileState.filterLayoutTransitionToken) return;
             onComplete();
             if (main) main.classList.remove('filter-layout-transition');
         }, FILTER_LAYOUT_TRANSITION_MS);
@@ -65,7 +87,7 @@ const FilterController = (() => {
         main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
     }
 
-    function getState(options, getter, prop, fallback) {
+    function readOptionState(options, getter, prop, fallback) {
         if (typeof options[getter] === 'function') return options[getter]();
         if (options.state && Object.prototype.hasOwnProperty.call(options.state, prop)) {
             return options.state[prop];
@@ -87,7 +109,7 @@ const FilterController = (() => {
     }
 
     function getFilterOpen(options) {
-        return !!getState(options, 'getFilterOpen', 'filterOpen', false);
+        return !!readOptionState(options, 'getFilterOpen', 'filterOpen', false);
     }
 
     function setFilterOpen(options, value) {
@@ -95,7 +117,7 @@ const FilterController = (() => {
     }
 
     function getAdvancedFiltersOpen(options) {
-        return !!getState(options, 'getAdvancedFiltersOpen', 'advancedFiltersOpen', false);
+        return !!readOptionState(options, 'getAdvancedFiltersOpen', 'advancedFiltersOpen', false);
     }
 
     function notifyFilterChange(options = {}) {
@@ -108,7 +130,7 @@ const FilterController = (() => {
     }
 
     function getFilterSearchActive(options) {
-        return !!getState(options, 'getFilterSearchActive', 'filterSearchActive', false);
+        return !!readOptionState(options, 'getFilterSearchActive', 'filterSearchActive', false);
     }
 
     function setFilterSearchActive(options, value) {
@@ -223,7 +245,7 @@ const FilterController = (() => {
     }
 
     function getLastSliderInput(options) {
-        return getState(options, 'getLastSliderInput', 'lastSliderInput', 'max');
+        return readOptionState(options, 'getLastSliderInput', 'lastSliderInput', 'max');
     }
 
     function setLastSliderInput(options, value) {
@@ -231,7 +253,7 @@ const FilterController = (() => {
     }
 
     function getSliderMaxValue(options) {
-        return Number(getState(options, 'getSliderMaxValue', 'sliderMax', 100)) || 100;
+        return Number(readOptionState(options, 'getSliderMaxValue', 'sliderMax', 100)) || 100;
     }
 
     function setSliderMaxValue(options, value) {
@@ -874,18 +896,18 @@ const FilterController = (() => {
         const advanced = doc.getElementById('advanced-filters');
         const advancedBtn = doc.getElementById('btn-advanced-toggle');
         const main = doc.getElementById('app-main');
-        const shouldResetFilterScroll = resetFilterScrollOnNextOpen;
+        const shouldResetFilterScroll = volatileState.resetFilterScrollOnNextOpen;
 
-        resetFilterScrollOnNextOpen = false;
+        volatileState.resetFilterScrollOnNextOpen = false;
 
-        timelineScrollBeforeFilterOpen = main && getCurrentPage(options) === 'timeline'
+        volatileState.timelineScrollBeforeFilterOpen = main && getCurrentPage(options) === 'timeline'
             ? Number(main.scrollTop) || 0
             : null;
-        timelineScrollWithFilterOpen = null;
+        volatileState.timelineScrollWithFilterOpen = null;
         const restoreTimelineScroll = createTimelineScrollRestorer(
             options,
             main,
-            timelineScrollBeforeFilterOpen
+            volatileState.timelineScrollBeforeFilterOpen
         );
         if (panel) {
             panel.classList.remove('filter-panel-closing');
@@ -899,8 +921,8 @@ const FilterController = (() => {
         beginFilterLayoutTransition(options, main, () => {
             restoreTimelineScroll();
             if (shouldResetFilterScroll) resetFilterPanelScroll(panel);
-            if (timelineScrollBeforeFilterOpen !== null && main) {
-                timelineScrollWithFilterOpen = Number(main.scrollTop) || 0;
+            if (volatileState.timelineScrollBeforeFilterOpen !== null && main) {
+                volatileState.timelineScrollWithFilterOpen = Number(main.scrollTop) || 0;
             }
         });
 
@@ -930,7 +952,7 @@ const FilterController = (() => {
             !!(options.shouldCleanupReleasedFilterSearchHistory &&
                 options.shouldCleanupReleasedFilterSearchHistory());
 
-        if (hadAdvancedFilters) resetFilterScrollOnNextOpen = true;
+        if (hadAdvancedFilters) volatileState.resetFilterScrollOnNextOpen = true;
 
         setFilterOpen(options, false);
         setAdvancedFiltersOpen(options, false);
@@ -944,11 +966,11 @@ const FilterController = (() => {
             ? Number(main.scrollTop) || 0
             : null;
         const filterDidNotScrollTimeline = currentTimelineScroll !== null &&
-            timelineScrollBeforeFilterOpen !== null &&
-            (timelineScrollWithFilterOpen === null ||
-                Math.abs(currentTimelineScroll - timelineScrollWithFilterOpen) <= 1);
+            volatileState.timelineScrollBeforeFilterOpen !== null &&
+            (volatileState.timelineScrollWithFilterOpen === null ||
+                Math.abs(currentTimelineScroll - volatileState.timelineScrollWithFilterOpen) <= 1);
         const closeScrollTarget = filterDidNotScrollTimeline
-            ? timelineScrollBeforeFilterOpen
+            ? volatileState.timelineScrollBeforeFilterOpen
             : currentTimelineScroll;
         const restoreTimelineScroll = createTimelineScrollRestorer(options, main, closeScrollTarget);
 
@@ -972,8 +994,8 @@ const FilterController = (() => {
             }
             if (advanced) advanced.classList.add('hidden');
             restoreTimelineScroll();
-            timelineScrollBeforeFilterOpen = null;
-            timelineScrollWithFilterOpen = null;
+            volatileState.timelineScrollBeforeFilterOpen = null;
+            volatileState.timelineScrollWithFilterOpen = null;
         });
 
         // Disattiva lo scroll anchoring prima di qualsiasi variazione geometrica:
@@ -1081,6 +1103,8 @@ const FilterController = (() => {
 
     return {
         init,
+        getState,
+        resetState,
         toggleAdvancedFilters,
         openAdvancedFilters,
         closeAdvancedFilters,

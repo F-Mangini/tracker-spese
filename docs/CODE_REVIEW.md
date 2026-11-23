@@ -33,7 +33,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | CR-03 | `app.js` monolitico | Completato | Non riaccumulare logica in `core/app.js` o `core/app-wiring.js`. |
 | CR-04 | Back button/history fragile | Stabilizzato | I flussi attuali sono verificati; nuovi pannelli/modali vanno aggiunti allo stack con test e prova Android. |
 | CR-05 | Parser/importi ambigui | Completato per casi noti | Aggiungere test quando emergono frasi reali ambigue. |
-| CR-06 | Assenza test automatici | Mitigato | Manca ancora E2E/browser mobile reale. |
+| CR-06 | Assenza test automatici | Mitigato | Suite Node ESM diretta (senza `vm.runInContext`) con guardrail su grafo moduli e stato volatile; manca ancora E2E/browser mobile reale. |
 | CR-07 | Offline/PWA/versioni | Completato per la baseline | Chart.js e locale, `releases.json` esiste, la prima release ha service worker scoped, `/stable/` ha launcher offline scoped e la finestra versioni permette installazione esplicita. Verifica Android eseguita dal maintainer. |
 | CR-08 | CSV fragile/lossy | Mitigato | JSON resta backup completo; CSV non e formato ideale per futuri dati complessi. |
 | CR-09 | Sanitizzazione rendering | Mitigato | I dati utente principali sono escapati; personalizzazioni future richiederanno disciplina ulteriore. |
@@ -43,7 +43,7 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | CR-13 | Categorie/metodi statici | Mitigato | Categorie, metodi e colori sono ora centralizzati nel registro `Catalog` in `domain/categories.js`; resta la persistenza delle personalizzazioni utente in fase dedicata. |
 | CR-14 | Manifest/PWA incompleti | Mitigato | Manifest, prima cache release-scoped, launcher stable e UI versioni sono presenti; rivalutare quando verranno pubblicate nuove release o cambi schema. |
 | CR-15 | Accessibilita/semantica | Aperto | Dropdown custom, label e zoom sono migliorabili. |
-| CR-16 | Cleanup minori | Aperto | Da gestire localmente, senza mescolare con feature grandi. |
+| CR-16 | Cleanup minori | Mitigato | Stato volatile consolidato fuori dal DOM ed ES Modules nativi introdotti; restano cleanup locali minori, senza mescolare con feature grandi. |
 
 ## Rischi Attuali Da Tenere Davvero In Vista
 

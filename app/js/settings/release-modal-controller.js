@@ -2,7 +2,12 @@
    RELEASE MODAL CONTROLLER - finestra versioni
    ============================================ */
 
-const ReleaseModalController = (() => {
+import { SettingsActions } from './settings-actions.js';
+import { SettingsView } from './settings-view.js';
+
+export const ReleaseModalController = (() => {
+    let boundModals = new WeakSet();
+
     function getReleaseModal(options = {}) {
         const doc = options.document || (typeof document === 'undefined' ? null : document);
         if (!doc || typeof doc.getElementById !== 'function') return null;
@@ -198,11 +203,34 @@ const ReleaseModalController = (() => {
         return replaceLocationAfterHistoryCleanup(link.href, options);
     }
 
+    function isBound(modal) {
+        return !!(modal && typeof modal === 'object' && boundModals.has(modal));
+    }
+
+    function getState(optionsOrModal = {}) {
+        const modal = optionsOrModal &&
+            typeof optionsOrModal === 'object' &&
+            (optionsOrModal.id === 'release-modal-overlay' ||
+                typeof optionsOrModal.querySelector === 'function' ||
+                typeof optionsOrModal.addEventListener === 'function')
+            ? optionsOrModal
+            : getReleaseModal(optionsOrModal);
+        if (!modal || typeof modal !== 'object') return null;
+
+        return {
+            bound: isBound(modal)
+        };
+    }
+
+    function resetState() {
+        boundModals = new WeakSet();
+    }
+
     function bind(options = {}) {
         const modal = getReleaseModal(options);
-        if (!modal || modal.dataset.bound === 'true') return;
+        if (!modal || isBound(modal)) return;
 
-        modal.dataset.bound = 'true';
+        boundModals.add(modal);
 
         const closeBtn = modal.querySelector('#release-modal-close');
         if (closeBtn) {
@@ -228,6 +256,9 @@ const ReleaseModalController = (() => {
         open,
         close,
         isOpen,
+        isBound,
+        getState,
+        resetState,
         bind,
         installReleaseFromLink
     };

@@ -1,10 +1,10 @@
-const {
+import {
     assert,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('Vista modale ordina dropdown cercabili privilegiando match iniziali', () => {
         const { ModalView, ModalInteractions } = loadUiViews();
         const items = [
@@ -70,7 +70,7 @@ module.exports = function register(test) {
                 return id === 'sd-categoria' ? container : null;
             }
         };
-        const { ModalInteractions } = loadUiViews({ document: documentLike });
+        const { ModalInteractions } = loadUiViews();
 
         ModalInteractions.createSearchableDropdown({
             containerId: 'sd-categoria',
@@ -166,7 +166,7 @@ module.exports = function register(test) {
                 return id === 'sd-categoria' ? container : null;
             }
         };
-        const { ModalInteractions } = loadUiViews({ document: documentLike });
+        const { ModalInteractions } = loadUiViews();
 
         ModalInteractions.createSearchableDropdown({
             containerId: 'sd-categoria',
@@ -275,7 +275,7 @@ module.exports = function register(test) {
                 return id === 'sd-categoria' ? container : null;
             }
         };
-        const { ModalInteractions } = loadUiViews({ document: documentLike });
+        const { ModalInteractions } = loadUiViews();
         const runZeroTimers = () => {
             timeouts
                 .filter(item => item.ms === 0)

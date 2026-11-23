@@ -2,7 +2,7 @@
    APP REFRESH - policy di aggiornamento viste
    ============================================ */
 
-const AppRefresh = (() => {
+export const AppRefresh = (() => {
     function getCurrentPage(options) {
         if (typeof options.getCurrentPage === 'function') return options.getCurrentPage();
         return options.currentPage || 'timeline';

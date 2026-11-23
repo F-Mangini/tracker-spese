@@ -2,18 +2,26 @@
    EXPENSE STORE - cache letture spese
    ============================================ */
 
-const ExpenseStore = (() => {
-    let storageAdapter = null;
-    let cachedSpese = null;
-    let boundWindow = null;
-    let storageHandler = null;
+import { Storage } from './storage.js';
+
+export const ExpenseStore = (() => {
+    function createState() {
+        return {
+            storageAdapter: null,
+            cachedSpese: null,
+            boundWindow: null,
+            storageHandler: null
+        };
+    }
+
+    let state = createState();
 
     function getDefaultStorage() {
         return typeof Storage !== 'undefined' ? Storage : null;
     }
 
     function getStorage() {
-        return storageAdapter || getDefaultStorage();
+        return state.storageAdapter || getDefaultStorage();
     }
 
     function freezeSnapshot(value) {
@@ -43,49 +51,63 @@ const ExpenseStore = (() => {
     }
 
     function invalidate() {
-        cachedSpese = null;
+        state.cachedSpese = null;
+    }
+
+    function reset() {
+        if (state.boundWindow && state.storageHandler && typeof state.boundWindow.removeEventListener === 'function') {
+            state.boundWindow.removeEventListener('storage', state.storageHandler);
+        }
+        state = createState();
+    }
+
+    function getState() {
+        return {
+            hasStorageAdapter: !!state.storageAdapter,
+            hasCachedSpese: state.cachedSpese !== null,
+            cachedCount: Array.isArray(state.cachedSpese) ? state.cachedSpese.length : 0,
+            hasWindowListener: !!(state.boundWindow && state.storageHandler)
+        };
     }
 
     function init(options = {}) {
-        storageAdapter = options.storage || getDefaultStorage();
-        invalidate();
-
-        if (boundWindow && storageHandler && typeof boundWindow.removeEventListener === 'function') {
-            boundWindow.removeEventListener('storage', storageHandler);
-        }
+        reset();
+        state.storageAdapter = options.storage || getDefaultStorage();
 
         const activeWindow = options.window || (typeof window !== 'undefined' ? window : null);
-        const storageKey = storageAdapter && storageAdapter.KEY;
+        const storageKey = state.storageAdapter && state.storageAdapter.KEY;
 
-        boundWindow = activeWindow;
-        storageHandler = event => {
+        state.boundWindow = activeWindow;
+        state.storageHandler = event => {
             if (!event || !storageKey || event.key === storageKey || event.key === null) {
                 invalidate();
             }
         };
 
-        if (boundWindow && typeof boundWindow.addEventListener === 'function') {
-            boundWindow.addEventListener('storage', storageHandler);
+        if (state.boundWindow && typeof state.boundWindow.addEventListener === 'function') {
+            state.boundWindow.addEventListener('storage', state.storageHandler);
         }
     }
 
     function refresh() {
-        cachedSpese = snapshotSpese(readFromStorage());
-        return cachedSpese;
+        state.cachedSpese = snapshotSpese(readFromStorage());
+        return state.cachedSpese;
     }
 
     function getSpese() {
-        if (cachedSpese === null) {
-            cachedSpese = snapshotSpese(readFromStorage());
+        if (state.cachedSpese === null) {
+            state.cachedSpese = snapshotSpese(readFromStorage());
         }
 
-        return cachedSpese;
+        return state.cachedSpese;
     }
 
     return {
         init,
         getSpese,
         refresh,
-        invalidate
+        invalidate,
+        getState,
+        reset
     };
 })();

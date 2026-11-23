@@ -2,7 +2,9 @@
    NAVIGATION CONTROLLER - wiring pagine e scroll
    ============================================ */
 
-const NavigationController = (() => {
+import { UIStack } from './ui-stack.js';
+
+export const NavigationController = (() => {
     const TAP_MOVE_LIMIT = 10;
     const SYNTHETIC_CLICK_SUPPRESS_MS = 700;
 

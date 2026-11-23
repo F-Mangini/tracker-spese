@@ -2,7 +2,9 @@
    FILTER VIEW - rendering e micro-logica UI
    ============================================ */
 
-const FilterView = (() => {
+import { AppUI } from '../ui/ui-utils.js';
+
+export const FilterView = (() => {
     function getSliderMax(spese) {
         const list = Array.isArray(spese) ? spese : [];
         if (list.length === 0) return 100;

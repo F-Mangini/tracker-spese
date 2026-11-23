@@ -2,7 +2,7 @@
    UI STACK EFFECTS - cleanup DOM per back/popstate
    ============================================ */
 
-const UIStackEffects = (() => {
+export const UIStackEffects = (() => {
     function getDocument(doc) {
         if (doc) return doc;
         if (typeof document !== 'undefined') return document;

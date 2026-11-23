@@ -2,7 +2,7 @@
    APP WIRING MODAL - option factory modale/mobile
    ============================================ */
 
-const AppWiringModal = (() => {
+export const AppWiringModal = (() => {
     function create({ app, deps, core }) {
         function modalMobileOptions() {
             return {

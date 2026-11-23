@@ -2,7 +2,7 @@
    APP STATE - stato UI iniziale
    ============================================ */
 
-const AppState = (() => {
+export const AppState = (() => {
     function createFilters() {
         return {
             query: '',
@@ -54,6 +54,7 @@ const AppState = (() => {
             _modalInteractionActive: false,
             _suppressNextPopstate: false,
             _suppressPopstateCount: 0,
+            _afterSuppressedPopstates: [],
             _suspendInteractionRelease: false,
             _keyboardWatchTimer: null,
             _expenseInputActive: false,

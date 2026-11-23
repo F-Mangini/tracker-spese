@@ -2,7 +2,7 @@
    EXPENSE INPUT CONTROLLER - eventi input rapido
    ============================================ */
 
-const ExpenseInputController = (() => {
+export const ExpenseInputController = (() => {
     function call(fn, ...args) {
         if (typeof fn === 'function') return fn(...args);
         return undefined;

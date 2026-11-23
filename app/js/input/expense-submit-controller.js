@@ -2,7 +2,10 @@
    EXPENSE SUBMIT CONTROLLER - submit input rapido
    ============================================ */
 
-const ExpenseSubmitController = (() => {
+import { ExpenseActions } from '../domain/expense-actions.js';
+import { AppUI } from '../ui/ui-utils.js';
+
+export const ExpenseSubmitController = (() => {
     function call(fn, ...args) {
         if (typeof fn === 'function') return fn(...args);
         return undefined;

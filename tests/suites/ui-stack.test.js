@@ -1,10 +1,10 @@
-const {
+import {
     assert,
     loadUiViews,
     expense
-} = require('../helpers');
+} from '../helpers.js';
 
-module.exports = function register(test) {
+export default function register(test) {
     test('UI stack mantiene esplicito ordine di chiusura del back button', () => {
         const { UIStack } = loadUiViews();
 

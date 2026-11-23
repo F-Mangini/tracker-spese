@@ -2,9 +2,18 @@
    TIMELINE CONTROLLER - wiring timeline
    ============================================ */
 
-const TimelineController = (() => {
-    let suppressedLongPressClickId = null;
-    let suppressedLongPressClickTimer = null;
+import { StatsData } from '../domain/stats.js';
+import { TimelineView } from './timeline-view.js';
+
+export const TimelineController = (() => {
+    function createVolatileState() {
+        return {
+            suppressedLongPressClickId: null,
+            suppressedLongPressClickTimer: null
+        };
+    }
+
+    let volatileState = createVolatileState();
 
     function noop() { }
 
@@ -21,25 +30,34 @@ const TimelineController = (() => {
         if (clear && timerId) clear(timerId);
     }
 
+    function getState() {
+        return { ...volatileState };
+    }
+
+    function resetState(options = {}) {
+        clearTimer(options, volatileState.suppressedLongPressClickTimer);
+        volatileState = createVolatileState();
+    }
+
     function suppressNextLongPressClick(options, id) {
         if (!id) return;
 
-        clearTimer(options, suppressedLongPressClickTimer);
-        suppressedLongPressClickId = id;
+        clearTimer(options, volatileState.suppressedLongPressClickTimer);
+        volatileState.suppressedLongPressClickId = id;
 
         const setTimer = getTimer(options);
-        suppressedLongPressClickTimer = setTimer
+        volatileState.suppressedLongPressClickTimer = setTimer
             ? setTimer(() => {
-                suppressedLongPressClickId = null;
-                suppressedLongPressClickTimer = null;
+                volatileState.suppressedLongPressClickId = null;
+                volatileState.suppressedLongPressClickTimer = null;
             }, 700)
             : null;
     }
 
     function consumeSuppressedLongPressClick(id) {
-        if (!id || suppressedLongPressClickId !== id) return false;
+        if (!id || volatileState.suppressedLongPressClickId !== id) return false;
 
-        suppressedLongPressClickId = null;
+        volatileState.suppressedLongPressClickId = null;
         return true;
     }
 
@@ -252,6 +270,8 @@ const TimelineController = (() => {
     return {
         render,
         renderCard,
-        bindExpenseCard
+        bindExpenseCard,
+        getState,
+        resetState
     };
 })();

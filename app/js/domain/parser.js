@@ -2,7 +2,9 @@
    PARSER - Interpreta input in linguaggio naturale
    ============================================ */
 
-const Parser = {
+import { Catalog, CATEGORIES, PAYMENT_METHODS } from './categories.js';
+
+export const Parser = {
     _getCategories(options = {}) {
         if (options && Array.isArray(options.categories)) return options.categories;
         if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getCategories === 'function') {

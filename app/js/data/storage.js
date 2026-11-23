@@ -2,16 +2,35 @@
    STORAGE - Gestione dati in localStorage
    ============================================ */
 
-const Storage = {
-    SCHEMA_VERSION: 1,
+import { SchemaNormalizer } from './schema-normalizer.js';
+import { CsvCodec } from './csv-codec.js';
 
-    KEY: (
-        typeof window !== 'undefined' &&
-        window.SPESA_TRACKER_CONFIG &&
-        window.SPESA_TRACKER_CONFIG.storageKey
-    ) || 'spesa-tracker-data',
+export function createStorage(runtimeOptions = {}) {
+    const resolvedKey = runtimeOptions.key || (
+        typeof globalThis !== 'undefined' &&
+        globalThis.window &&
+        globalThis.window.SPESA_TRACKER_CONFIG &&
+        globalThis.window.SPESA_TRACKER_CONFIG.storageKey
+    ) || (
+        typeof globalThis !== 'undefined' &&
+        globalThis.SPESA_TRACKER_CONFIG &&
+        globalThis.SPESA_TRACKER_CONFIG.storageKey
+    ) || 'spesa-tracker-data';
 
-    _lastStatus: { ok: true, error: null, warnings: [] },
+    return {
+        SCHEMA_VERSION: 1,
+
+        KEY: resolvedKey,
+
+        _lastStatus: { ok: true, error: null, warnings: [] },
+
+        _getLocalStorage() {
+            if (runtimeOptions.localStorage) return runtimeOptions.localStorage;
+            if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+                return globalThis.localStorage;
+            }
+            return null;
+        },
 
     /* --- Struttura dati predefinita --- */
     _defaultSettings() {
@@ -30,7 +49,7 @@ const Storage = {
         let raw = '';
 
         try {
-            raw = localStorage.getItem(this._snapshotKey());
+            raw = this._getLocalStorage().getItem(this._snapshotKey());
         } catch (e) {
             return this._fail('Snapshot locale non leggibile.', 'snapshot-read-failed', { cause: e });
         }
@@ -141,7 +160,7 @@ const Storage = {
 
     getRawData() {
         try {
-            return localStorage.getItem(this.KEY) || '';
+            return this._getLocalStorage().getItem(this.KEY) || '';
         } catch (_) {
             return '';
         }
@@ -160,7 +179,7 @@ const Storage = {
         let raw = '';
 
         try {
-            raw = localStorage.getItem(this.KEY);
+            raw = this._getLocalStorage().getItem(this.KEY);
         } catch (e) {
             const result = this._fail('localStorage non leggibile.', 'read-failed', { cause: e });
             this._setStatus(result);
@@ -226,7 +245,7 @@ const Storage = {
         }
 
         try {
-            localStorage.setItem(this.KEY, JSON.stringify(normalized.data));
+            this._getLocalStorage().setItem(this.KEY, JSON.stringify(normalized.data));
             this._setStatus(normalized);
             return this._ok({ data: normalized.data, warnings: normalized.warnings || [] });
         } catch (e) {
@@ -249,7 +268,7 @@ const Storage = {
         };
 
         try {
-            localStorage.setItem(this._snapshotKey(), JSON.stringify(snapshot));
+            this._getLocalStorage().setItem(this._snapshotKey(), JSON.stringify(snapshot));
             return this._ok();
         } catch (e) {
             return this._fail(
@@ -597,12 +616,12 @@ const Storage = {
 
         try {
             if (snapshot.hasRawData) {
-                localStorage.setItem(this.KEY, snapshot.rawData);
+                this._getLocalStorage().setItem(this.KEY, snapshot.rawData);
                 this._setStatus(this._readStoredData());
                 return this._ok({ restoredRaw: true, count: null });
             }
 
-            localStorage.setItem(this.KEY, JSON.stringify(snapshot.data));
+            this._getLocalStorage().setItem(this.KEY, JSON.stringify(snapshot.data));
             this._setStatus(this._ok({ data: snapshot.data, warnings: snapshot.warnings || [] }));
             return this._ok({
                 restoredRaw: false,
@@ -630,9 +649,9 @@ const Storage = {
         }
 
         try {
-            localStorage.removeItem(this.KEY);
+            this._getLocalStorage().removeItem(this.KEY);
             if (clearSnapshot) {
-                localStorage.removeItem(this._snapshotKey());
+                this._getLocalStorage().removeItem(this._snapshotKey());
             }
             this._setStatus(this._ok({ data: this._defaultData(), warnings: [] }));
             return this._ok();
@@ -649,8 +668,8 @@ const Storage = {
     isAvailable() {
         try {
             const t = '__test__';
-            localStorage.setItem(t, t);
-            localStorage.removeItem(t);
+            this._getLocalStorage().setItem(t, t);
+            this._getLocalStorage().removeItem(t);
             return true;
         } catch (e) {
             return false;
@@ -694,4 +713,7 @@ const Storage = {
     _uid() {
         return SchemaNormalizer.uid();
     }
-};
+    };
+}
+
+export const Storage = createStorage();

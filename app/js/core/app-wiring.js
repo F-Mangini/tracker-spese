@@ -2,7 +2,45 @@
    APP WIRING - option factory per controller
    ============================================ */
 
-const AppWiring = (() => {
+import { Catalog, CATEGORIES, PAYMENT_METHODS } from '../domain/categories.js';
+import { Storage } from '../data/storage.js';
+import { ExpenseStore } from '../data/expense-store.js';
+import { Parser } from '../domain/parser.js';
+import { ExpenseActions } from '../domain/expense-actions.js';
+import { ExpenseSubmitController } from '../input/expense-submit-controller.js';
+import { ExpenseInputController } from '../input/expense-input-controller.js';
+import { InputBarController } from '../input/input-bar-controller.js';
+import { ExpenseFilters } from '../domain/filters.js';
+import { StatsData } from '../domain/stats.js';
+import { ExpenseQuery } from '../domain/expense-query.js';
+import { AppRefresh } from './app-refresh.js';
+import { AppWiringModal } from './app-wiring-modal.js';
+import { AppUI } from '../ui/ui-utils.js';
+import { DownloadController } from '../ui/download-controller.js';
+import { FilterView } from '../filters/filter-view.js';
+import { FilterController } from '../filters/filter-controller.js';
+import { TimelineController } from '../timeline/timeline-controller.js';
+import { TimelineSelectionController } from '../timeline/timeline-selection-controller.js';
+import { NavigationController } from '../navigation/navigation-controller.js';
+import { StatsCharts } from '../stats/stats-charts.js';
+import { StatsController } from '../stats/stats-controller.js';
+import { ModalView } from '../modal/modal-view.js';
+import { ModalFormController } from '../modal/modal-form-controller.js';
+import { ModalMobileController } from '../modal/modal-mobile-controller.js';
+import { ModalInteractions } from '../modal/modal-interactions.js';
+import { ModalController } from '../modal/modal-controller.js';
+import { SettingsActions } from '../settings/settings-actions.js';
+import { SettingsController } from '../settings/settings-controller.js';
+import { UIStack } from '../navigation/ui-stack.js';
+import { HistoryController } from '../navigation/history-controller.js';
+import { UIStackEffects } from '../navigation/ui-stack-effects.js';
+import { UIStackController } from '../navigation/ui-stack-controller.js';
+import { ConfirmDialog } from '../ui/confirm-dialog.js';
+import { ConfirmController } from '../ui/confirm-controller.js';
+import { ThemeController } from '../ui/theme-controller.js';
+import { ToastController } from '../ui/toast-controller.js';
+
+export const AppWiring = (() => {
     function noop() { }
 
     function getGlobal(name, fallback = null) {
@@ -15,63 +53,69 @@ const AppWiring = (() => {
         return fallback;
     }
 
-    function getBoundGlobalFunction(name, fallback) {
+    function getBoundGlobalFunction(name, fallback, preferredWindow = null) {
+        if (preferredWindow) {
+            return typeof preferredWindow[name] === 'function'
+                ? (...args) => preferredWindow[name](...args)
+                : fallback;
+        }
+
         const activeWindow = getGlobal('window');
         if (activeWindow && typeof activeWindow[name] === 'function') {
             return (...args) => activeWindow[name](...args);
         }
 
-        const fn = getGlobal(name);
-        if (typeof fn === 'function') {
-            return (...args) => fn(...args);
-        }
-
         return fallback;
     }
 
-    function getDefaults() {
+    function getDefaults(overrides = {}) {
+        const hasOverride = key => Object.prototype.hasOwnProperty.call(overrides, key);
+        const activeWindow = hasOverride('window') ? overrides.window : getGlobal('window');
+        const activeDocument = hasOverride('document') ? overrides.document : getGlobal('document');
+        const activeHistory = hasOverride('history') ? overrides.history : getGlobal('history');
+
         return {
-            document: getGlobal('document'),
-            window: getGlobal('window'),
-            history: getGlobal('history'),
-            Storage: typeof Storage === 'undefined' ? null : Storage,
-            ExpenseStore: typeof ExpenseStore === 'undefined' ? null : ExpenseStore,
-            Parser: typeof Parser === 'undefined' ? null : Parser,
-            ExpenseActions: typeof ExpenseActions === 'undefined' ? null : ExpenseActions,
-            ExpenseSubmitController: typeof ExpenseSubmitController === 'undefined' ? null : ExpenseSubmitController,
-            ExpenseInputController: typeof ExpenseInputController === 'undefined' ? null : ExpenseInputController,
-            InputBarController: typeof InputBarController === 'undefined' ? null : InputBarController,
-            ExpenseFilters: typeof ExpenseFilters === 'undefined' ? null : ExpenseFilters,
-            StatsData: typeof StatsData === 'undefined' ? null : StatsData,
-            ExpenseQuery: typeof ExpenseQuery === 'undefined' ? null : ExpenseQuery,
-            AppRefresh: typeof AppRefresh === 'undefined' ? null : AppRefresh,
-            AppUI: typeof AppUI === 'undefined' ? null : AppUI,
-            DownloadController: typeof DownloadController === 'undefined' ? null : DownloadController,
-            FilterView: typeof FilterView === 'undefined' ? null : FilterView,
-            FilterController: typeof FilterController === 'undefined' ? null : FilterController,
-            TimelineController: typeof TimelineController === 'undefined' ? null : TimelineController,
-            TimelineSelectionController: typeof TimelineSelectionController === 'undefined' ? null : TimelineSelectionController,
-            NavigationController: typeof NavigationController === 'undefined' ? null : NavigationController,
-            StatsCharts: typeof StatsCharts === 'undefined' ? null : StatsCharts,
-            StatsController: typeof StatsController === 'undefined' ? null : StatsController,
-            ModalView: typeof ModalView === 'undefined' ? null : ModalView,
-            ModalFormController: typeof ModalFormController === 'undefined' ? null : ModalFormController,
-            ModalMobileController: typeof ModalMobileController === 'undefined' ? null : ModalMobileController,
-            ModalInteractions: typeof ModalInteractions === 'undefined' ? null : ModalInteractions,
-            ModalController: typeof ModalController === 'undefined' ? null : ModalController,
-            SettingsActions: typeof SettingsActions === 'undefined' ? null : SettingsActions,
-            SettingsController: typeof SettingsController === 'undefined' ? null : SettingsController,
-            UIStack: typeof UIStack === 'undefined' ? null : UIStack,
-            HistoryController: typeof HistoryController === 'undefined' ? null : HistoryController,
-            UIStackEffects: typeof UIStackEffects === 'undefined' ? null : UIStackEffects,
-            UIStackController: typeof UIStackController === 'undefined' ? null : UIStackController,
-            ConfirmDialog: typeof ConfirmDialog === 'undefined' ? null : ConfirmDialog,
-            ConfirmController: typeof ConfirmController === 'undefined' ? null : ConfirmController,
-            ThemeController: typeof ThemeController === 'undefined' ? null : ThemeController,
-            ToastController: typeof ToastController === 'undefined' ? null : ToastController,
-            Catalog: typeof Catalog === 'undefined' ? null : Catalog,
-            CATEGORIES: typeof CATEGORIES === 'undefined' ? [] : CATEGORIES,
-            PAYMENT_METHODS: typeof PAYMENT_METHODS === 'undefined' ? [] : PAYMENT_METHODS,
+            document: activeDocument,
+            window: activeWindow,
+            history: activeHistory,
+            Storage,
+            ExpenseStore,
+            Parser,
+            ExpenseActions,
+            ExpenseSubmitController,
+            ExpenseInputController,
+            InputBarController,
+            ExpenseFilters,
+            StatsData,
+            ExpenseQuery,
+            AppRefresh,
+            AppUI,
+            DownloadController,
+            FilterView,
+            FilterController,
+            TimelineController,
+            TimelineSelectionController,
+            NavigationController,
+            StatsCharts,
+            StatsController,
+            ModalView,
+            ModalFormController,
+            ModalMobileController,
+            ModalInteractions,
+            ModalController,
+            SettingsActions,
+            SettingsController,
+            UIStack,
+            HistoryController,
+            UIStackEffects,
+            UIStackController,
+            ConfirmDialog,
+            ConfirmController,
+            ThemeController,
+            ToastController,
+            Catalog,
+            CATEGORIES,
+            PAYMENT_METHODS,
             ChartClass: typeof Chart === 'undefined' ? null : Chart,
             FileReaderClass: typeof FileReader === 'undefined' ? null : FileReader,
             URL: typeof URL === 'undefined' ? null : URL,
@@ -79,21 +123,21 @@ const AppWiring = (() => {
             requestAnimationFrame: getBoundGlobalFunction('requestAnimationFrame', callback => {
                 callback();
                 return null;
-            }),
-            cancelAnimationFrame: getBoundGlobalFunction('cancelAnimationFrame', noop),
+            }, activeWindow),
+            cancelAnimationFrame: getBoundGlobalFunction('cancelAnimationFrame', noop, activeWindow),
             setTimeout: getBoundGlobalFunction('setTimeout', callback => {
                 callback();
                 return null;
-            }),
-            clearTimeout: getBoundGlobalFunction('clearTimeout', noop),
-            setInterval: getBoundGlobalFunction('setInterval', noop),
-            clearInterval: getBoundGlobalFunction('clearInterval', noop)
+            }, activeWindow),
+            clearTimeout: getBoundGlobalFunction('clearTimeout', noop, activeWindow),
+            setInterval: getBoundGlobalFunction('setInterval', noop, activeWindow),
+            clearInterval: getBoundGlobalFunction('clearInterval', noop, activeWindow)
         };
     }
 
     function create(app, overrides = {}) {
         const deps = {
-            ...getDefaults(),
+            ...getDefaults(overrides),
             ...overrides
         };
 

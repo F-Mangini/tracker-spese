@@ -52,6 +52,10 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 |   +-- ROADMAP.md
 +-- note/
 |   +-- note_di_progetto.txt
++-- scripts/
+|   +-- sync-precache.js
+|   +-- cut-release.js
+|   +-- lib/pwa-assets.js
 +-- tests/
 |   +-- run-tests.js
 |   +-- helpers.js
@@ -128,5 +132,13 @@ Durante il refactor, il deploy previsto separa stabile e sviluppo:
 - `/dev/`: versione di sviluppo dal branch aggregatore `dev`, con storage locale separato.
 
 I branch di fase, per esempio `privacy`, restano dedicati al lavoro corrente. Quando una modifica va provata su Android, viene portata su `dev`; quando una versione testata e pronta per l'uso quotidiano, puo essere promossa con un merge intenzionale verso `main`. Il workflow GitHub Pages parte da `main` e pubblica sia la stabile sia la dev.
+
+Per verificare/riallineare il precache offline e tagliare nuove release versionate senza passaggi manuali:
+
+```powershell
+node scripts/sync-precache.js --check
+node scripts/sync-precache.js --bump-cache
+node scripts/cut-release.js vYYYY.MM.DD --notes "Descrizione release" --dry-run
+```
 
 Prima di modificare la logica dei dati, leggere `docs/CURRENT_STATE.md` e `docs/DEVELOPMENT_GUIDE.md`.

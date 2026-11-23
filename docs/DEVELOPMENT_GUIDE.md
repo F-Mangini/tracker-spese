@@ -49,7 +49,7 @@ Va bene portare tutto il branch dev su `main` quando tutte le modifiche contenut
 
 Se invece solo alcune modifiche sono pronte, usare cherry-pick o un branch dedicato di release, evitando di trascinare feature non ancora validate.
 
-Quando una promozione aggiorna `stable/latest` e deve essere visibile anche nella PWA installata da `/stable/`, controllare `app/stable-launch-service-worker.js`: fare bump di `STATIC_CACHE` e mantenere `PRECACHE_URLS` allineato agli asset locali di `app/index.html`. Il runner `tests/run-tests.js` fallisce se un asset locale dell'HTML manca dal precache, ma il bump cache resta una decisione esplicita del maintainer. In futuro si puo valutare di automatizzare il precache o derivare la cache da un hash di build, senza introdurlo finche non serve davvero.
+Quando una promozione aggiorna `stable/latest` e deve essere visibile anche nella PWA installata da `/stable/`, controllare `app/stable-launch-service-worker.js`: usare `node scripts/sync-precache.js --bump-cache` (oppure `--check` per la sola verifica) per mantenere `PRECACHE_URLS` allineato agli asset di `app/index.html` / `app/manifest.json` e incrementare `STATIC_CACHE`. Il runner `tests/run-tests.js` fallisce se un asset locale o modulo ES raggiungibile manca dal precache, mentre il bump cache resta una scelta esplicita del maintainer (`--bump-cache` in `sync-precache.js` o `--bump-stable-cache` in `cut-release.js`). Per tagliare una release versionata immutabile usare `node scripts/cut-release.js vYYYY.MM.DD --notes "..."` (verificabile prima con `--dry-run`).
 
 ## Linee Guida per i Dati
 

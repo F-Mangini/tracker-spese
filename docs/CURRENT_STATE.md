@@ -180,7 +180,7 @@ Il runner locale e:
 node tests/run-tests.js
 ```
 
-Esegue direttamente le suite Node in formato ES Module nativo (senza `vm.runInContext`), resettando lo stato volatile tra un test e l'altro. Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, selezione timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history, grafo ES Modules e wiring applicativo.
+Esegue direttamente le suite Node in formato ES Module nativo (senza `vm.runInContext`), resettando lo stato volatile tra un test e l'altro. Copre storage, parser, filtri, statistiche, cache/query, refresh, input rapido, timeline, selezione timeline, filtri UI, modale, impostazioni, conferme, tema, toast, stack UI/history, grafo ES Modules, script di manutenzione PWA/release (`scripts/sync-precache.js`, `scripts/cut-release.js`) e wiring applicativo.
 
 Mancano ancora test automatici su browser mobile reale, tastiera Android reale e interazioni DOM complete.
 

@@ -51,15 +51,20 @@ La preferenza `spesa-tracker-launch-target` puo contenere `stable/` oppure un pa
 
 Quando si pubblicano modifiche su `main` che devono essere viste anche dalla PWA installata da `/stable/`, aggiornare sempre anche il launcher offline della stable:
 
-1. aumentare `STATIC_CACHE` in `app/stable-launch-service-worker.js`, per esempio da `static-v5` a `static-v6`;
-2. verificare che ogni asset locale referenziato da `app/index.html` sia presente in `PRECACHE_URLS`;
-3. se e stato aggiunto un nuovo file JS, CSS, manifest, icona o vendor locale, inserirlo nel precache;
-4. eseguire `tests/run-tests.js`, che include un controllo statico tra `app/index.html` e `PRECACHE_URLS`;
-5. dopo il deploy, chiudere e riaprire la PWA installata da `/stable/`; i service worker scoped chiamano `skipWaiting()` e `clients.claim()`, ma in alcuni casi serve comunque una seconda riapertura per lasciare scaricare il nuovo script prima che controlli la pagina.
+1. eseguire `node scripts/sync-precache.js --bump-cache` (oppure `node scripts/sync-precache.js` senza `--bump-cache` finche si lavora su `dev`) per rigenerare `PRECACHE_URLS` in `app/stable-launch-service-worker.js` dagli asset reali di `app/index.html`, grafo ES Module e `app/manifest.json`;
+2. verificare l'allineamento con `node scripts/sync-precache.js --check` e `node tests/run-tests.js`;
+3. dopo il deploy, chiudere e riaprire la PWA installata da `/stable/`; i service worker scoped chiamano `skipWaiting()` e `clients.claim()`, ma in alcuni casi serve comunque una seconda riapertura per lasciare scaricare il nuovo script prima che controlli la pagina.
 
-Questa regola vale anche quando non si crea una nuova release versionata: `stable/latest` cambia, ma la PWA installata puo continuare a ricevere asset dalla vecchia cache se il nome cache non cambia.
+Questa regola vale anche quando non si crea una nuova release versionata: `stable/latest` cambia, ma la PWA installata puo continuare a ricevere asset dalla vecchia cache se il nome cache (`STATIC_CACHE`) non cambia.
 
-Piu avanti si puo valutare un precache generato automaticamente dagli asset effettivi di `app/index.html`, o un nome cache derivato da hash/versione di build. Per ora il progetto resta senza build step e usa il test statico come guardrail leggero.
+Per tagliare una nuova release immutabile da `app/` senza passaggi manuali e disponibile:
+
+```powershell
+node scripts/cut-release.js vYYYY.MM.DD --notes "Descrizione release" --dry-run
+node scripts/cut-release.js vYYYY.MM.DD --notes "Descrizione release"
+```
+
+Lo script copia in `releases/vYYYY.MM.DD/` i soli asset runtime stabili (escludendo `manifest.dev.json`, `icons/dev/` e `stable-launch-service-worker.js`), inietta la registrazione scoped di `./service-worker.js` in `index.html`, genera `service-worker.js` con `PRECACHE_URLS` completo e aggiorna `releases.json`. Passare `--bump-stable-cache` se si vuole incrementare nello stesso comando anche `STATIC_CACHE` di `app/stable-launch-service-worker.js`.
 
 Per una release:
 

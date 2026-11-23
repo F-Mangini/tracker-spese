@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/run-tests.js"
+    "test": "node tests/run-tests.js",
+    "sync-precache": "node scripts/sync-precache.js",
+    "check-precache": "node scripts/sync-precache.js --check",
+    "cut-release": "node scripts/cut-release.js"
   }
 }

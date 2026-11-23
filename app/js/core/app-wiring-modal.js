@@ -37,8 +37,16 @@ const AppWiringModal = (() => {
                 getEditingId: () => app.editingId,
                 setEditingId: id => { app.editingId = id; },
                 getExpenses: () => deps.ExpenseStore.getSpese(),
-                categories: deps.CATEGORIES,
-                methods: deps.PAYMENT_METHODS,
+                categories: typeof core.getCategories === 'function'
+                    ? core.getCategories()
+                    : (deps.Catalog && typeof deps.Catalog.getCategories === 'function'
+                        ? deps.Catalog.getCategories()
+                        : deps.CATEGORIES),
+                methods: typeof core.getPaymentMethods === 'function'
+                    ? core.getPaymentMethods()
+                    : (deps.Catalog && typeof deps.Catalog.getPaymentMethods === 'function'
+                        ? deps.Catalog.getPaymentMethods()
+                        : deps.PAYMENT_METHODS),
                 setEditTags: tags => { app._editTags = tags; },
                 getEditTags: () => app._editTags,
                 initSearchableDropdown,

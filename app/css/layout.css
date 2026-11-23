@@ -1,0 +1,540 @@
+/* ============================================
+   HEADER
+   ============================================ */
+#app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: var(--z-header);
+    touch-action: none;
+}
+
+#app-header h1 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transform-origin: left center;
+    border-radius: 6px;
+    transition: opacity 90ms ease;
+}
+
+#app-header h1:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+#app-header h1.header-title-fade-out {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #app-header h1 {
+        transition: none;
+    }
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.header-btn {
+    position: relative;
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+    line-height: 1;
+}
+
+.header-btn:active {
+    background: var(--bg-primary);
+}
+
+@media (hover: hover) {
+    .header-btn:hover {
+        background: var(--bg-primary);
+    }
+}
+
+.header-btn.active {
+    background: var(--accent-light);
+}
+
+.header-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.header-btn:disabled:active {
+    background: none;
+}
+
+.header-btn-danger {
+    color: var(--danger);
+}
+
+#app-header.selection-active {
+    border-bottom-color: var(--accent);
+    border-bottom-width: 2px;
+}
+
+#app-header.selection-active.delete-pending {
+    border-bottom-color: var(--danger);
+}
+
+.selection-title-dev-letter {
+    color: #ff7c00;
+}
+
+/* Filter badge */
+.filter-badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 17px;
+    height: 17px;
+    background: var(--danger);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 0.6rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    pointer-events: none;
+    font-family: -apple-system, sans-serif;
+}
+
+.filter-badge.hidden {
+    display: none;
+}
+
+/* ============================================
+   MAIN CONTENT
+   ============================================ */
+#app-main {
+    position: relative;
+    margin-top: var(--header-h);
+    height: calc(100vh - var(--header-h));
+    height: calc(100dvh - var(--header-h));
+    padding-bottom: calc(var(--input-h) + var(--nav-h) + var(--safe-bottom));
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    transition: margin-top 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#app-main.filter-layout-transition {
+    overflow-anchor: none;
+}
+
+#app-main.no-input-bar {
+    padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
+}
+
+#app-main.page-swipe-active {
+    overflow-y: hidden;
+}
+
+.page {
+    padding: 12px 12px 0;
+}
+
+.page.page-nav-enter {
+    animation: fadeIn 0.2s ease;
+}
+
+.page.hidden {
+    display: none;
+}
+
+.page.page-swipe-layer {
+    animation: none;
+    background: var(--bg-primary);
+    backface-visibility: hidden;
+    will-change: transform;
+}
+
+.page.page-swipe-current {
+    position: relative;
+    z-index: 1;
+}
+
+.page.page-swipe-preview {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.page-swipe-banner {
+    will-change: transform;
+}
+
+.page.page-swipe-mask-aligned::before {
+    transform: translate3d(0, var(--page-swipe-banner-y, 0px), 0);
+    will-change: transform;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   INPUT BAR
+   ============================================ */
+#input-bar {
+    position: fixed;
+    bottom: calc(var(--nav-h) + var(--safe-bottom));
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+    background: transparent;
+    border-top: none;
+    z-index: var(--z-input-bar);
+    touch-action: none;
+}
+
+#input-bar::before {
+    content: '';
+    position: absolute;
+    bottom: -50px;
+    top: -16px;
+    left: 0;
+    right: 0;
+    opacity: 0.8;
+    background: linear-gradient(to top, var(--bg-primary) 0%, var(--bg-primary) 65%, transparent 100%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+#input-bar.hidden {
+    display: none;
+}
+
+/* Non nascondiamo più la bottom nav e non forziamo più
+   la barra input a scendere a bottom: 0 appena prende focus.
+   La posizione verrà aggiornata solo dal JS quando la tastiera
+   è davvero aperta. */
+body.expense-input-active #input-bar {
+    transition: none;
+    transform: none !important;
+    will-change: bottom;
+}
+
+#input-bar.page-swipe-input,
+body.expense-input-active #input-bar.page-swipe-input {
+    transition: var(--page-swipe-input-transition, none) !important;
+    transform: translate3d(var(--page-swipe-input-x, 0px), 0, 0) !important;
+    will-change: transform;
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-input);
+    border: 2px solid var(--border);
+    border-radius: 28px;
+    padding: 4px 4px 4px 16px;
+    transition: border-color 0.2s;
+    max-width: 540px;
+    margin: 0 auto;
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--accent);
+}
+
+#expense-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    padding: 8px 0;
+    font-family: inherit;
+}
+
+#expense-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+#btn-voice,
+#btn-send {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+}
+
+#btn-voice {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+#btn-voice:hover {
+    background: var(--bg-primary);
+}
+
+#btn-voice.recording {
+    color: var(--danger);
+    background: var(--bg-primary);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1)
+    }
+
+    50% {
+        transform: scale(1.15)
+    }
+}
+
+#btn-send {
+    background: var(--accent);
+    color: #fff;
+}
+
+#btn-send:hover {
+    background: var(--accent-hover);
+}
+
+#btn-send:active,
+#btn-send.pressed {
+    transform: scale(0.92);
+}
+
+#btn-voice:active,
+#btn-voice.pressed {
+    background: var(--bg-primary);
+}
+
+/* ============================================
+   BOTTOM NAV
+   ============================================ */
+#bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--nav-h) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    display: block;
+    overflow: hidden;
+    z-index: var(--z-nav);
+    touch-action: pan-y;
+}
+
+#bottom-nav.selection-active {
+    border-top: 2px solid var(--accent);
+}
+
+#bottom-nav.selection-active::after {
+    content: none;
+}
+
+#bottom-nav.selection-active.delete-pending {
+    border-top-color: var(--danger);
+}
+
+#app-main:not(.no-input-bar)~#bottom-nav::before {
+    display: none;
+}
+
+#bottom-nav::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    opacity: 0.6;
+    height: 16px;
+    background: linear-gradient(to top, var(--bg-primary) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.nav-set {
+    position: absolute;
+    inset: 0;
+    padding-bottom: var(--safe-bottom);
+    display: flex;
+    align-items: stretch;
+    transition: transform 0.24s ease, opacity 0.18s ease;
+    will-change: transform;
+}
+
+.nav-set-main {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.nav-set-selection {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#bottom-nav.selection-active .nav-set-main {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#bottom-nav.selection-active .nav-set-selection {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#bottom-nav.selection-active.selection-show-main .nav-set-main {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#bottom-nav.selection-active.selection-show-main .nav-set-selection {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.nav-btn,
+.bottom-action-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    transition: color 0.2s;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.nav-btn.active {
+    color: var(--accent);
+}
+
+.bottom-action-btn {
+    color: var(--text-primary);
+    transition-duration: 0.08s;
+}
+
+.bottom-action-btn.bottom-action-danger {
+    color: var(--danger);
+}
+
+.bottom-action-btn:not(.bottom-action-danger):not(:disabled):not(.disabled-empty-selection):active,
+.bottom-action-btn.pressed:not(.bottom-action-danger):not(:disabled):not(.disabled-empty-selection) {
+    color: var(--accent);
+}
+
+.bottom-action-btn:disabled,
+.bottom-action-btn.disabled-empty-selection {
+    opacity: 0.42;
+    cursor: default;
+    color: var(--text-primary);
+}
+
+.nav-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.nav-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ============================================
+   TOAST
+   ============================================ */
+.toast {
+    position: fixed;
+    bottom: calc(var(--nav-h) + var(--input-h) + var(--safe-bottom) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    border-radius: 28px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #fff;
+    z-index: var(--z-toast);
+    box-shadow: var(--shadow-lg);
+    transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap;
+    max-width: calc(100vw - 32px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+}
+
+.toast.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+    pointer-events: none;
+}
+
+.toast.success {
+    background: var(--accent);
+}
+
+.toast.error {
+    background: var(--danger);
+}
+
+.toast.info {
+    background: #3b82f6;
+}
+

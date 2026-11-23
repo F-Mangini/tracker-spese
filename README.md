@@ -53,10 +53,12 @@ La baseline PWA/offline e completata e pubblicata su `main`: Chart.js e incluso 
 |   +-- note_di_progetto.txt
 +-- tests/
 |   +-- run-tests.js
+|   +-- helpers.js
+|   +-- suites/
 +-- app/
     +-- index.html
     +-- manifest.json
-    +-- css/style.css
+    +-- css/          # fogli di stile modulari per area e scala z-index
     +-- vendor/       # librerie terze locali necessarie all'offline
     +-- js/
         +-- core/        # boot, stato, config, refresh e wiring applicativo
@@ -106,6 +108,12 @@ Test leggeri disponibili:
 
 ```powershell
 node tests/run-tests.js
+```
+
+E possibile eseguire anche una o piu suite specifiche filtrando per nome, per esempio:
+
+```powershell
+node tests/run-tests.js store-query
 ```
 
 Il runner copre i moduli principali estratti durante il refactor: storage, parser, filtri, statistiche, query/cache, refresh, controller UI, modale, impostazioni, conferme, tema, toast, stack UI/history e wiring applicativo.

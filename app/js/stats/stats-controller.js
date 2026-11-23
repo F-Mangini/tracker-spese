@@ -47,12 +47,16 @@ const StatsController = (() => {
         const getCategory = typeof options.getCategory === 'function'
             ? options.getCategory
             : () => ({});
+        const getCategoryColor = typeof options.getCategoryColor === 'function'
+            ? options.getCategoryColor
+            : (categoryId => StatsCharts.getCategoryColor(categoryId, options.chartColors));
 
         const ctxD = activeDocument.getElementById('chart-doughnut');
         if (ctxD) {
             nextCharts.doughnut = new ChartClass(ctxD, StatsCharts.buildDoughnutConfig(options.filtered, {
                 themeColors,
-                chartColors: StatsCharts.COLORS,
+                chartColors: options.chartColors,
+                getCategoryColor,
                 getCategory
             }));
         }
@@ -128,6 +132,9 @@ const StatsController = (() => {
         const getCategory = typeof options.getCategory === 'function'
             ? options.getCategory
             : () => ({});
+        const getCategoryColor = typeof options.getCategoryColor === 'function'
+            ? options.getCategoryColor
+            : (categoryId => StatsCharts.getCategoryColor(categoryId, options.chartColors));
 
         let charts = destroyCharts(options.charts);
 
@@ -180,7 +187,7 @@ const StatsController = (() => {
             summary,
             barChartTitle,
             chartColors: StatsCharts.COLORS,
-            getCategoryColor: categoryId => StatsCharts.getCategoryColor(categoryId),
+            getCategoryColor,
             getCategory
         });
 
@@ -202,6 +209,8 @@ const StatsController = (() => {
                 start,
                 end,
                 period,
+                chartColors: options.chartColors,
+                getCategoryColor,
                 getCategory
             });
         }

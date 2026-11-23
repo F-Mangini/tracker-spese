@@ -16,8 +16,24 @@ const ExpenseStore = (() => {
         return storageAdapter || getDefaultStorage();
     }
 
-    function cloneSpese(spese) {
-        return JSON.parse(JSON.stringify(Array.isArray(spese) ? spese : []));
+    function freezeSnapshot(value) {
+        if (Array.isArray(value)) {
+            return Object.freeze(value.map(item => freezeSnapshot(item)));
+        }
+
+        if (value && typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]') {
+            const copy = {};
+            Object.keys(value).forEach(key => {
+                copy[key] = freezeSnapshot(value[key]);
+            });
+            return Object.freeze(copy);
+        }
+
+        return value;
+    }
+
+    function snapshotSpese(spese) {
+        return freezeSnapshot(Array.isArray(spese) ? spese : []);
     }
 
     function readFromStorage() {
@@ -54,16 +70,16 @@ const ExpenseStore = (() => {
     }
 
     function refresh() {
-        cachedSpese = cloneSpese(readFromStorage());
-        return getSpese();
+        cachedSpese = snapshotSpese(readFromStorage());
+        return cachedSpese;
     }
 
     function getSpese() {
         if (cachedSpese === null) {
-            cachedSpese = cloneSpese(readFromStorage());
+            cachedSpese = snapshotSpese(readFromStorage());
         }
 
-        return cloneSpese(cachedSpese);
+        return cachedSpese;
     }
 
     return {

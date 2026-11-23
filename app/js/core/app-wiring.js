@@ -52,6 +52,7 @@ const AppWiring = (() => {
             TimelineController: typeof TimelineController === 'undefined' ? null : TimelineController,
             TimelineSelectionController: typeof TimelineSelectionController === 'undefined' ? null : TimelineSelectionController,
             NavigationController: typeof NavigationController === 'undefined' ? null : NavigationController,
+            StatsCharts: typeof StatsCharts === 'undefined' ? null : StatsCharts,
             StatsController: typeof StatsController === 'undefined' ? null : StatsController,
             ModalView: typeof ModalView === 'undefined' ? null : ModalView,
             ModalFormController: typeof ModalFormController === 'undefined' ? null : ModalFormController,
@@ -68,6 +69,7 @@ const AppWiring = (() => {
             ConfirmController: typeof ConfirmController === 'undefined' ? null : ConfirmController,
             ThemeController: typeof ThemeController === 'undefined' ? null : ThemeController,
             ToastController: typeof ToastController === 'undefined' ? null : ToastController,
+            Catalog: typeof Catalog === 'undefined' ? null : Catalog,
             CATEGORIES: typeof CATEGORIES === 'undefined' ? [] : CATEGORIES,
             PAYMENT_METHODS: typeof PAYMENT_METHODS === 'undefined' ? [] : PAYMENT_METHODS,
             ChartClass: typeof Chart === 'undefined' ? null : Chart,
@@ -95,6 +97,47 @@ const AppWiring = (() => {
             ...overrides
         };
 
+        const hasCategoriesOverride = Object.prototype.hasOwnProperty.call(overrides, 'CATEGORIES');
+        const hasMethodsOverride = Object.prototype.hasOwnProperty.call(overrides, 'PAYMENT_METHODS');
+
+        function getCategories() {
+            if (!hasCategoriesOverride && deps.Catalog && typeof deps.Catalog.getCategories === 'function') {
+                return deps.Catalog.getCategories();
+            }
+            return deps.CATEGORIES;
+        }
+
+        function getPaymentMethods() {
+            if (!hasMethodsOverride && deps.Catalog && typeof deps.Catalog.getPaymentMethods === 'function') {
+                return deps.Catalog.getPaymentMethods();
+            }
+            return deps.PAYMENT_METHODS;
+        }
+
+        function getCategory(id) {
+            if (!hasCategoriesOverride && deps.Catalog && typeof deps.Catalog.getCategory === 'function') {
+                return deps.Catalog.getCategory(id);
+            }
+            return deps.AppUI.getCategory(id, getCategories());
+        }
+
+        function getMethod(id) {
+            if (!hasMethodsOverride && deps.Catalog && typeof deps.Catalog.getMethod === 'function') {
+                return deps.Catalog.getMethod(id);
+            }
+            return deps.AppUI.getMethod(id, getPaymentMethods());
+        }
+
+        function getCategoryColor(id) {
+            if (deps.Catalog && typeof deps.Catalog.getCategoryColor === 'function') {
+                return deps.Catalog.getCategoryColor(id);
+            }
+            if (deps.StatsCharts && typeof deps.StatsCharts.getCategoryColor === 'function') {
+                return deps.StatsCharts.getCategoryColor(id);
+            }
+            return undefined;
+        }
+
         const modalWiring = AppWiringModal.create({
             app,
             deps,
@@ -103,7 +146,9 @@ const AppWiring = (() => {
                 consumeUiState,
                 runHistoryAction,
                 confirmOptions,
-                releaseFilterSearchBeforeModal
+                releaseFilterSearchBeforeModal,
+                getCategories,
+                getPaymentMethods
             }
         });
 
@@ -427,8 +472,8 @@ const AppWiring = (() => {
                 document: deps.document,
                 body: deps.document.body,
                 filters: app.filters,
-                categories: deps.CATEGORIES,
-                methods: deps.PAYMENT_METHODS,
+                categories: getCategories(),
+                methods: getPaymentMethods(),
                 getSpese: () => deps.ExpenseStore.getSpese(),
                 getSliderMax: spese => deps.FilterView.getSliderMax(spese),
                 renderChips: items => deps.FilterView.renderChips(items),
@@ -541,7 +586,8 @@ const AppWiring = (() => {
                 actions: deps.ExpenseActions,
                 parser: deps.Parser,
                 storage: deps.Storage,
-                categories: deps.CATEGORIES,
+                categories: getCategories(),
+                getCategory,
                 ui: deps.AppUI,
                 setNewCardId: id => { app.newCardId = id; },
                 refreshAfterAdd: () => app.refreshExpenseViews({ updateFilterSlider: true }),
@@ -562,8 +608,9 @@ const AppWiring = (() => {
                 }),
                 getQuickTotals: spese => deps.StatsData.getQuickTotals(spese),
                 groupByDay: spese => deps.StatsData.groupByDay(spese),
-                getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
-                getMethod: id => deps.AppUI.getMethod(id, deps.PAYMENT_METHODS),
+                getCategory,
+                getMethod,
+                getCategoryColor,
                 formatDayLabel: date => deps.AppUI.formatDayLabel(date),
                 clearNewCardId: () => { app.newCardId = null; },
                 openEditModal: id => deps.ModalController.open(modalWiring.modalOptions(), id),
@@ -781,7 +828,8 @@ const AppWiring = (() => {
                     bar: app.chartBar
                 },
                 ChartClass: deps.ChartClass,
-                getCategory: id => deps.AppUI.getCategory(id, deps.CATEGORIES),
+                getCategory,
+                getCategoryColor,
                 applyNonDateFilters: spese => deps.ExpenseFilters.applyNonDate(spese, app.filters, {
                     selectedIds: getTimelineSelectedIdsForFilters(),
                     selectedOnlyIds: getSelectedOnlyIdsForFilters()

@@ -3,38 +3,9 @@
    ============================================ */
 
 const StatsCharts = (() => {
-    const COLORS = [
-        '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-        '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
-        '#14b8a6', '#e11d48', '#0ea5e9', '#a855f7', '#eab308',
-        '#22c55e', '#d946ef', '#64748b', '#fb923c', '#2dd4bf',
-        '#2563eb'
-    ];
-
-    const CATEGORY_COLOR_INDEX = {
-        abbigliamento: 0,
-        accessori: 1,
-        bar: 2,
-        bollette: 19,
-        casa: 4,
-        cura: 5,
-        drink: 6,
-        formazione: 7,
-        intrattenimento: 8,
-        'produttivit\u00e0': 9,
-        regali: 10,
-        ristorante: 11,
-        salute: 12,
-        supermercato: 13,
-        sport: 14,
-        tabacchi: 15,
-        takeaway: 16,
-        tech: 17,
-        telefono: 18,
-        trasporti: 3,
-        viaggi: 20,
-        altro: 1
-    };
+    const COLORS = (typeof Catalog !== 'undefined' && Catalog && Array.isArray(Catalog.COLOR_PALETTE))
+        ? Catalog.COLOR_PALETTE
+        : [];
 
     const DEFAULT_THEME = {
         text: '#0f172a',
@@ -72,22 +43,23 @@ const StatsCharts = (() => {
         };
     }
 
-    function getCategoryColor(categoryId, colors = COLORS) {
-        const palette = Array.isArray(colors) && colors.length > 0 ? colors : COLORS;
-        const id = String(categoryId || 'altro');
-        const configuredIndex = CATEGORY_COLOR_INDEX[id];
-
-        if (Number.isInteger(configuredIndex)) {
-            return palette[configuredIndex % palette.length];
+    function getCategoryColor(categoryId, colors) {
+        if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getCategoryColor === 'function') {
+            return Catalog.getCategoryColor(categoryId, colors);
         }
 
+        const palette = Array.isArray(colors) && colors.length > 0 ? colors : COLORS;
+        if (palette.length === 0) return '#3b82f6';
+        const id = String(categoryId || 'altro');
         const hash = Array.from(id).reduce((total, char) => total + char.codePointAt(0), 0);
         return palette[hash % palette.length];
     }
 
     function buildDoughnutConfig(spese, options = {}) {
         const themeColors = options.themeColors || DEFAULT_THEME;
-        const chartColors = options.chartColors || COLORS;
+        const resolveCategoryColor = typeof options.getCategoryColor === 'function'
+            ? options.getCategoryColor
+            : (id => getCategoryColor(id, options.chartColors));
         const getCategory = typeof options.getCategory === 'function'
             ? options.getCategory
             : () => ({ emoji: '', nome: '' });
@@ -102,7 +74,7 @@ const StatsCharts = (() => {
                 }),
                 datasets: [{
                     data: categoryTotals.map(([, value]) => Math.round(value * 100) / 100),
-                    backgroundColor: categoryTotals.map(([id]) => getCategoryColor(id, chartColors)),
+                    backgroundColor: categoryTotals.map(([id]) => resolveCategoryColor(id)),
                     borderColor: themeColors.cardBg,
                     borderWidth: 3,
                     hoverOffset: 6
@@ -209,7 +181,6 @@ const StatsCharts = (() => {
 
     return {
         COLORS,
-        CATEGORY_COLOR_INDEX,
         getCategoryColor,
         getThemeColors,
         buildDoughnutConfig,

@@ -1,0 +1,332 @@
+#page-settings::before {
+    content: '';
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    z-index: var(--z-page-mask);
+    display: block;
+    opacity: 0.6;
+    height: 16px;
+    background: linear-gradient(to bottom, var(--bg-primary) 0%, transparent 100%);
+    pointer-events: none;
+}
+/* ============================================
+   SETTINGS PAGE
+   ============================================ */
+.settings-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-bottom: 12px;
+}
+
+.settings-section h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.settings-import-title {
+    margin-top: 20px;
+}
+
+.settings-hint {
+    font-size: 0.82rem;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.theme-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.theme-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    color: var(--text-primary);
+}
+
+.theme-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent-text);
+}
+
+.settings-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.settings-buttons .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+}
+
+.export-filter-btn {
+    position: relative;
+}
+
+.export-filter-btn .filter-badge {
+    top: -6px;
+    right: -6px;
+}
+
+.export-config-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.72fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.export-config-field {
+    min-width: 0;
+}
+
+.export-format-dropdown .sd-input {
+    min-height: 44px;
+}
+
+.export-format-dropdown .sd-list {
+    max-height: 112px;
+}
+
+.export-checklist {
+    display: grid;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    overflow: hidden;
+}
+
+.form-group label.export-check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 18px;
+    font-weight: 400;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    min-height: 42px;
+    margin-bottom: 0;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.form-group label.export-check-row span {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+
+.export-check-row + .export-check-row {
+    border-top: 1px solid var(--border);
+}
+
+.export-check-row input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.export-check-row.disabled {
+    color: var(--text-tertiary);
+    background: transparent;
+}
+
+.export-selection-summary {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+}
+
+.export-selection-summary strong {
+    font-size: 0.95rem;
+}
+
+.export-selection-summary span {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+.export-memory-toggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.export-memory-toggle {
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.export-memory-toggle.active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent-text);
+}
+
+.export-memory-toggle:disabled {
+    opacity: 0.55;
+}
+
+.release-list {
+    display: grid;
+    gap: 0;
+}
+
+.release-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+}
+
+.release-row:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.release-row:last-child {
+    padding-bottom: 0;
+}
+
+.release-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.release-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.release-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.release-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.release-badge.current {
+    background: var(--accent-light);
+    color: var(--accent-text);
+}
+
+.release-badge.recommended {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.release-badge.channel {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.release-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.release-install-link {
+    flex: 0 0 auto;
+    min-width: 72px;
+    justify-content: center;
+}
+
+@media (max-width: 420px) {
+    .release-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .release-install-link {
+        width: 100%;
+    }
+}
+
+.info-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.info-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.danger-zone {
+    border-color: var(--danger);
+    border-style: dashed;
+}
+
+.about-section {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    line-height: 1.8;
+}
+

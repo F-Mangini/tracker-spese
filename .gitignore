@@ -1,2 +1,3 @@
 .tmp-cdp/
 .tmp-cdp-debug-*/
+.playwright-cli/

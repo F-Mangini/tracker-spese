@@ -38,9 +38,9 @@ La dev e stata verificata manualmente su Android dal maintainer ed e tornata al 
 | CR-08 | CSV fragile/lossy | Mitigato | JSON resta backup completo; CSV non e formato ideale per futuri dati complessi. |
 | CR-09 | Sanitizzazione rendering | Mitigato | I dati utente principali sono escapati; personalizzazioni future richiederanno disciplina ulteriore. |
 | CR-10 | Schema dati non versionato | Completato | Schema v1 presente; future feature richiederanno migrazioni idempotenti. |
-| CR-11 | CSS/mobile accoppiato | Aperto | Layout, z-index, fixed/sticky e tastiera restano delicati. |
+| CR-11 | CSS/mobile accoppiato | Mitigato | Fogli CSS divisi per area e scala `--z-*` esplicita in `base.css`; layout `fixed`/`sticky` e tastiera restano delicati. |
 | CR-12 | Letture/render ripetuti | Mitigato | Cache e query riducono ricalcoli; misurare prima di ottimizzare oltre. |
-| CR-13 | Categorie/metodi statici | Aperto | Da riprogettare prima della personalizzazione. |
+| CR-13 | Categorie/metodi statici | Mitigato | Categorie, metodi e colori sono ora centralizzati nel registro `Catalog` in `domain/categories.js`; resta la persistenza delle personalizzazioni utente in fase dedicata. |
 | CR-14 | Manifest/PWA incompleti | Mitigato | Manifest, prima cache release-scoped, launcher stable e UI versioni sono presenti; rivalutare quando verranno pubblicate nuove release o cambi schema. |
 | CR-15 | Accessibilita/semantica | Aperto | Dropdown custom, label e zoom sono migliorabili. |
 | CR-16 | Cleanup minori | Aperto | Da gestire localmente, senza mescolare con feature grandi. |

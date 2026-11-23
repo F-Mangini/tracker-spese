@@ -28,11 +28,19 @@ const AppUI = (() => {
     }
 
     function getCategory(id, categories) {
+        if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getCategory === 'function') {
+            return Catalog.getCategory(id, Array.isArray(categories) ? categories : null);
+        }
+
         const list = Array.isArray(categories) ? categories : [];
         return list.find(category => category.id === id) || list[list.length - 1] || {};
     }
 
     function getMethod(id, methods) {
+        if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getMethod === 'function') {
+            return Catalog.getMethod(id, Array.isArray(methods) ? methods : null);
+        }
+
         const list = Array.isArray(methods) ? methods : [];
         return list.find(method => method.id === id) || list[0] || {};
     }

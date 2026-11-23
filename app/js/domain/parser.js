@@ -3,7 +3,23 @@
    ============================================ */
 
 const Parser = {
-    parse(input) {
+    _getCategories(options = {}) {
+        if (options && Array.isArray(options.categories)) return options.categories;
+        if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getCategories === 'function') {
+            return Catalog.getCategories();
+        }
+        return typeof CATEGORIES !== 'undefined' && Array.isArray(CATEGORIES) ? CATEGORIES : [];
+    },
+
+    _getPaymentMethods(options = {}) {
+        if (options && Array.isArray(options.methods)) return options.methods;
+        if (typeof Catalog !== 'undefined' && Catalog && typeof Catalog.getPaymentMethods === 'function') {
+            return Catalog.getPaymentMethods();
+        }
+        return typeof PAYMENT_METHODS !== 'undefined' && Array.isArray(PAYMENT_METHODS) ? PAYMENT_METHODS : [];
+    },
+
+    parse(input, options = {}) {
         input = String(input || '').trim();
         if (!input) return null;
 
@@ -16,7 +32,7 @@ const Parser = {
             .replace(/\s+/g, ' ')
             .trim();
 
-        const forcedCategoryInfo = this._extractForcedCategory(descrizione);
+        const forcedCategoryInfo = this._extractForcedCategory(descrizione, options);
         descrizione = forcedCategoryInfo.text;
 
         const tags = [];
@@ -29,7 +45,7 @@ const Parser = {
 
         descrizione = descrizione.replace(tagRegex, '').replace(/\s+/g, ' ').trim();
 
-        const paymentInfo = this._detectPaymentInfo(descrizione.toLowerCase());
+        const paymentInfo = this._detectPaymentInfo(descrizione.toLowerCase(), options);
         const metodo = paymentInfo.id;
 
         if (paymentInfo.keyword) {
@@ -43,7 +59,7 @@ const Parser = {
         return {
             importo: Math.round(amountMatch.value * 100) / 100,
             descrizione,
-            categoria: forcedCategoryInfo.category || this._detectCategory(input.toLowerCase()),
+            categoria: forcedCategoryInfo.category || this._detectCategory(input.toLowerCase(), options),
             metodo,
             data: new Date().toISOString(),
             tags,
@@ -157,10 +173,10 @@ const Parser = {
             .replace(/[^a-z0-9]/g, '');
     },
 
-    _extractForcedCategory(text) {
+    _extractForcedCategory(text, options = {}) {
         const categoryByToken = new Map();
 
-        for (const category of CATEGORIES) {
+        for (const category of this._getCategories(options)) {
             [category.id, category.nome].forEach(token => {
                 const normalized = this._normalizeCategoryToken(token);
                 if (normalized) categoryByToken.set(normalized, category.id);
@@ -183,14 +199,17 @@ const Parser = {
         };
     },
 
-    _detectCategory(text) {
+    _detectCategory(text, options = {}) {
+        const defaultCategoryId = (typeof Catalog !== 'undefined' && Catalog && Catalog.DEFAULT_CATEGORY_ID)
+            ? Catalog.DEFAULT_CATEGORY_ID
+            : 'altro';
         let firstMatchIndex = -1;
-        let matchedCategory = 'altro';
+        let matchedCategory = defaultCategoryId;
 
-        for (const cat of CATEGORIES) {
-            if (cat.id === 'altro') continue;
+        for (const cat of this._getCategories(options)) {
+            if (cat.id === defaultCategoryId) continue;
 
-            for (const keyword of cat.keywords) {
+            for (const keyword of (cat.keywords || [])) {
                 const match = this._findKeywordMatch(text, keyword);
                 if (match && (firstMatchIndex === -1 || match.index < firstMatchIndex)) {
                     firstMatchIndex = match.index;
@@ -202,9 +221,16 @@ const Parser = {
         return matchedCategory;
     },
 
-    _detectPaymentInfo(text) {
-        for (const method of PAYMENT_METHODS) {
-            if (method.id === 'altro_pag' || !method.keywords) continue;
+    _detectPaymentInfo(text, options = {}) {
+        const defaultMethodId = (typeof Catalog !== 'undefined' && Catalog && Catalog.DEFAULT_METHOD_ID)
+            ? Catalog.DEFAULT_METHOD_ID
+            : 'carta';
+        const fallbackMethodId = (typeof Catalog !== 'undefined' && Catalog && Catalog.FALLBACK_METHOD_ID)
+            ? Catalog.FALLBACK_METHOD_ID
+            : 'altro_pag';
+
+        for (const method of this._getPaymentMethods(options)) {
+            if (method.id === fallbackMethodId || !method.keywords) continue;
 
             for (const keyword of method.keywords) {
                 const match = this._findKeywordMatch(text, keyword);
@@ -214,6 +240,6 @@ const Parser = {
             }
         }
 
-        return { id: 'carta', keyword: null };
+        return { id: defaultMethodId, keyword: null };
     }
 };

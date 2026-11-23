@@ -1,0 +1,58 @@
+/* ============================================
+   UTILITIES & RESPONSIVE
+   ============================================ */
+.hidden {
+    display: none !important;
+}
+
+.no-scroll {
+    overflow: hidden !important;
+}
+
+body.no-scroll #app-main {
+    overflow: hidden !important;
+}
+
+/* Nascondi barra di scorrimento su tutte le pagine (tranne Timeline) e componenti */
+#app-main:has(#page-timeline.hidden),
+.filter-panel-scroll,
+.modal-body,
+.sd-list {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#app-main:has(#page-timeline.hidden)::-webkit-scrollbar,
+.filter-panel-scroll::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.sd-list::-webkit-scrollbar {
+    display: none;
+}
+
+@media (min-width: 600px) {
+    #app-main {
+        max-width: 540px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .modal {
+        border-radius: var(--radius);
+        margin-bottom: 10vh;
+        max-height: 80vh;
+    }
+
+    .overlay {
+        align-items: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-panel,
+    #app-main,
+    #timeline-summary,
+    #page-timeline::before {
+        animation: none;
+        transition: none;
+    }
+}

@@ -32,6 +32,10 @@ const ExpenseSubmitController = (() => {
     }
 
     function getCategoryForToast(options, spesa) {
+        if (typeof options.getCategory === 'function') {
+            return options.getCategory(spesa.categoria) || { emoji: '' };
+        }
+
         const ui = getUi(options);
         if (!ui || typeof ui.getCategory !== 'function') return { emoji: '' };
         return ui.getCategory(spesa.categoria, options.categories || []) || { emoji: '' };

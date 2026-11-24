@@ -697,9 +697,13 @@ export default function register(test) {
             /display\s*:\s*none/
         ], 'bottom-nav keyboard hide');
 
-        assertRuleMatches(/^\s*body\.ios-expense-input-active #input-bar\s*\{([^}]*)\}/m, [
+        assertRuleMatches(/^\s*body\.vv-keyboard-open #input-bar\s*\{([^}]*)\}/m, [
             /bottom\s*:\s*0/
-        ], 'body.ios-expense-input-active #input-bar');
+        ], 'body.vv-keyboard-open #input-bar');
+        assert(
+            !/body\.ios-expense-input-active #input-bar\s*\{[^}]*bottom\s*:\s*0/.test(css),
+            '#input-bar non deve spostarsi subito a bottom: 0 prima che si apra la tastiera'
+        );
 
         assertRuleMatches(/^\s*#timeline-summary\s*\{([^}]*)\}/m, [
             /position\s*:\s*fixed/,

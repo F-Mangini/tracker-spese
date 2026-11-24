@@ -4,6 +4,8 @@
 
 export const ExpenseInputController = (() => {
     const TAP_MOVE_LIMIT = 10;
+    const INPUT_BAR_CLICK_SUPPRESS_MS = 700;
+    const SCROLL_CLICK_SUPPRESS_MS = 400;
 
     function call(fn, ...args) {
         if (typeof fn === 'function') return fn(...args);
@@ -153,11 +155,22 @@ export const ExpenseInputController = (() => {
 
         if (typeof activeDocument.addEventListener === 'function') {
             let outsideTouch = null;
+            let lastInputBarInteractionTime = 0;
+            let lastScrollDragTime = 0;
 
             activeDocument.addEventListener('touchstart', event => {
+                lastScrollDragTime = 0;
+                const target = event && event.target;
+                if (isInsideElement(target, inputBar)) {
+                    lastInputBarInteractionTime = Date.now();
+                    outsideTouch = null;
+                    return;
+                }
+
+                lastInputBarInteractionTime = 0;
                 const touches = event && event.touches;
                 const touch = touches && touches[0];
-                if (!touch || (touches && touches.length > 1) || !shouldDismissForTarget(event && event.target)) {
+                if (!touch || (touches && touches.length > 1) || !shouldDismissForTarget(target)) {
                     outsideTouch = null;
                     return;
                 }
@@ -166,8 +179,18 @@ export const ExpenseInputController = (() => {
                     x: Number(touch.clientX || 0),
                     y: Number(touch.clientY || 0),
                     moved: false,
-                    target: event.target
+                    target
                 };
+            }, { capture: true, passive: true });
+
+            activeDocument.addEventListener('mousedown', event => {
+                const target = event && event.target;
+                if (isInsideElement(target, inputBar)) {
+                    lastInputBarInteractionTime = Date.now();
+                    return;
+                }
+
+                lastInputBarInteractionTime = 0;
             }, { capture: true, passive: true });
 
             activeDocument.addEventListener('touchmove', event => {
@@ -207,12 +230,25 @@ export const ExpenseInputController = (() => {
                 const target = (event && event.target) || outsideTouch.target;
                 outsideTouch = null;
 
-                if (moved || !shouldDismissForTarget(target)) return;
+                if (moved) {
+                    lastScrollDragTime = Date.now();
+                    return;
+                }
+
+                lastScrollDragTime = 0;
+                if (!shouldDismissForTarget(target)) return;
 
                 blurExpenseInput();
             }, { capture: true, passive: true });
 
             activeDocument.addEventListener('click', event => {
+                const now = Date.now();
+                if (
+                    (lastInputBarInteractionTime > 0 && now - lastInputBarInteractionTime < INPUT_BAR_CLICK_SUPPRESS_MS) ||
+                    (lastScrollDragTime > 0 && now - lastScrollDragTime < SCROLL_CLICK_SUPPRESS_MS)
+                ) {
+                    return;
+                }
                 if (!shouldDismissForTarget(event && event.target)) return;
                 blurExpenseInput();
             }, { capture: true, passive: true });

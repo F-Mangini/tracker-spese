@@ -826,14 +826,15 @@ export default function register(test) {
             clearTimeout: () => { }
         });
 
-        // Drag verticale (> 10px) non deve chiudere la tastiera
+        // Drag verticale (> 10px) non deve chiudere la tastiera, neanche se segue un click spurio
         docListeners.touchstart({ target: summary, touches: [{ clientX: 100, clientY: 200 }] });
         docListeners.touchmove({ touches: [{ clientX: 100, clientY: 160 }] });
         docListeners.touchend({ target: summary, changedTouches: [{ clientX: 100, clientY: 160 }] });
+        docListeners.click({ target: summary });
         assert.equal(blurCount, 0);
         assert.equal(active, true);
 
-        // Tap dentro #input-bar non deve chiudere la tastiera
+        // Tap dentro #input-bar (#btn-send) non deve chiudere la tastiera
         docListeners.touchstart({ target: btnSend, touches: [{ clientX: 300, clientY: 700 }] });
         docListeners.touchend({ target: btnSend, changedTouches: [{ clientX: 300, clientY: 701 }] });
         assert.equal(blurCount, 0);
@@ -843,15 +844,27 @@ export default function register(test) {
         docListeners.touchend({ target: searchInput, changedTouches: [{ clientX: 121, clientY: 80 }] });
         assert.equal(blurCount, 0);
 
-        // Tap fuori su un elemento non interattivo chiude la tastiera
+        // Interazione iniziata dentro #input-bar sopprime click spuri finiti fuori al cambio layout
+        docListeners.touchstart({ target: input, touches: [{ clientX: 120, clientY: 700 }] });
+        docListeners.touchend({ target: input, changedTouches: [{ clientX: 120, clientY: 700 }] });
+        docListeners.click({ target: summary });
+        assert.equal(blurCount, 0);
+        assert.equal(active, true);
+
+        // Un nuovo touchstart fuori da #input-bar sblocca subito il dismiss
         docListeners.touchstart({ target: summary, touches: [{ clientX: 100, clientY: 120 }] });
         docListeners.touchend({ target: summary, changedTouches: [{ clientX: 102, clientY: 122 }] });
         assert.equal(blurCount, 1);
         assert.equal(active, false);
 
-        // Fallback click e retry differito quando iOS ignora blur sincrono in touchend
+        // Mouse/click reale fuori con mousedown precedente chiude comunque e attiva retry iOS
         active = true;
         doc.activeElement = input;
+        docListeners.mousedown({ target: btnSend });
+        docListeners.click({ target: summary });
+        assert.equal(blurCount, 1, 'mousedown interno sopprime click esterno imminente');
+
+        docListeners.mousedown({ target: summary });
         ignoreSyncBlur = true;
         docListeners.click({ target: summary });
         assert.equal(blurCount, 2);

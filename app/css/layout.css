@@ -171,7 +171,7 @@ body.ios-expense-input-active #bottom-nav {
     display: none;
 }
 
-body.ios-expense-input-active #input-bar {
+body.vv-keyboard-open #input-bar {
     bottom: 0;
 }
 

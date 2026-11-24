@@ -1247,4 +1247,239 @@ export default function register(test) {
         assert.equal(QuickFilterController.handleLongPress(options, state), 'activated');
         assert.equal(toasts[0][0], 'success');
     });
+
+    test('Selettori periodo filtri evitano blur su change su iPhone/iPad ma mantengono il comportamento standard altrove', () => {
+        const { FilterController } = loadUiViews();
+
+        function setupDateTest(navigatorLike) {
+            let filterChanges = 0;
+            let activeElement = null;
+
+            function makeClassList() {
+                const classes = new Set();
+                return {
+                    add(cls) { classes.add(cls); },
+                    remove(cls) { classes.delete(cls); },
+                    toggle(cls, force) {
+                        const on = force === undefined ? !classes.has(cls) : !!force;
+                        if (on) classes.add(cls);
+                        else classes.delete(cls);
+                    },
+                    contains(cls) { return classes.has(cls); }
+                };
+            }
+
+            function makeDateEl(id) {
+                const el = {
+                    id,
+                    value: '',
+                    blurCount: 0,
+                    listeners: {},
+                    classList: makeClassList(),
+                    addEventListener(event, handler) {
+                        this.listeners[event] = handler;
+                    },
+                    focus() {
+                        activeElement = el;
+                        if (this.listeners.focus) this.listeners.focus();
+                    },
+                    blur() {
+                        this.blurCount += 1;
+                        if (activeElement === el) activeElement = null;
+                        if (this.listeners.blur) this.listeners.blur();
+                    }
+                };
+                return el;
+            }
+
+            const dateFrom = makeDateEl('filter-date-from');
+            const dateTo = makeDateEl('filter-date-to');
+            const elements = {
+                'filter-date-from': dateFrom,
+                'filter-date-to': dateTo
+            };
+            const filters = {
+                query: '',
+                categories: new Set(),
+                excludedCategories: new Set(),
+                methods: new Set(),
+                excludedMethods: new Set(),
+                amountMin: 0,
+                amountMax: Infinity,
+                dateFrom: '',
+                dateTo: '',
+                selectedOnly: false,
+                excludedSelectedOnly: false,
+                selectedOnlyIds: new Set()
+            };
+
+            FilterController.init({
+                document: {
+                    getElementById: id => elements[id] || null,
+                    querySelectorAll: () => [],
+                    addEventListener: () => {}
+                },
+                window: { navigator: navigatorLike },
+                filters,
+                categories: [],
+                methods: [],
+                getSpese: () => [],
+                onFilterChange: () => { filterChanges += 1; }
+            });
+
+            return {
+                dateFrom,
+                dateTo,
+                filters,
+                getFilterChanges: () => filterChanges,
+                getActiveElement: () => activeElement
+            };
+        }
+
+        const androidCtx = setupDateTest({ userAgent: 'Mozilla/5.0 (Linux; Android 14)', platform: 'Linux armv8l', maxTouchPoints: 5 });
+        androidCtx.dateFrom.focus();
+        androidCtx.dateFrom.value = '2026-05-01';
+        androidCtx.dateFrom.listeners.change();
+        assert.equal(androidCtx.filters.dateFrom, '2026-05-01');
+        assert.equal(androidCtx.getFilterChanges(), 1);
+        assert.equal(androidCtx.dateFrom.blurCount, 1);
+        assert.equal(androidCtx.getActiveElement(), null);
+        assert(androidCtx.dateFrom.classList.contains('date-picked'));
+
+        const iphoneCtx = setupDateTest({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 });
+        iphoneCtx.dateFrom.focus();
+        iphoneCtx.dateFrom.value = '2026-11-24';
+        iphoneCtx.dateFrom.listeners.change();
+        assert.equal(iphoneCtx.filters.dateFrom, '2026-11-24');
+        assert.equal(iphoneCtx.getFilterChanges(), 1);
+        assert.equal(iphoneCtx.dateFrom.blurCount, 0);
+        assert.equal(iphoneCtx.getActiveElement(), iphoneCtx.dateFrom);
+        assert(!iphoneCtx.dateFrom.classList.contains('date-picked'));
+
+        iphoneCtx.dateFrom.value = '2026-11-10';
+        iphoneCtx.dateFrom.listeners.change();
+        assert.equal(iphoneCtx.filters.dateFrom, '2026-11-10');
+        assert.equal(iphoneCtx.getFilterChanges(), 2);
+        assert.equal(iphoneCtx.dateFrom.blurCount, 0);
+        assert.equal(iphoneCtx.getActiveElement(), iphoneCtx.dateFrom);
+
+        iphoneCtx.dateFrom.blur();
+        assert.equal(iphoneCtx.getFilterChanges(), 2);
+        assert(iphoneCtx.dateFrom.classList.contains('date-picked'));
+
+        iphoneCtx.dateTo.focus();
+        iphoneCtx.dateTo.value = '2026-11-24';
+        iphoneCtx.dateTo.listeners.change();
+        assert.equal(iphoneCtx.getFilterChanges(), 3);
+        iphoneCtx.dateTo.value = '';
+        iphoneCtx.dateTo.blur();
+        assert.equal(iphoneCtx.filters.dateTo, '');
+        assert.equal(iphoneCtx.getFilterChanges(), 4);
+        assert(!iphoneCtx.dateTo.classList.contains('date-picked'));
+
+        const ipadCtx = setupDateTest({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', platform: 'MacIntel', maxTouchPoints: 5 });
+        ipadCtx.dateFrom.focus();
+        ipadCtx.dateFrom.value = '2026-05-10';
+        ipadCtx.dateFrom.listeners.change();
+        assert.equal(ipadCtx.dateFrom.blurCount, 0);
+        assert.equal(ipadCtx.getActiveElement(), ipadCtx.dateFrom);
+    });
+
+    test('Pannello filtri blocca drag orizzontali e aree non scrollabili preservando scroll verticale, slider e search', () => {
+        const { FilterController } = loadUiViews();
+        const panelListeners = {};
+        const scrollContainer = {
+            scrollHeight: 300,
+            clientHeight: 120
+        };
+        const panel = {
+            classList: {
+                add() {},
+                remove() {},
+                toggle() {},
+                contains() { return false; }
+            },
+            addEventListener(event, handler) {
+                panelListeners[event] = handler;
+            }
+        };
+        const filters = {
+            query: '',
+            categories: new Set(),
+            excludedCategories: new Set(),
+            methods: new Set(),
+            excludedMethods: new Set(),
+            amountMin: 0,
+            amountMax: Infinity,
+            dateFrom: '',
+            dateTo: '',
+            selectedOnly: false,
+            excludedSelectedOnly: false,
+            selectedOnlyIds: new Set()
+        };
+
+        FilterController.init({
+            document: {
+                getElementById: id => (id === 'filter-panel' ? panel : null),
+                querySelectorAll: () => [],
+                addEventListener: () => {}
+            },
+            filters,
+            categories: [],
+            methods: [],
+            getSpese: () => []
+        });
+
+        function targetWith(matches) {
+            return {
+                closest(selector) {
+                    const parts = String(selector).split(',').map(part => part.trim());
+                    for (const part of parts) {
+                        if (matches[part]) return matches[part];
+                    }
+                    return null;
+                }
+            };
+        }
+
+        function runMove(target, start, end) {
+            let prevented = false;
+            panelListeners.touchstart({ touches: [{ clientX: start[0], clientY: start[1] }] });
+            panelListeners.touchmove({
+                target,
+                touches: [{ clientX: end[0], clientY: end[1] }],
+                preventDefault() { prevented = true; }
+            });
+            panelListeners.touchend({});
+            return prevented;
+        }
+
+        const footerTarget = targetWith({});
+        assert.equal(runMove(footerTarget, [100, 100], [100, 120]), true);
+
+        const chipTarget = targetWith({ '.filter-panel-scroll': scrollContainer });
+        assert.equal(runMove(chipTarget, [100, 100], [120, 102]), true);
+        assert.equal(runMove(chipTarget, [100, 100], [102, 125]), false);
+
+        scrollContainer.scrollHeight = 120;
+        assert.equal(runMove(chipTarget, [100, 100], [102, 125]), true);
+        scrollContainer.scrollHeight = 300;
+
+        const rangeTarget = targetWith({
+            'input[type="range"]': { tagName: 'INPUT' },
+            'input': { tagName: 'INPUT' },
+            '.filter-panel-scroll': scrollContainer
+        });
+        assert.equal(runMove(rangeTarget, [100, 100], [140, 100]), false);
+
+        const scrollableSearch = { tagName: 'TEXTAREA', readOnly: false, scrollWidth: 200, clientWidth: 120 };
+        const searchTarget = targetWith({
+            'textarea': scrollableSearch,
+            '.filter-panel-scroll': scrollContainer
+        });
+        assert.equal(runMove(searchTarget, [100, 100], [130, 100]), false);
+
+        scrollableSearch.scrollWidth = 120;
+        assert.equal(runMove(searchTarget, [100, 100], [130, 100]), true);
+    });
 };

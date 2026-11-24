@@ -514,6 +514,7 @@ export const AppWiring = (() => {
         function filterOptions() {
             return {
                 document: deps.document,
+                window: deps.window,
                 body: deps.document.body,
                 filters: app.filters,
                 categories: getCategories(),

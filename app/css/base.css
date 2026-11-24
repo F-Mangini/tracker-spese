@@ -78,8 +78,11 @@
 }
 
 html {
+    width: 100%;
     height: 100%;
     -webkit-text-size-adjust: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     overscroll-behavior-x: none;
 }
 
@@ -95,6 +98,8 @@ textarea {
 
 body {
     display: flow-root;
+    width: 100%;
+    max-width: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);

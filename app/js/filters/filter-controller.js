@@ -7,6 +7,7 @@ import { StatsData } from '../domain/stats.js';
 import { FilterView } from './filter-view.js';
 import { QuickFilterController } from './quick-filter-controller.js';
 import { UIStack } from '../navigation/ui-stack.js';
+import { ModalMobileController } from '../modal/modal-mobile-controller.js';
 
 export const FilterController = (() => {
     const FILTER_LAYOUT_TRANSITION_MS = 200;
@@ -39,6 +40,21 @@ export const FilterController = (() => {
 
     function getWindow(options) {
         return options.window || (typeof window !== 'undefined' ? window : null);
+    }
+
+    function isAppleTouchDevice(options = {}) {
+        const win = getWindow(options);
+        const nav = options.navigator ||
+            (win && win.navigator) ||
+            (typeof navigator !== 'undefined' ? navigator : null);
+        if (!nav) return false;
+
+        const ua = String(nav.userAgent || '');
+        const platform = String(nav.platform || '');
+        const maxTouchPoints = Number(nav.maxTouchPoints || 0);
+
+        return /iP(?:hone|ad|od)/i.test(ua) ||
+            (platform === 'MacIntel' && maxTouchPoints > 1);
     }
 
     function getBody(options, doc) {
@@ -497,19 +513,40 @@ export const FilterController = (() => {
         buildChips(options, 'filter-methods', options.methods || [], options.filters.methods);
         initSlider(options);
 
+        const isAppleTouch = isAppleTouchDevice(options);
+
         [dateFrom, dateTo].forEach(el => {
             if (!el) return;
+
+            const applyDateValue = () => {
+                const nextValue = el.value || '';
+                const field = el === dateFrom ? 'dateFrom' : 'dateTo';
+                if (options.filters[field] === nextValue) return;
+                options.filters[field] = nextValue;
+                notifyFilterChange(options);
+            };
 
             el.addEventListener('click', () => {
                 el.classList.remove('date-picked');
             });
 
+            el.addEventListener('focus', () => {
+                el.classList.remove('date-picked');
+            });
+
             el.addEventListener('change', () => {
-                el.classList.add('date-picked');
-                if (el === dateFrom) options.filters.dateFrom = el.value;
-                else options.filters.dateTo = el.value;
-                notifyFilterChange(options);
-                try { el.blur(); } catch (_) { }
+                if (!isAppleTouch) {
+                    el.classList.add('date-picked');
+                }
+                applyDateValue();
+                if (!isAppleTouch) {
+                    try { el.blur(); } catch (_) { }
+                }
+            });
+
+            el.addEventListener('blur', () => {
+                applyDateValue();
+                el.classList.toggle('date-picked', !!el.value);
             });
         });
 
@@ -558,14 +595,11 @@ export const FilterController = (() => {
 
         const panel = doc.getElementById('filter-panel');
         if (panel) {
-            panel.addEventListener('touchmove', e => {
-                const target = e.target;
-                const isInsideScroll = target &&
-                    typeof target.closest === 'function' &&
-                    target.closest('.filter-panel-scroll');
-
-                if (!isInsideScroll) e.preventDefault();
-            }, { passive: false });
+            ModalMobileController.bindVerticalTouchLock(panel, {
+                scrollSelector: '.filter-panel-scroll',
+                bypassSelector: 'input[type="range"], textarea',
+                nativeFieldSelector: 'input, textarea, select'
+            });
         }
     }
 

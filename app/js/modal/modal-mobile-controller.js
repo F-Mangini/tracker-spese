@@ -319,6 +319,113 @@ export const ModalMobileController = (() => {
         }
     }
 
+    function closestTarget(target, selector) {
+        return target && typeof target.closest === 'function'
+            ? target.closest(selector)
+            : null;
+    }
+
+    function canScrollElementHorizontally(el) {
+        if (!el || el.readOnly) return false;
+        if (Number.isFinite(el.scrollWidth) && Number.isFinite(el.clientWidth)) {
+            return el.scrollWidth > el.clientWidth;
+        }
+        return true;
+    }
+
+    /**
+     * Prevents horizontal and non-scrollable rubber-band touch dragging while
+     * preserving vertical scrolling inside configured containers.
+     */
+    function bindVerticalTouchLock(container, config = {}) {
+        if (!container || typeof container.addEventListener !== 'function') return false;
+
+        const scrollSelector = config.scrollSelector || '';
+        const bypassSelector = config.bypassSelector || '';
+        const nativeFieldSelector = config.nativeFieldSelector || '';
+        let touchStart = null;
+        let lockedAxis = null;
+
+        const resetTouch = () => {
+            touchStart = null;
+            lockedAxis = null;
+        };
+
+        container.addEventListener('touchstart', event => {
+            const touch = event && event.touches && event.touches[0];
+            touchStart = touch
+                ? { x: Number(touch.clientX || 0), y: Number(touch.clientY || 0) }
+                : null;
+            lockedAxis = null;
+        }, { passive: true });
+
+        container.addEventListener('touchmove', event => {
+            if (!event) return;
+            const target = event.target;
+
+            if (bypassSelector) {
+                const bypassEl = closestTarget(target, bypassSelector);
+                if (bypassEl) {
+                    const isTextarea = String(bypassEl.tagName || '').toUpperCase() === 'TEXTAREA';
+                    if (!isTextarea || canScrollElementHorizontally(bypassEl)) {
+                        return;
+                    }
+                }
+            }
+
+            const scrollEl = scrollSelector ? closestTarget(target, scrollSelector) : null;
+            const cannotScrollVertically = !!scrollEl &&
+                Number.isFinite(scrollEl.scrollHeight) &&
+                Number.isFinite(scrollEl.clientHeight) &&
+                scrollEl.scrollHeight <= scrollEl.clientHeight;
+            const isNativeField = nativeFieldSelector && !!closestTarget(target, nativeFieldSelector);
+
+            if (!scrollEl || (cannotScrollVertically && !isNativeField)) {
+                if (typeof event.preventDefault === 'function') event.preventDefault();
+                return;
+            }
+
+            const touch = event.touches && event.touches[0];
+            if (!touchStart || !touch) return;
+
+            const dx = Number(touch.clientX || 0) - touchStart.x;
+            const dy = Number(touch.clientY || 0) - touchStart.y;
+
+            if (!lockedAxis && Math.max(Math.abs(dx), Math.abs(dy)) >= 6) {
+                lockedAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+            }
+
+            if (lockedAxis === 'x' && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        container.addEventListener('touchend', resetTouch, { passive: true });
+        container.addEventListener('touchcancel', resetTouch, { passive: true });
+
+        return true;
+    }
+
+    function bindOverlayTouchLock(options = {}) {
+        const doc = getDocument(options);
+        if (!doc || typeof doc.querySelectorAll !== 'function') return 0;
+
+        const overlays = Array.from(doc.querySelectorAll('.overlay') || []);
+        let boundCount = 0;
+
+        overlays.forEach(overlay => {
+            if (bindVerticalTouchLock(overlay, {
+                scrollSelector: '.modal-body, .sd-list',
+                bypassSelector: 'textarea',
+                nativeFieldSelector: 'input, textarea, select'
+            })) {
+                boundCount += 1;
+            }
+        });
+
+        return boundCount;
+    }
+
     return {
         getViewportHeight,
         getOpenDropdown,
@@ -331,6 +438,8 @@ export const ModalMobileController = (() => {
         handleViewportChange,
         startViewportWatch,
         stopViewportWatch,
-        blurPickerOnReturn
+        blurPickerOnReturn,
+        bindVerticalTouchLock,
+        bindOverlayTouchLock
     };
 })();

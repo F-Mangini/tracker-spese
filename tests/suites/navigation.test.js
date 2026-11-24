@@ -602,4 +602,73 @@ export default function register(test) {
             );
         });
     });
+
+    test('CSS blocca overflow orizzontale di filtri, modali e selettori data/ora su mobile', () => {
+        const css = readAppCss();
+
+        function assertRuleMatches(selectorRegex, checks, label) {
+            const match = css.match(selectorRegex);
+            assert(match, `Regola CSS ${label} non trovata`);
+            checks.forEach(pattern => {
+                assert(pattern.test(match[1]), `Regola ${label} manca di ${pattern}`);
+            });
+        }
+
+        assertRuleMatches(/^\s*html\s*\{([^}]*)\}/m, [
+            /overflow\s*:\s*hidden/,
+            /overscroll-behavior\s*:\s*none/
+        ], 'html');
+
+        assertRuleMatches(/^\s*\.filter-panel-scroll\s*\{([^}]*)\}/m, [
+            /overflow-x\s*:\s*hidden/,
+            /overscroll-behavior-x\s*:\s*none/,
+            /touch-action\s*:\s*pan-y/
+        ], '.filter-panel-scroll');
+
+        assertRuleMatches(/^\s*\.overlay\s*\{([^}]*)\}/m, [
+            /overflow\s*:\s*hidden/,
+            /overscroll-behavior\s*:\s*none/,
+            /touch-action\s*:\s*pan-y/
+        ], '.overlay');
+
+        assertRuleMatches(/^\s*\.modal-body\s*\{([^}]*)\}/m, [
+            /overflow-x\s*:\s*hidden/,
+            /overscroll-behavior-x\s*:\s*none/,
+            /touch-action\s*:\s*pan-y/
+        ], '.modal-body');
+
+        assertRuleMatches(/^\s*\.sd-list\s*\{([^}]*)\}/m, [
+            /overflow-x\s*:\s*hidden/,
+            /overscroll-behavior-x\s*:\s*none/,
+            /touch-action\s*:\s*pan-y/
+        ], '.sd-list');
+
+        assertRuleMatches(/^\s*\.date-filter-row\s*\{([^}]*)\}/m, [
+            /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/
+        ], '.date-filter-row');
+
+        assertRuleMatches(/^\s*\.date-field\s*\{([^}]*)\}/m, [
+            /min-width\s*:\s*0/
+        ], '.date-field');
+
+        assertRuleMatches(/^\s*\.date-field input\[type="date"\]\s*\{([^}]*)\}/m, [
+            /min-width\s*:\s*0/,
+            /max-width\s*:\s*100%/,
+            /-webkit-appearance\s*:\s*none/,
+            /appearance\s*:\s*none/
+        ], '.date-field input[type="date"]');
+
+        assertRuleMatches(/^\s*\.form-row\s*\{([^}]*)\}/m, [
+            /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/
+        ], '.form-row');
+
+        assertRuleMatches(/^\s*\.flex-1\s*\{([^}]*)\}/m, [
+            /min-width\s*:\s*0/
+        ], '.flex-1');
+
+        assertRuleMatches(/^\s*\.form-group input\[type="date"\],\s*\.form-group input\[type="time"\]\s*\{([^}]*)\}/m, [
+            /-webkit-appearance\s*:\s*none/,
+            /appearance\s*:\s*none/
+        ], '.form-group input[type="date"], .form-group input[type="time"]');
+    });
 };

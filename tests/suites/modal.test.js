@@ -1102,4 +1102,85 @@ export default function register(test) {
         timers[timers.length - 1].callback();
         assert(elements['modal-overlay'].classList.contains('hidden'));
     });
+
+    test('Controller mobile modale blocca lo scroll orizzontale sugli overlay preservando scroll verticale e campi editabili', () => {
+        const { ModalMobileController } = loadUiViews();
+
+        function makeOverlay() {
+            const listeners = {};
+            return {
+                listeners,
+                addEventListener(event, handler) {
+                    listeners[event] = handler;
+                }
+            };
+        }
+
+        const editOverlay = makeOverlay();
+        const exportOverlay = makeOverlay();
+        const boundCount = ModalMobileController.bindOverlayTouchLock({
+            document: {
+                querySelectorAll: selector => (selector === '.overlay' ? [editOverlay, exportOverlay] : [])
+            }
+        });
+
+        assert.equal(boundCount, 2);
+
+        const modalBody = { scrollHeight: 500, clientHeight: 300 };
+        const sdList = { scrollHeight: 220, clientHeight: 144 };
+
+        function targetWith(matches) {
+            return {
+                closest(selector) {
+                    const parts = String(selector).split(',').map(part => part.trim());
+                    for (const part of parts) {
+                        if (matches[part]) return matches[part];
+                    }
+                    return null;
+                }
+            };
+        }
+
+        function runMove(overlay, target, start, end) {
+            let prevented = false;
+            overlay.listeners.touchstart({ touches: [{ clientX: start[0], clientY: start[1] }] });
+            overlay.listeners.touchmove({
+                target,
+                touches: [{ clientX: end[0], clientY: end[1] }],
+                preventDefault() { prevented = true; }
+            });
+            overlay.listeners.touchend({});
+            return prevented;
+        }
+
+        const backdropTarget = targetWith({});
+        assert.equal(runMove(editOverlay, backdropTarget, [100, 100], [100, 130]), true);
+
+        const bodyTarget = targetWith({ '.modal-body': modalBody });
+        assert.equal(runMove(editOverlay, bodyTarget, [100, 100], [122, 102]), true);
+        assert.equal(runMove(editOverlay, bodyTarget, [100, 100], [102, 128]), false);
+
+        modalBody.scrollHeight = 280;
+        assert.equal(runMove(editOverlay, bodyTarget, [100, 100], [102, 128]), true);
+        modalBody.scrollHeight = 500;
+
+        const editableTextarea = { tagName: 'TEXTAREA', readOnly: false, scrollWidth: 240, clientWidth: 160 };
+        const editableTarget = targetWith({
+            'textarea': editableTextarea,
+            '.modal-body': modalBody
+        });
+        assert.equal(runMove(editOverlay, editableTarget, [100, 100], [130, 100]), false);
+
+        const closedDropdownInput = { tagName: 'TEXTAREA', readOnly: true, scrollWidth: 160, clientWidth: 160 };
+        const closedDropdownTarget = targetWith({
+            'textarea': closedDropdownInput,
+            '.modal-body': modalBody
+        });
+        assert.equal(runMove(editOverlay, closedDropdownTarget, [100, 100], [130, 100]), true);
+        assert.equal(runMove(editOverlay, closedDropdownTarget, [100, 100], [100, 130]), false);
+
+        const listTarget = targetWith({ '.sd-list': sdList });
+        assert.equal(runMove(exportOverlay, listTarget, [50, 50], [70, 52]), true);
+        assert.equal(runMove(exportOverlay, listTarget, [50, 50], [52, 80]), false);
+    });
 };

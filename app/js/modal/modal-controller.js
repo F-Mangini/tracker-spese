@@ -146,6 +146,10 @@ export const ModalController = (() => {
         win.addEventListener('popstate', () => options.handlePopstate());
 
         formController.bindPlainFieldEnterBlur({ document: doc });
+
+        if (mobileController && typeof mobileController.bindOverlayTouchLock === 'function') {
+            mobileController.bindOverlayTouchLock({ document: doc });
+        }
     }
 
     function open(options = {}, id) {

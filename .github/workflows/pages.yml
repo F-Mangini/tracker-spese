@@ -16,21 +16,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Checkout stable branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           path: stable-src
 
       - name: Checkout dev branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: dev
           path: dev-src
@@ -74,20 +70,20 @@ jobs:
           EOF
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Clean up previous artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: github-pages
-          failOnError: false
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: public
-          overwrite: true
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

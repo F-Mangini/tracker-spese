@@ -4,7 +4,11 @@
 
 export const InputBarController = (() => {
     const KEYBOARD_VIEWPORT_THRESHOLD = 100;
+    const KEYBOARD_POLL_MS = 120;
     const keyboardTouchLocks = new WeakMap();
+    const baselineViewports = new WeakMap();
+    const keyboardPollTimers = new WeakMap();
+    const lastSyncedLayout = new WeakMap();
 
     function noop() { }
 
@@ -14,6 +18,52 @@ export const InputBarController = (() => {
 
     function getWindow(options) {
         return options.window || (typeof window !== 'undefined' ? window : null);
+    }
+
+    function isAppleTouchDevice(options = {}) {
+        const win = getWindow(options);
+        const nav = options.navigator ||
+            (win && win.navigator) ||
+            (typeof navigator !== 'undefined' ? navigator : null);
+        if (!nav) return false;
+
+        const ua = String(nav.userAgent || '');
+        const platform = String(nav.platform || '');
+        const maxTouchPoints = Number(nav.maxTouchPoints || 0);
+
+        return /iP(?:hone|ad|od)/i.test(ua) ||
+            (platform === 'MacIntel' && maxTouchPoints > 1);
+    }
+
+    function recordBaselineViewport(options = {}, forceReset = false) {
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object') return 0;
+
+        const doc = getDocument(options);
+        const vv = win.visualViewport;
+        const width = Math.round(Number(win.innerWidth || (vv && vv.width) || 0));
+        const innerH = Number(win.innerHeight) || 0;
+        const clientH = Number(doc && doc.documentElement && doc.documentElement.clientHeight) || 0;
+        const vvH = vv && Number.isFinite(vv.height) ? Number(vv.height) : 0;
+        const currentMax = Math.max(0, Math.round(Math.max(innerH, clientH, vvH)));
+        if (currentMax <= 0) return 0;
+
+        const prev = baselineViewports.get(win);
+        if (forceReset || !prev || (width > 0 && prev.width > 0 && Math.abs(prev.width - width) > 2)) {
+            baselineViewports.set(win, { width, height: currentMax });
+            return currentMax;
+        }
+
+        const nextHeight = Math.max(prev.height, currentMax);
+        baselineViewports.set(win, { width: width || prev.width, height: nextHeight });
+        return nextHeight;
+    }
+
+    function getBaselineHeight(options = {}) {
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object') return 0;
+        const entry = baselineViewports.get(win);
+        return entry ? entry.height : 0;
     }
 
     function getExpenseInputActive(options) {
@@ -52,8 +102,12 @@ export const InputBarController = (() => {
 
     function getVisualViewportMetrics(options = {}) {
         const win = getWindow(options);
+        const doc = getDocument(options);
         const vv = win && win.visualViewport;
+        const isAppleTouch = isAppleTouchDevice(options);
         const layoutHeight = Number(win && win.innerHeight) || 0;
+        const docHeight = Number(doc && doc.documentElement && doc.documentElement.clientHeight) || 0;
+        const effectiveLayoutHeight = Math.max(layoutHeight, docHeight);
 
         if (!vv || !Number.isFinite(vv.height)) {
             return {
@@ -61,25 +115,37 @@ export const InputBarController = (() => {
                 layoutHeight,
                 height: layoutHeight,
                 offsetTop: 0,
+                rawOffsetTop: 0,
                 keyboardHeight: 0,
                 bottomInset: 0,
-                isKeyboardOpen: false
+                isKeyboardOpen: false,
+                isAppleTouch
             };
         }
 
         const height = Math.max(0, Math.round(vv.height));
-        const offsetTop = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
-        const keyboardHeight = Math.max(0, Math.round(layoutHeight - vv.height));
-        const bottomInset = Math.max(0, Math.round(layoutHeight - (vv.offsetTop + vv.height)));
+        const rawOffsetTop = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
+        const maxOffsetTop = Math.max(0, Math.round(effectiveLayoutHeight - vv.height));
+        const offsetTop = Math.min(rawOffsetTop, maxOffsetTop);
+        const layoutGap = Math.max(0, Math.round(layoutHeight - vv.height));
+        const baselineHeight = getBaselineHeight(options);
+        const baselineGap = baselineHeight > 0 ? Math.max(0, Math.round(baselineHeight - vv.height)) : 0;
+        const keyboardHeight = isAppleTouch ? Math.max(layoutGap, baselineGap) : layoutGap;
+        const bottomInset = Math.max(0, Math.round(layoutHeight - (offsetTop + vv.height)));
+        const isKeyboardOpen = isAppleTouch
+            ? (keyboardHeight > KEYBOARD_VIEWPORT_THRESHOLD || rawOffsetTop > 0)
+            : (layoutGap > KEYBOARD_VIEWPORT_THRESHOLD);
 
         return {
             available: true,
             layoutHeight,
             height,
             offsetTop,
+            rawOffsetTop,
             keyboardHeight,
             bottomInset,
-            isKeyboardOpen: keyboardHeight > KEYBOARD_VIEWPORT_THRESHOLD
+            isKeyboardOpen,
+            isAppleTouch
         };
     }
 
@@ -89,18 +155,64 @@ export const InputBarController = (() => {
 
     function syncVisualViewportLayout(options = {}, allowActive = true) {
         const doc = getDocument(options);
+        const win = getWindow(options);
+        const isExpenseActive = allowActive && getExpenseInputActive(options);
+        const isAnyInputActive = allowActive && (isExpenseActive || getFilterSearchActive(options));
+
+        if (!isAnyInputActive) {
+            recordBaselineViewport(options);
+        }
+
         const metrics = getVisualViewportMetrics(options);
-        const isAnyInputActive = allowActive && (getExpenseInputActive(options) || getFilterSearchActive(options));
-        const shouldLockVisualViewport = isAnyInputActive && metrics.isKeyboardOpen;
         const bodyClassList = doc && doc.body && doc.body.classList;
+        const shouldHideIosBottomNav = isExpenseActive && metrics.isAppleTouch;
+
+        if (bodyClassList) {
+            if (shouldHideIosBottomNav && typeof bodyClassList.add === 'function') {
+                bodyClassList.add('ios-expense-input-active');
+            } else if (!shouldHideIosBottomNav && typeof bodyClassList.remove === 'function') {
+                bodyClassList.remove('ios-expense-input-active');
+            }
+        }
+
+        const shouldLockVisualViewport = isAnyInputActive && metrics.isKeyboardOpen;
 
         if (shouldLockVisualViewport) {
+            if (
+                win &&
+                Number(win.scrollY || 0) > 0 &&
+                Number(win.visualViewport && win.visualViewport.offsetTop || 0) === 0 &&
+                typeof win.scrollTo === 'function'
+            ) {
+                try { win.scrollTo(0, 0); } catch (_) { }
+            }
+
             if (bodyClassList && typeof bodyClassList.add === 'function') {
                 bodyClassList.add('vv-keyboard-open');
             }
             setRootVar(doc, '--vv-offset-top', `${metrics.offsetTop}px`);
             setRootVar(doc, '--vv-height', `${metrics.height}px`);
             setRootVar(doc, '--vv-bottom-inset', `${metrics.bottomInset}px`);
+
+            if (doc && typeof doc === 'object') {
+                const prev = lastSyncedLayout.get(doc);
+                if (
+                    !prev ||
+                    prev.offsetTop !== metrics.offsetTop ||
+                    prev.height !== metrics.height ||
+                    prev.bottomInset !== metrics.bottomInset
+                ) {
+                    lastSyncedLayout.set(doc, {
+                        offsetTop: metrics.offsetTop,
+                        height: metrics.height,
+                        bottomInset: metrics.bottomInset
+                    });
+                    const header = typeof doc.getElementById === 'function'
+                        ? doc.getElementById('app-header')
+                        : null;
+                    if (header) void header.offsetHeight;
+                }
+            }
         } else {
             if (bodyClassList && typeof bodyClassList.remove === 'function') {
                 bodyClassList.remove('vv-keyboard-open');
@@ -108,9 +220,53 @@ export const InputBarController = (() => {
             removeRootVar(doc, '--vv-offset-top');
             removeRootVar(doc, '--vv-height');
             removeRootVar(doc, '--vv-bottom-inset');
+            if (doc && typeof doc === 'object') {
+                lastSyncedLayout.delete(doc);
+            }
         }
 
         return { metrics, shouldLockVisualViewport };
+    }
+
+    function stopKeyboardPoll(options = {}) {
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object') return;
+
+        const active = keyboardPollTimers.get(win);
+        if (!active) return;
+
+        keyboardPollTimers.delete(win);
+        if (typeof active.clear === 'function') {
+            try { active.clear(active.id); } catch (_) { }
+        }
+    }
+
+    function startKeyboardPoll(options = {}) {
+        stopKeyboardPoll(options);
+
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object') return;
+
+        const setIntervalFn = typeof options.setInterval === 'function'
+            ? options.setInterval
+            : (typeof win.setInterval === 'function' ? win.setInterval.bind(win) : null);
+        const clearIntervalFn = typeof options.clearInterval === 'function'
+            ? options.clearInterval
+            : (typeof win.clearInterval === 'function'
+                ? win.clearInterval.bind(win)
+                : (typeof clearInterval === 'function' ? clearInterval : noop));
+
+        if (!setIntervalFn) return;
+
+        const id = setIntervalFn(() => {
+            if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
+                stopKeyboardPoll(options);
+                return;
+            }
+            updatePosition(options);
+        }, KEYBOARD_POLL_MS);
+
+        keyboardPollTimers.set(win, { id, clear: clearIntervalFn });
     }
 
     function closestTarget(target, selector) {
@@ -310,6 +466,7 @@ export const InputBarController = (() => {
 
     function startWatch(options = {}) {
         stopWatch(options);
+        recordBaselineViewport(options);
 
         const win = getWindow(options);
         const doc = getDocument(options);
@@ -331,6 +488,8 @@ export const InputBarController = (() => {
         }
 
         bindKeyboardTouchLock(doc);
+        syncVisualViewportLayout(options, true);
+        startKeyboardPoll(options);
         schedulePositionUpdate(options, true);
 
         const delay = options.setTimeout || setTimeout;
@@ -343,6 +502,8 @@ export const InputBarController = (() => {
     }
 
     function stopWatch(options = {}) {
+        stopKeyboardPoll(options);
+
         const currentRaf = options.getRafId ? options.getRafId() : null;
         const cancelFrame = options.cancelAnimationFrame ||
             (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : noop);
@@ -385,14 +546,23 @@ export const InputBarController = (() => {
                 (win.visualViewport && Number(win.visualViewport.offsetTop || 0) > 0)
             )
         );
-        if (hasViewportOffset && typeof win.scrollTo === 'function') {
+        if (win && typeof win.scrollTo === 'function' && (hasViewportOffset || isAppleTouchDevice(options))) {
             const delay = options.setTimeout ||
                 (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-            delay(() => {
-                if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
-                    try { win.scrollTo(0, 0); } catch (_) { }
-                }
-            }, 80);
+            if (hasViewportOffset) {
+                delay(() => {
+                    if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
+                        try { win.scrollTo(0, 0); } catch (_) { }
+                    }
+                }, 80);
+            }
+            if (isAppleTouchDevice(options)) {
+                delay(() => {
+                    if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
+                        try { win.scrollTo(0, 0); } catch (_) { }
+                    }
+                }, 250);
+            }
         }
     }
 

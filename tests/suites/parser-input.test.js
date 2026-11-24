@@ -861,4 +861,158 @@ export default function register(test) {
         assert.equal(blurCount, 3);
         assert.equal(active, false);
     });
+
+    test('InputBarController nasconde bottom-nav e aggiorna baseline/polling per PWA standalone iPhone', () => {
+        const { InputBarController } = loadUiViews();
+        const rootVars = {};
+        const bodyClasses = new Set();
+        const intervals = [];
+        const clearedIntervals = [];
+
+        const main = { style: {}, classList: { contains: () => false } };
+        const header = { offsetHeight: 56 };
+        const inputBar = { style: { bottom: '', transform: '' } };
+        const doc = {
+            body: {
+                classList: {
+                    add(cls) { bodyClasses.add(cls); },
+                    remove(cls) { bodyClasses.delete(cls); },
+                    contains(cls) { return bodyClasses.has(cls); }
+                }
+            },
+            documentElement: {
+                clientHeight: 852,
+                style: {
+                    setProperty(name, value) { rootVars[name] = value; },
+                    removeProperty(name) { delete rootVars[name]; }
+                }
+            },
+            getElementById(id) {
+                if (id === 'app-main') return main;
+                if (id === 'app-header') return header;
+                if (id === 'input-bar') return inputBar;
+                return null;
+            }
+        };
+
+        let active = true;
+        let resizeHandler = null;
+        const iphoneWin = {
+            innerWidth: 393,
+            innerHeight: 852,
+            scrollY: 0,
+            navigator: {
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
+            },
+            scrollTo() { },
+            visualViewport: {
+                width: 393,
+                height: 852,
+                offsetTop: 0,
+                addEventListener() { },
+                removeEventListener() { }
+            },
+            addEventListener() { },
+            removeEventListener() { }
+        };
+
+        const iphoneOptions = {
+            document: doc,
+            window: iphoneWin,
+            isExpenseInputActive: () => active,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getResizeHandler: () => resizeHandler,
+            setResizeHandler: value => { resizeHandler = value; },
+            requestAnimationFrame: cb => { cb(); return null; },
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1,
+            setInterval: (cb, ms) => {
+                intervals.push({ cb, ms });
+                return intervals.length;
+            },
+            clearInterval: id => clearedIntervals.push(id)
+        };
+
+        // 1. Subito al focus (t=0): ios-expense-input-active e gia attiva prima dell'animazione tastiera
+        InputBarController.startWatch(iphoneOptions);
+        assert.equal(bodyClasses.has('ios-expense-input-active'), true);
+        assert.equal(intervals[0].ms, 120);
+
+        // 2. PWA standalone iPhone: innerHeight e vv.height si riducono entrambi (852 -> 452)
+        iphoneWin.innerHeight = 452;
+        doc.documentElement.clientHeight = 452;
+        iphoneWin.visualViewport.height = 452;
+        iphoneWin.visualViewport.offsetTop = 0;
+        intervals[0].cb();
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
+        assert.equal(bodyClasses.has('ios-expense-input-active'), true);
+        assert.equal(rootVars['--vv-height'], '452px');
+        assert.equal(rootVars['--vv-offset-top'], '0px');
+        assert.equal(rootVars['--vv-bottom-inset'], '0px');
+        assert.equal(inputBar.style.bottom, '0px');
+
+        // 3. Se offsetTop supera layoutHeight - vv.height viene clampato in sicurezza
+        iphoneWin.innerHeight = 852;
+        doc.documentElement.clientHeight = 852;
+        iphoneWin.visualViewport.height = 452;
+        iphoneWin.visualViewport.offsetTop = 430;
+        intervals[0].cb();
+        assert.equal(rootVars['--vv-offset-top'], '400px');
+
+        // 4. Blur: stopWatch ferma il polling e rimuove entrambe le classi
+        active = false;
+        InputBarController.stopWatch(iphoneOptions);
+        assert.equal(bodyClasses.has('ios-expense-input-active'), false);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        assert.equal(rootVars['--vv-height'], undefined);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.deepEqual(clearedIntervals, [1]);
+
+        // 5. Android con resize layout non attiva ios-expense-input-active ne vv-keyboard-open
+        let androidActive = true;
+        let androidResize = null;
+        const androidWin = {
+            innerWidth: 412,
+            innerHeight: 480,
+            navigator: {
+                userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36'
+            },
+            visualViewport: {
+                width: 412,
+                height: 480,
+                offsetTop: 0,
+                addEventListener() { },
+                removeEventListener() { }
+            },
+            addEventListener() { },
+            removeEventListener() { }
+        };
+        InputBarController.startWatch({
+            document: doc,
+            window: androidWin,
+            isExpenseInputActive: () => androidActive,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getResizeHandler: () => androidResize,
+            setResizeHandler: value => { androidResize = value; },
+            requestAnimationFrame: cb => { cb(); return null; },
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1
+        });
+        assert.equal(bodyClasses.has('ios-expense-input-active'), false);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        androidActive = false;
+        InputBarController.stopWatch({
+            document: doc,
+            window: androidWin,
+            isExpenseInputActive: () => false,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getResizeHandler: () => androidResize,
+            setResizeHandler: value => { androidResize = value; },
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1
+        });
+    });
 };

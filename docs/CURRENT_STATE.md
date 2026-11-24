@@ -76,7 +76,7 @@ L'utente scrive testo libero nella barra inferiore. Il parser estrae importo, ta
 
 Una direttiva `.<categoria>` senza spazio dopo il punto forza la categoria e viene rimossa dalla descrizione. Sono accettati id o nomi in forma compatta, anche con trattino; se sono presenti piu direttive valide prevale l'ultima.
 
-Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri, per esempio `pizza 4 formaggi 8 euro`. La dettatura vocale usa `SpeechRecognition` o `webkitSpeechRecognition` quando disponibili. Su iPhone/WebKit, quando `#expense-input` e attivo, i tap esterni a `#input-bar` (che non siano drag verticali di scroll oltre 10 px o tap su un altro campo input/textarea/select) sfocano l'input e richiudono la tastiera, mentre `InputBarController` sincronizza `resize` e `scroll` di `visualViewport` (`--vv-offset-top`, `--vv-height`, `--vv-bottom-inset` e classe `vv-keyboard-open`) bloccando lo scroll fuori da `#app-main` cosi solo la lista spese scorre a tastiera aperta.
+Sono gestiti importi con punto, virgola, valuta esplicita e frasi con piu numeri, per esempio `pizza 4 formaggi 8 euro`. La dettatura vocale usa `SpeechRecognition` o `webkitSpeechRecognition` quando disponibili. Su iPhone/WebKit, quando `#expense-input` e attivo, i tap esterni a `#input-bar` (che non siano drag verticali di scroll oltre 10 px o tap su un altro campo input/textarea/select) sfocano l'input e richiudono la tastiera, `InputBarController` attiva subito `ios-expense-input-active` nascondendo `#bottom-nav` con `display: none`, mantiene una baseline viewport per riconoscere il restringimento tastiera anche in modalita PWA standalone (`window.innerHeight` ridotto o eventi in ritardo con polling a `120 ms`) e sincronizza `resize` e `scroll` di `visualViewport` (`--vv-offset-top`, `--vv-height`, `--vv-bottom-inset` e classe `vv-keyboard-open`) bloccando lo scroll fuori da `#app-main` cosi solo la lista spese scorre a tastiera aperta.
 
 ### Timeline
 
@@ -193,4 +193,5 @@ Mancano ancora test automatici su browser mobile reale, tastiera Android reale e
 - Non esistono ancora cestino, swipe su card o formati TSV/Markdown per la copia/export.
 - La pagina statistiche non permette ancora di aprire/modificare una spesa.
 - Desktop e iOS sono usabili ma meno rifiniti dell'esperienza Android.
+- Su iOS Safari e PWA standalone (`display: standalone`), la barra nativa della tastiera con frecce e spunta di conferma (`^` `v` `✓`) e gestita da WebKit/iOS e non puo essere nascosta tramite HTML/CSS/JavaScript senza un wrapper nativo (es. Swift/Capacitor).
 - Accessibilita e semantica dei controlli custom sono migliorabili.

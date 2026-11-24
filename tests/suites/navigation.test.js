@@ -683,10 +683,23 @@ export default function register(test) {
             });
         }
 
+        const bodyMatch = css.match(/^\s*body\s*\{([^}]*)\}/m);
+        assert(bodyMatch, 'Regola CSS body non trovata');
+        assert(!/min-height\s*:\s*100(?:d)?vh/.test(bodyMatch[1]), 'body non deve forzare min-height: 100vh/100dvh con position: fixed');
+
         assertRuleMatches(/^\s*body\s*\{([^}]*)\}/m, [
             /position\s*:\s*fixed/,
-            /inset\s*:\s*0/
+            /inset\s*:\s*0/,
+            /height\s*:\s*100%/
         ], 'body');
+
+        assertRuleMatches(/^\s*body\.vv-keyboard-open #bottom-nav,\s*body\.ios-expense-input-active #bottom-nav\s*\{([^}]*)\}/m, [
+            /display\s*:\s*none/
+        ], 'bottom-nav keyboard hide');
+
+        assertRuleMatches(/^\s*body\.ios-expense-input-active #input-bar\s*\{([^}]*)\}/m, [
+            /bottom\s*:\s*0/
+        ], 'body.ios-expense-input-active #input-bar');
 
         assertRuleMatches(/^\s*#timeline-summary\s*\{([^}]*)\}/m, [
             /position\s*:\s*fixed/,

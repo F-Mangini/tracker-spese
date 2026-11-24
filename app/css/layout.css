@@ -166,9 +166,21 @@ body.vv-keyboard-open #app-main.no-input-bar {
     padding-bottom: 12px !important;
 }
 
-body.vv-keyboard-open #bottom-nav {
-    visibility: hidden;
-    pointer-events: none;
+body.vv-keyboard-open #bottom-nav,
+body.ios-expense-input-active #bottom-nav {
+    display: none;
+}
+
+body.ios-expense-input-active #input-bar {
+    bottom: 0;
+}
+
+body.ios-expense-input-active #app-main {
+    padding-bottom: calc(var(--input-h) + 12px) !important;
+}
+
+body.vv-keyboard-open #app-header {
+    transform: translateZ(0);
 }
 
 body.vv-keyboard-open .toast {

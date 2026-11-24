@@ -44,6 +44,9 @@
     --filter-footer-h: 42px;
     --filter-panel-content-offset: 6px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --app-main-top: var(--header-h);
+    --vv-offset-top: 0px;
+    --vv-bottom-inset: 0px;
     --z-stats-mask: 94;
     --z-stats-banner: 95;
     --z-page-mask: 97;
@@ -97,9 +100,12 @@ textarea {
 }
 
 body {
+    position: fixed;
+    inset: 0;
     display: flow-root;
     width: 100%;
     max-width: 100%;
+    height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);

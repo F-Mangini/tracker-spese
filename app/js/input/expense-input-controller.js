@@ -3,6 +3,8 @@
    ============================================ */
 
 export const ExpenseInputController = (() => {
+    const TAP_MOVE_LIMIT = 10;
+
     function call(fn, ...args) {
         if (typeof fn === 'function') return fn(...args);
         return undefined;
@@ -108,6 +110,113 @@ export const ExpenseInputController = (() => {
             if (!call(options.isInputActive)) return;
             doBlurCleanup();
         });
+
+        const isExpenseInputFocused = () => !!call(options.isInputActive) ||
+            activeDocument.activeElement === input;
+
+        const isInsideElement = (target, container) => {
+            if (!target || !container) return false;
+            if (target === container) return true;
+            if (typeof container.contains === 'function' && container.contains(target)) return true;
+            if (container === inputBar && typeof target.closest === 'function') {
+                return !!target.closest('#input-bar');
+            }
+            return false;
+        };
+
+        const isFocusableFieldTarget = target => {
+            if (!target) return false;
+            if (typeof target.closest === 'function' && target.closest('input, textarea, select')) {
+                return true;
+            }
+            const tagName = String(target.tagName || '').toUpperCase();
+            return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+        };
+
+        const shouldDismissForTarget = target => isExpenseInputFocused() &&
+            !isInsideElement(target, inputBar) &&
+            !isFocusableFieldTarget(target);
+
+        const blurExpenseInput = () => {
+            if (typeof input.blur === 'function') {
+                try { input.blur(); } catch (_) { }
+            }
+
+            if (activeDocument.activeElement === input && setTimer) {
+                setTimer(() => {
+                    if (activeDocument.activeElement === input && typeof input.blur === 'function') {
+                        try { input.blur(); } catch (_) { }
+                    }
+                }, 0);
+            }
+        };
+
+        if (typeof activeDocument.addEventListener === 'function') {
+            let outsideTouch = null;
+
+            activeDocument.addEventListener('touchstart', event => {
+                const touches = event && event.touches;
+                const touch = touches && touches[0];
+                if (!touch || (touches && touches.length > 1) || !shouldDismissForTarget(event && event.target)) {
+                    outsideTouch = null;
+                    return;
+                }
+
+                outsideTouch = {
+                    x: Number(touch.clientX || 0),
+                    y: Number(touch.clientY || 0),
+                    moved: false,
+                    target: event.target
+                };
+            }, { capture: true, passive: true });
+
+            activeDocument.addEventListener('touchmove', event => {
+                if (!outsideTouch) return;
+
+                const touches = event && event.touches;
+                const touch = touches && touches[0];
+                if (!touch || (touches && touches.length > 1)) {
+                    outsideTouch.moved = true;
+                    return;
+                }
+
+                const moved = Math.hypot(
+                    Number(touch.clientX || 0) - outsideTouch.x,
+                    Number(touch.clientY || 0) - outsideTouch.y
+                );
+                if (moved > TAP_MOVE_LIMIT) {
+                    outsideTouch.moved = true;
+                }
+            }, { capture: true, passive: true });
+
+            activeDocument.addEventListener('touchcancel', () => {
+                outsideTouch = null;
+            }, { capture: true, passive: true });
+
+            activeDocument.addEventListener('touchend', event => {
+                if (!outsideTouch) return;
+
+                const changed = event && event.changedTouches && event.changedTouches[0];
+                const moved = outsideTouch.moved || (
+                    !!changed &&
+                    Math.hypot(
+                        Number(changed.clientX || 0) - outsideTouch.x,
+                        Number(changed.clientY || 0) - outsideTouch.y
+                    ) > TAP_MOVE_LIMIT
+                );
+                const target = (event && event.target) || outsideTouch.target;
+                outsideTouch = null;
+
+                if (moved || !shouldDismissForTarget(target)) return;
+
+                blurExpenseInput();
+            }, { capture: true, passive: true });
+
+            activeDocument.addEventListener('click', event => {
+                if (!shouldDismissForTarget(event && event.target)) return;
+                blurExpenseInput();
+            }, { capture: true, passive: true });
+        }
 
         const SpeechRecognitionClass = options.SpeechRecognitionClass ||
             activeWindow.SpeechRecognition ||

@@ -487,9 +487,10 @@ export default function register(test) {
 
         assert.equal(resizeHandler, windowResizeHandler);
         assert.equal(resizeHandler, viewportResizeHandler);
-        assert.deepEqual(events.slice(0, 2), [
+        assert.deepEqual(events.slice(0, 3), [
             ['win-add', 'resize', true],
-            ['vv-add', 'resize', true]
+            ['vv-add', 'resize', true],
+            ['vv-add', 'scroll', true]
         ]);
         assert.deepEqual(timerCallbacks.map(timer => timer.ms), [60, 160, 320]);
         assert.equal(rafId, 1);
@@ -514,10 +515,350 @@ export default function register(test) {
         assert.equal(resizeHandler, null);
         assert.equal(inputBar.style.bottom, '');
         assert.equal(inputBar.style.transform, '');
-        assert.deepEqual(events.slice(-3), [
+        assert.deepEqual(events.slice(-4), [
             ['cancel', 3],
             ['win-remove', 'resize', true],
-            ['vv-remove', 'resize', true]
+            ['vv-remove', 'resize', true],
+            ['vv-remove', 'scroll', true]
         ]);
+    });
+
+    test('InputBarController gestisce visualViewport su iPhone senza interferire con resize layout Android', () => {
+        const { InputBarController } = loadUiViews();
+        const rootVars = {};
+        const bodyClasses = new Set();
+        const docListeners = {};
+        const vvListeners = {};
+        const timers = [];
+        const scrollCalls = [];
+
+        const main = { style: {}, classList: { contains: () => false } };
+        const inputBar = { style: { bottom: '', transform: '' } };
+        const doc = {
+            body: {
+                classList: {
+                    add(cls) { bodyClasses.add(cls); },
+                    remove(cls) { bodyClasses.delete(cls); },
+                    contains(cls) { return bodyClasses.has(cls); }
+                }
+            },
+            documentElement: {
+                style: {
+                    setProperty(name, value) { rootVars[name] = value; },
+                    removeProperty(name) { delete rootVars[name]; }
+                }
+            },
+            getElementById(id) {
+                if (id === 'app-main') return main;
+                if (id === 'input-bar') return inputBar;
+                return null;
+            },
+            addEventListener(event, handler) {
+                docListeners[event] = handler;
+            },
+            removeEventListener(event) {
+                delete docListeners[event];
+            }
+        };
+
+        let active = true;
+        let resizeHandler = null;
+        const win = {
+            innerHeight: 852,
+            scrollY: 0,
+            scrollX: 0,
+            scrollTo(x, y) { scrollCalls.push([x, y]); },
+            visualViewport: {
+                height: 516,
+                offsetTop: 336,
+                addEventListener(event, handler) { vvListeners[event] = handler; },
+                removeEventListener(event) { delete vvListeners[event]; }
+            },
+            addEventListener() { },
+            removeEventListener() { }
+        };
+
+        const options = {
+            document: doc,
+            window: win,
+            isExpenseInputActive: () => active,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getResizeHandler: () => resizeHandler,
+            setResizeHandler: value => { resizeHandler = value; },
+            requestAnimationFrame: cb => { cb(); return null; },
+            cancelAnimationFrame: () => { },
+            setTimeout: (cb, ms) => {
+                timers.push({ cb, ms });
+                return timers.length;
+            }
+        };
+
+        InputBarController.startWatch(options);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
+        assert.equal(rootVars['--vv-offset-top'], '336px');
+        assert.equal(rootVars['--vv-height'], '516px');
+        assert.equal(rootVars['--vv-bottom-inset'], '0px');
+        assert.equal(inputBar.style.bottom, '0px');
+        assert.equal(inputBar.style.transform, 'none');
+
+        win.visualViewport.offsetTop = 200;
+        vvListeners.scroll({ type: 'scroll' });
+        assert.equal(rootVars['--vv-offset-top'], '200px');
+        assert.equal(rootVars['--vv-bottom-inset'], '136px');
+        assert.equal(inputBar.style.bottom, '136px');
+
+        // Simula Android Chrome con resize layout dove innerHeight e vv.height coincidono
+        win.innerHeight = 516;
+        win.visualViewport.height = 516;
+        win.visualViewport.offsetTop = 0;
+        InputBarController.updatePosition(options, true);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.equal(inputBar.style.bottom, '');
+
+        // Torna a stato iOS panned poi stopWatch deve pulire e resettare scrollTo(0, 0)
+        win.innerHeight = 852;
+        win.visualViewport.height = 516;
+        win.visualViewport.offsetTop = 240;
+        InputBarController.updatePosition(options, true);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
+
+        active = false;
+        timers.length = 0;
+        InputBarController.stopWatch(options);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.equal(rootVars['--vv-height'], undefined);
+        assert.equal(rootVars['--vv-bottom-inset'], undefined);
+        assert.equal(docListeners.touchstart, undefined);
+        assert.equal(vvListeners.scroll, undefined);
+        assert.equal(timers[0].ms, 80);
+        timers[0].cb();
+        assert.deepEqual(scrollCalls, [[0, 0]]);
+    });
+
+    test('InputBarController blocca lo scroll fuori dalla lista spese quando la tastiera e aperta', () => {
+        const { InputBarController } = loadUiViews();
+        const bodyClasses = new Set();
+        const docListeners = {};
+        let resizeHandler = null;
+
+        const main = {
+            style: {},
+            scrollTop: 0,
+            scrollHeight: 1200,
+            clientHeight: 400,
+            classList: { contains: () => false }
+        };
+        const inputBar = { style: { bottom: '', transform: '' } };
+        const doc = {
+            body: {
+                classList: {
+                    add(cls) { bodyClasses.add(cls); },
+                    remove(cls) { bodyClasses.delete(cls); },
+                    contains(cls) { return bodyClasses.has(cls); }
+                }
+            },
+            documentElement: { style: { setProperty() { }, removeProperty() { } } },
+            getElementById(id) {
+                if (id === 'app-main') return main;
+                if (id === 'input-bar') return inputBar;
+                return null;
+            },
+            addEventListener(event, handler) {
+                docListeners[event] = handler;
+            },
+            removeEventListener(event) {
+                delete docListeners[event];
+            }
+        };
+
+        const options = {
+            document: doc,
+            window: {
+                innerHeight: 852,
+                visualViewport: {
+                    height: 500,
+                    offsetTop: 0,
+                    addEventListener() { },
+                    removeEventListener() { }
+                },
+                addEventListener() { },
+                removeEventListener() { }
+            },
+            isExpenseInputActive: () => true,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getResizeHandler: () => resizeHandler,
+            setResizeHandler: value => { resizeHandler = value; },
+            requestAnimationFrame: cb => { cb(); return null; },
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1
+        };
+
+        function makeTarget(matches = [], scrollNode = null) {
+            return {
+                closest(selector) {
+                    const parts = String(selector).split(',').map(part => part.trim());
+                    if (matches.some(match => parts.includes(match))) {
+                        return scrollNode || {};
+                    }
+                    return null;
+                }
+            };
+        }
+
+        function simulateMove(target, startY, moveX, moveY) {
+            let prevented = false;
+            docListeners.touchstart({
+                touches: [{ clientX: 150, clientY: startY }]
+            });
+            docListeners.touchmove({
+                target,
+                touches: [{ clientX: 150 + moveX, clientY: startY + moveY }],
+                preventDefault() { prevented = true; }
+            });
+            docListeners.touchend({});
+            return prevented;
+        }
+
+        InputBarController.startWatch(options);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
+
+        const bannerTarget = makeTarget(['#timeline-summary']);
+        assert.equal(simulateMove(bannerTarget, 120, 0, -24), true);
+
+        const listTarget = makeTarget(['#app-main'], main);
+        main.scrollTop = 0;
+        assert.equal(simulateMove(listTarget, 220, 0, 24), true, 'Pull down al top bloccato');
+        assert.equal(simulateMove(listTarget, 220, 0, -24), false, 'Scroll giu dal top consentito');
+
+        main.scrollTop = 300;
+        assert.equal(simulateMove(listTarget, 220, 0, 24), false, 'Scroll su a meta lista consentito');
+        assert.equal(simulateMove(listTarget, 220, 0, -24), false, 'Scroll giu a meta lista consentito');
+
+        main.scrollTop = 800;
+        assert.equal(simulateMove(listTarget, 220, 0, -24), true, 'Pull up al fondo bloccato');
+
+        assert.equal(simulateMove(makeTarget([]), 220, 40, -4), false, 'Swipe orizzontale preservato');
+
+        main.scrollHeight = 300;
+        main.scrollTop = 0;
+        assert.equal(simulateMove(listTarget, 220, 0, -24), true, 'Lista non scrollabile non muove viewport');
+
+        InputBarController.stopWatch(options);
+    });
+
+    test('ExpenseInputController chiude tastiera al tap esterno ma non durante lo scroll', () => {
+        const { ExpenseInputController } = loadUiViews();
+        const docListeners = {};
+        const timers = [];
+        let active = true;
+        let blurCount = 0;
+        let ignoreSyncBlur = false;
+
+        function element(id, tagName = 'DIV', parentMatch = []) {
+            const classes = new Set();
+            return {
+                id,
+                tagName,
+                value: '',
+                style: {},
+                listeners: {},
+                classList: {
+                    add(cls) { classes.add(cls); },
+                    remove(cls) { classes.delete(cls); },
+                    contains(cls) { return classes.has(cls); }
+                },
+                contains(node) {
+                    return node === this || parentMatch.includes(node);
+                },
+                closest(selector) {
+                    const parts = String(selector).split(',').map(part => part.trim());
+                    return parts.includes(`#${id}`) || parts.includes(tagName.toLowerCase()) ? this : null;
+                },
+                addEventListener(event, handler) {
+                    this.listeners[event] = handler;
+                }
+            };
+        }
+
+        const btnSend = element('btn-send', 'BUTTON');
+        const btnVoice = element('btn-voice', 'BUTTON');
+        const input = element('expense-input', 'TEXTAREA');
+        const inputBar = element('input-bar', 'DIV', [input, btnSend, btnVoice]);
+        const searchInput = element('search-input', 'TEXTAREA');
+        const summary = element('timeline-summary', 'DIV');
+        const elements = {
+            'expense-input': input,
+            'btn-send': btnSend,
+            'btn-voice': btnVoice,
+            'input-bar': inputBar
+        };
+
+        const doc = {
+            activeElement: input,
+            body: { classList: { add() { }, remove() { }, contains: () => false } },
+            getElementById(id) { return elements[id] || null; },
+            addEventListener(event, handler) {
+                docListeners[event] = handler;
+            }
+        };
+
+        input.blur = () => {
+            blurCount += 1;
+            if (!ignoreSyncBlur) {
+                doc.activeElement = doc.body;
+                active = false;
+            }
+        };
+
+        ExpenseInputController.init({
+            document: doc,
+            window: {},
+            isInputActive: () => active,
+            setInputActive: value => { active = value; },
+            setTimeout: (cb, ms) => {
+                timers.push({ cb, ms });
+                return timers.length;
+            },
+            clearTimeout: () => { }
+        });
+
+        // Drag verticale (> 10px) non deve chiudere la tastiera
+        docListeners.touchstart({ target: summary, touches: [{ clientX: 100, clientY: 200 }] });
+        docListeners.touchmove({ touches: [{ clientX: 100, clientY: 160 }] });
+        docListeners.touchend({ target: summary, changedTouches: [{ clientX: 100, clientY: 160 }] });
+        assert.equal(blurCount, 0);
+        assert.equal(active, true);
+
+        // Tap dentro #input-bar non deve chiudere la tastiera
+        docListeners.touchstart({ target: btnSend, touches: [{ clientX: 300, clientY: 700 }] });
+        docListeners.touchend({ target: btnSend, changedTouches: [{ clientX: 300, clientY: 701 }] });
+        assert.equal(blurCount, 0);
+
+        // Tap su un altro input/textarea (#search-input) lascia trasferire il focus al browser
+        docListeners.touchstart({ target: searchInput, touches: [{ clientX: 120, clientY: 80 }] });
+        docListeners.touchend({ target: searchInput, changedTouches: [{ clientX: 121, clientY: 80 }] });
+        assert.equal(blurCount, 0);
+
+        // Tap fuori su un elemento non interattivo chiude la tastiera
+        docListeners.touchstart({ target: summary, touches: [{ clientX: 100, clientY: 120 }] });
+        docListeners.touchend({ target: summary, changedTouches: [{ clientX: 102, clientY: 122 }] });
+        assert.equal(blurCount, 1);
+        assert.equal(active, false);
+
+        // Fallback click e retry differito quando iOS ignora blur sincrono in touchend
+        active = true;
+        doc.activeElement = input;
+        ignoreSyncBlur = true;
+        docListeners.click({ target: summary });
+        assert.equal(blurCount, 2);
+        assert.equal(timers[0].ms, 0);
+        ignoreSyncBlur = false;
+        timers[0].cb();
+        assert.equal(blurCount, 3);
+        assert.equal(active, false);
     });
 };

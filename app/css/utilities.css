@@ -50,8 +50,11 @@ body.no-scroll #app-main {
 @media (prefers-reduced-motion: reduce) {
     .filter-panel,
     #app-main,
+    #page-timeline,
     #timeline-summary,
-    #page-timeline::before {
+    .stats-sticky-header,
+    #page-timeline::before,
+    #page-stats::before {
         animation: none;
         transition: none;
     }

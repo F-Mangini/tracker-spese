@@ -3,7 +3,7 @@
    ============================================ */
 #app-header {
     position: fixed;
-    top: 0;
+    top: var(--vv-offset-top, 0px);
     left: 0;
     right: 0;
     height: var(--header-h);
@@ -156,6 +156,32 @@
     overflow-y: hidden;
 }
 
+body.vv-keyboard-open #app-main {
+    top: var(--vv-offset-top, 0px);
+    height: calc(var(--vv-height, 100dvh) - var(--app-main-top, var(--header-h)));
+    padding-bottom: calc(var(--input-h) + 12px) !important;
+}
+
+body.vv-keyboard-open #app-main.no-input-bar {
+    padding-bottom: 12px !important;
+}
+
+body.vv-keyboard-open #bottom-nav {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+body.vv-keyboard-open .toast {
+    bottom: calc(var(--vv-bottom-inset, 0px) + var(--input-h) + 12px);
+}
+
+body.vv-keyboard-open #timeline-summary,
+body.vv-keyboard-open .stats-sticky-header,
+body.vv-keyboard-open #page-timeline::before,
+body.vv-keyboard-open #page-stats::before {
+    transition: none;
+}
+
 .page {
     padding: 12px 12px 0;
 }
@@ -199,12 +225,10 @@
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(8px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 

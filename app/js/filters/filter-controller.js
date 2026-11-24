@@ -96,11 +96,33 @@ export const FilterController = (() => {
         if (scrollContainer) scrollContainer.scrollTop = 0;
     }
 
-    function alignMainBelowFilterPanel(main, panel) {
+    function setAppMainTopVar(doc, value) {
+        const rootStyle = doc && doc.documentElement && doc.documentElement.style;
+        if (!rootStyle) return;
+
+        if (!value) {
+            if (typeof rootStyle.removeProperty === 'function') {
+                rootStyle.removeProperty('--app-main-top');
+            } else {
+                rootStyle['--app-main-top'] = '';
+            }
+            return;
+        }
+
+        if (typeof rootStyle.setProperty === 'function') {
+            rootStyle.setProperty('--app-main-top', value);
+        } else {
+            rootStyle['--app-main-top'] = value;
+        }
+    }
+
+    function alignMainBelowFilterPanel(main, panel, doc = null) {
         if (!main || !panel) return;
 
         const panelHeight = Number(panel.offsetHeight) || 0;
-        main.style.marginTop = `calc(var(--header-h) + ${panelHeight}px)`;
+        const nextTop = `calc(var(--header-h) + ${panelHeight}px)`;
+        main.style.marginTop = nextTop;
+        setAppMainTopVar(doc, nextTop);
     }
 
     function readOptionState(options, getter, prop, fallback) {
@@ -626,7 +648,7 @@ export const FilterController = (() => {
         defer(options, () => {
             const panel = doc.getElementById('filter-panel');
             const main = doc.getElementById('app-main');
-            alignMainBelowFilterPanel(main, panel);
+            alignMainBelowFilterPanel(main, panel, doc);
 
             const scrollContainer = panel ? panel.querySelector('.filter-panel-scroll') : null;
             if (scrollContainer && typeof scrollContainer.scrollTo === 'function') {
@@ -655,7 +677,7 @@ export const FilterController = (() => {
             if (!panel || panel.classList.contains('hidden')) return;
 
             const main = doc.getElementById('app-main');
-            alignMainBelowFilterPanel(main, panel);
+            alignMainBelowFilterPanel(main, panel, doc);
             const scrollContainer = panel.querySelector('.filter-panel-scroll');
             if (scrollContainer) scrollContainer.scrollTop = 0;
             updateAppMainPadding(options);
@@ -968,7 +990,7 @@ export const FilterController = (() => {
         const pageTimeline = doc.getElementById('page-timeline');
         if (pageTimeline) pageTimeline.classList.add('filter-open');
 
-        alignMainBelowFilterPanel(main, panel);
+        alignMainBelowFilterPanel(main, panel, doc);
         updateAppMainPadding(options);
         restoreTimelineScroll();
         if (shouldResetFilterScroll) {
@@ -1037,6 +1059,7 @@ export const FilterController = (() => {
         setTimelineSummaryHidden(options, doc, summary, false);
         if (pageTimeline) pageTimeline.classList.remove('filter-open');
         if (main) main.style.marginTop = '';
+        setAppMainTopVar(doc, '');
         restoreTimelineScroll();
 
         const steps = (hadAdvancedFilters ? 2 : 1) +

@@ -757,8 +757,15 @@ export default function register(test) {
             'input-bar': makeElement('input-bar'),
             'advanced-filters': makeElement('advanced-filters', { classes: ['hidden'] })
         };
+        const rootVars = {};
         const doc = {
             body: { classList: makeClassList() },
+            documentElement: {
+                style: {
+                    setProperty(name, value) { rootVars[name] = value; },
+                    removeProperty(name) { delete rootVars[name]; }
+                }
+            },
             getElementById(id) {
                 return elements[id] || null;
             },
@@ -971,6 +978,7 @@ export default function register(test) {
             elements['app-main'].style.marginTop,
             'calc(var(--header-h) + 96px)'
         );
+        assert.equal(rootVars['--app-main-top'], 'calc(var(--header-h) + 96px)');
         assert(elements['timeline-summary'].classList.contains('filter-panel-collapsed'));
         assert(!elements['timeline-summary'].classList.contains('hidden'));
         assert(elements['app-main'].classList.contains('filter-layout-transition'));
@@ -1078,6 +1086,7 @@ export default function register(test) {
         assert.equal(scrollContainer.scrollTop, 0);
         assert.equal(elements['app-main'].scrollTop, 200);
         assert.equal(state.pageScrollTop.timeline, 200);
+        assert.equal(rootVars['--app-main-top'], undefined);
         assert(calls.some(call => Array.isArray(call) && call[0] === 'history' && call[1].steps === 2));
 
         scrollContainer.scrollTop = 120;

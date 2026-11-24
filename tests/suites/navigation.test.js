@@ -671,4 +671,42 @@ export default function register(test) {
             /appearance\s*:\s*none/
         ], '.form-group input[type="date"], .form-group input[type="time"]');
     });
+
+    test('CSS fissa riepiloghi e blocca viewport tastiera per evitare spostamenti su iOS', () => {
+        const css = readAppCss();
+
+        function assertRuleMatches(selectorRegex, checks, label) {
+            const match = css.match(selectorRegex);
+            assert(match, `Regola CSS ${label} non trovata`);
+            checks.forEach(pattern => {
+                assert(pattern.test(match[1]), `Regola ${label} manca di ${pattern}`);
+            });
+        }
+
+        assertRuleMatches(/^\s*body\s*\{([^}]*)\}/m, [
+            /position\s*:\s*fixed/,
+            /inset\s*:\s*0/
+        ], 'body');
+
+        assertRuleMatches(/^\s*#timeline-summary\s*\{([^}]*)\}/m, [
+            /position\s*:\s*fixed/,
+            /var\(--vv-offset-top/,
+            /var\(--app-main-top/
+        ], '#timeline-summary');
+
+        assertRuleMatches(/^\s*\.stats-sticky-header\s*\{([^}]*)\}/m, [
+            /position\s*:\s*fixed/,
+            /var\(--vv-offset-top/,
+            /var\(--app-main-top/
+        ], '.stats-sticky-header');
+
+        assertRuleMatches(/^\s*#page-timeline\s*\{([^}]*)\}/m, [
+            /padding-top\s*:\s*calc\(12px \+ var\(--page-banner-h\) \+ 16px\)/
+        ], '#page-timeline');
+
+        assertRuleMatches(/^\s*body\.vv-keyboard-open #app-main\s*\{([^}]*)\}/m, [
+            /top\s*:\s*var\(--vv-offset-top,\s*0px\)/,
+            /height\s*:\s*calc\(var\(--vv-height,\s*100dvh\) - var\(--app-main-top,\s*var\(--header-h\)\)\)/
+        ], 'body.vv-keyboard-open #app-main');
+    });
 };

@@ -352,6 +352,27 @@ export default function register(test) {
         assert.equal(calls.filter(call => call === 'render-stats').length, statsRendersBeforeSwipe + 1);
         timelineBanner.classList.add('hidden');
         pages.timeline.classList.add('filter-open');
+        let offsetFlushDuringTransitionNone = 0;
+        let currentStatsTransition = statsBanner.style.transition || '';
+        Object.defineProperty(statsBanner.style, 'transition', {
+            configurable: true,
+            enumerable: true,
+            get() {
+                return currentStatsTransition;
+            },
+            set(value) {
+                currentStatsTransition = value;
+            }
+        });
+        Object.defineProperty(statsBanner, 'offsetHeight', {
+            configurable: true,
+            get() {
+                if (currentStatsTransition === 'none') {
+                    offsetFlushDuringTransitionNone += 1;
+                }
+                return 84;
+            }
+        });
         main.listeners.touchstart({
             timeStamp: 2000,
             touches: [{ clientX: 180, clientY: 200 }],
@@ -379,6 +400,8 @@ export default function register(test) {
         assert.equal(state.currentPage, 'stats');
         assert(pages.timeline.classList.contains('hidden'));
         assert.equal(pages.stats.style.transform, '');
+        assert.equal(statsBanner.style.transition, '');
+        assert(offsetFlushDuringTransitionNone > 0, 'Deve forzare layout flush prima di ripristinare transition del banner');
         assert(!pages.timeline.classList.contains('page-swipe-mask-aligned'));
         assert.equal(pages.timeline.style['--page-swipe-banner-y'], '');
         assert(inputBar.classList.contains('hidden'));
@@ -725,5 +748,55 @@ export default function register(test) {
             /top\s*:\s*var\(--vv-offset-top,\s*0px\)/,
             /height\s*:\s*calc\(var\(--vv-height,\s*100dvh\) - var\(--app-main-top,\s*var\(--header-h\)\)\)/
         ], 'body.vv-keyboard-open #app-main');
+
+        assertRuleMatches(/^\s*#app-header\s*\{([^}]*)\}/m, [
+            /top\s*:\s*0/,
+            /transform\s*:\s*translate3d\(0,\s*var\(--vv-offset-top,\s*0px\),\s*0\)/
+        ], '#app-header compositor translate');
+
+        assertRuleMatches(/^\s*body\.vv-keyboard-settling #app-main\s*\{([^}]*)\}/m, [
+            /top\s*:\s*var\(--vv-offset-top,\s*0px\)/
+        ], 'body.vv-keyboard-settling #app-main');
+
+        const baseSummaryRule = css.match(/^\s*#timeline-summary\s*\{([^}]*)\}/m);
+        const baseStatsHeaderRule = css.match(/^\s*\.stats-sticky-header\s*\{([^}]*)\}/m);
+        assert(!/(?:^|[\s,:])top\s+200ms/.test(baseSummaryRule[1]), '#timeline-summary default non deve animare top');
+        assert(!/(?:^|[\s,:])top\s+200ms/.test(baseStatsHeaderRule[1]), '.stats-sticky-header default non deve animare top');
+
+        assertRuleMatches(/^\s*#app-main\.filter-layout-transition #timeline-summary\s*\{([^}]*)\}/m, [
+            /(?:^|[\s,:])top\s+200ms/
+        ], '#app-main.filter-layout-transition #timeline-summary');
+
+        assertRuleMatches(/^\s*#app-main\.filter-layout-transition \.stats-sticky-header,\s*#app-main\.filter-layout-transition #page-stats::before\s*\{([^}]*)\}/m, [
+            /(?:^|[\s,:])top\s+200ms/
+        ], 'stats filter-layout-transition top');
+
+        assertRuleMatches(/^\s*\.page\.page-swipe-layer #timeline-summary\s*\{([^}]*)\}/m, [
+            /position\s*:\s*absolute/,
+            /top\s*:\s*12px/,
+            /translate\s*:\s*none/,
+            /transition\s*:\s*none/
+        ], '.page.page-swipe-layer #timeline-summary');
+
+        assertRuleMatches(/^\s*\.page\.page-swipe-layer \.stats-sticky-header\s*\{([^}]*)\}/m, [
+            /position\s*:\s*absolute/,
+            /top\s*:\s*12px/,
+            /translate\s*:\s*none/,
+            /transition\s*:\s*none/
+        ], '.page.page-swipe-layer .stats-sticky-header');
+
+        assertRuleMatches(/^\s*#page-timeline\.page-swipe-layer::before\s*\{([^}]*)\}/m, [
+            /position\s*:\s*absolute/,
+            /top\s*:\s*0/,
+            /translate\s*:\s*none/,
+            /transition\s*:\s*none/
+        ], '#page-timeline.page-swipe-layer::before');
+
+        assertRuleMatches(/^\s*#page-stats\.page-swipe-layer::before\s*\{([^}]*)\}/m, [
+            /position\s*:\s*absolute/,
+            /top\s*:\s*0/,
+            /translate\s*:\s*none/,
+            /transition\s*:\s*none/
+        ], '#page-stats.page-swipe-layer::before');
     });
 };

@@ -3,7 +3,7 @@
    ============================================ */
 #app-header {
     position: fixed;
-    top: var(--vv-offset-top, 0px);
+    top: 0;
     left: 0;
     right: 0;
     height: var(--header-h);
@@ -13,6 +13,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 16px;
+    transform: translate3d(0, var(--vv-offset-top, 0px), 0);
     z-index: var(--z-header);
     touch-action: none;
 }
@@ -162,6 +163,10 @@ body.vv-keyboard-open #app-main {
     padding-bottom: calc(var(--input-h) + 12px) !important;
 }
 
+body.vv-keyboard-settling #app-main {
+    top: var(--vv-offset-top, 0px);
+}
+
 body.vv-keyboard-open #app-main.no-input-bar {
     padding-bottom: 12px !important;
 }
@@ -179,8 +184,10 @@ body.ios-expense-input-active #app-main {
     padding-bottom: calc(var(--input-h) + 12px) !important;
 }
 
-body.vv-keyboard-open #app-header {
-    transform: translateZ(0);
+body.vv-keyboard-open #app-header,
+body.vv-keyboard-settling #app-header,
+body.ios-expense-input-active #app-header {
+    will-change: transform;
 }
 
 body.vv-keyboard-open .toast {
@@ -190,8 +197,20 @@ body.vv-keyboard-open .toast {
 body.vv-keyboard-open #timeline-summary,
 body.vv-keyboard-open .stats-sticky-header,
 body.vv-keyboard-open #page-timeline::before,
-body.vv-keyboard-open #page-stats::before {
+body.vv-keyboard-open #page-stats::before,
+body.vv-keyboard-settling #timeline-summary,
+body.vv-keyboard-settling .stats-sticky-header,
+body.vv-keyboard-settling #page-timeline::before,
+body.vv-keyboard-settling #page-stats::before {
     transition: none;
+    will-change: translate, transform;
+}
+
+body.ios-expense-input-active #timeline-summary,
+body.ios-expense-input-active .stats-sticky-header,
+body.ios-expense-input-active #page-timeline::before,
+body.ios-expense-input-active #page-stats::before {
+    will-change: translate;
 }
 
 .page {
@@ -324,6 +343,12 @@ body.expense-input-active #input-bar.page-swipe-input {
 
 #expense-input::placeholder {
     color: var(--text-tertiary);
+}
+
+@supports (-webkit-touch-callout: none) {
+    #expense-input {
+        font-size: 16px;
+    }
 }
 
 #btn-voice,

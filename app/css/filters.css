@@ -3,7 +3,8 @@
    ============================================ */
 .filter-panel {
     position: fixed;
-    top: calc(var(--vv-offset-top, 0px) + var(--header-h));
+    top: var(--header-h);
+    translate: 0 var(--vv-offset-top, 0px);
     left: 0;
     right: 0;
     max-width: 100%;

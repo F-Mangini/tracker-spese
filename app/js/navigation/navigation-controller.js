@@ -220,18 +220,32 @@ export const NavigationController = (() => {
     }
 
     function resetSwipeBanners(state) {
+        const pendingTransitionResets = [];
+
         (state.bannerRecords || []).forEach(record => {
             const { element, pageElement, transform, transition } = record;
             if (element && element.style) {
+                const shouldFlushBeforeTransitionReset =
+                    element.style.transition === 'none' && transition !== 'none';
                 element.classList.remove('page-swipe-banner');
                 element.style.transform = transform;
-                element.style.transition = transition;
+                if (shouldFlushBeforeTransitionReset) {
+                    pendingTransitionResets.push({ element, transition });
+                } else {
+                    element.style.transition = transition;
+                }
             }
             if (pageElement) {
                 pageElement.classList.remove('page-swipe-mask-aligned');
                 clearStyleProperty(pageElement, '--page-swipe-banner-y');
             }
         });
+
+        pendingTransitionResets.forEach(({ element, transition }) => {
+            void element.offsetHeight;
+            element.style.transition = transition;
+        });
+
         state.bannerRecords = [];
     }
 

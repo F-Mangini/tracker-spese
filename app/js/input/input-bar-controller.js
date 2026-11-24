@@ -5,10 +5,15 @@
 export const InputBarController = (() => {
     const KEYBOARD_VIEWPORT_THRESHOLD = 100;
     const KEYBOARD_POLL_MS = 120;
+    const TRANSITION_SYNC_MS = 500;
+    const CLOSE_SETTLE_MS = 450;
     const keyboardTouchLocks = new WeakMap();
     const baselineViewports = new WeakMap();
     const keyboardPollTimers = new WeakMap();
     const lastSyncedLayout = new WeakMap();
+    const activeWindowScrollHandlers = new WeakMap();
+    const viewportTransitionSyncs = new WeakMap();
+    const viewportCloseSettles = new WeakMap();
 
     function noop() { }
 
@@ -102,12 +107,9 @@ export const InputBarController = (() => {
 
     function getVisualViewportMetrics(options = {}) {
         const win = getWindow(options);
-        const doc = getDocument(options);
         const vv = win && win.visualViewport;
         const isAppleTouch = isAppleTouchDevice(options);
         const layoutHeight = Number(win && win.innerHeight) || 0;
-        const docHeight = Number(doc && doc.documentElement && doc.documentElement.clientHeight) || 0;
-        const effectiveLayoutHeight = Math.max(layoutHeight, docHeight);
 
         if (!vv || !Number.isFinite(vv.height)) {
             return {
@@ -125,8 +127,7 @@ export const InputBarController = (() => {
 
         const height = Math.max(0, Math.round(vv.height));
         const rawOffsetTop = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
-        const maxOffsetTop = Math.max(0, Math.round(effectiveLayoutHeight - vv.height));
-        const offsetTop = Math.min(rawOffsetTop, maxOffsetTop);
+        const offsetTop = rawOffsetTop;
         const layoutGap = Math.max(0, Math.round(layoutHeight - vv.height));
         const baselineHeight = getBaselineHeight(options);
         const baselineGap = baselineHeight > 0 ? Math.max(0, Math.round(baselineHeight - vv.height)) : 0;
@@ -187,6 +188,9 @@ export const InputBarController = (() => {
                 try { win.scrollTo(0, 0); } catch (_) { }
             }
 
+            if (bodyClassList && typeof bodyClassList.remove === 'function') {
+                bodyClassList.remove('vv-keyboard-settling');
+            }
             if (bodyClassList && typeof bodyClassList.add === 'function') {
                 bodyClassList.add('vv-keyboard-open');
             }
@@ -216,6 +220,7 @@ export const InputBarController = (() => {
         } else {
             if (bodyClassList && typeof bodyClassList.remove === 'function') {
                 bodyClassList.remove('vv-keyboard-open');
+                bodyClassList.remove('vv-keyboard-settling');
             }
             removeRootVar(doc, '--vv-offset-top');
             removeRootVar(doc, '--vv-height');
@@ -226,6 +231,251 @@ export const InputBarController = (() => {
         }
 
         return { metrics, shouldLockVisualViewport };
+    }
+
+    function getNow(win) {
+        if (win && win.performance && typeof win.performance.now === 'function') {
+            return win.performance.now();
+        }
+        return Date.now();
+    }
+
+    function getRequestAnimationFrame(options, win) {
+        if (typeof options.requestAnimationFrame === 'function') return options.requestAnimationFrame;
+        if (win && typeof win.requestAnimationFrame === 'function') {
+            return win.requestAnimationFrame.bind(win);
+        }
+        if (typeof requestAnimationFrame === 'function') return requestAnimationFrame;
+        return null;
+    }
+
+    function getCancelAnimationFrame(options, win) {
+        if (typeof options.cancelAnimationFrame === 'function') return options.cancelAnimationFrame;
+        if (win && typeof win.cancelAnimationFrame === 'function') {
+            return win.cancelAnimationFrame.bind(win);
+        }
+        if (typeof cancelAnimationFrame === 'function') return cancelAnimationFrame;
+        return noop;
+    }
+
+    function getSetTimeout(options, win) {
+        if (typeof options.setTimeout === 'function') return options.setTimeout;
+        if (win && typeof win.setTimeout === 'function') return win.setTimeout.bind(win);
+        if (typeof setTimeout === 'function') return setTimeout;
+        return null;
+    }
+
+    function getClearTimeout(options, win) {
+        if (typeof options.clearTimeout === 'function') return options.clearTimeout;
+        if (win && typeof win.clearTimeout === 'function') return win.clearTimeout.bind(win);
+        if (typeof clearTimeout === 'function') return clearTimeout;
+        return null;
+    }
+
+    function runSafeRafLoop(raf, entry, weakMap, win, onTick) {
+        if (!raf || !entry || !weakMap || !win) return;
+
+        let scheduling = false;
+        let ranSync = false;
+
+        const step = () => {
+            if (scheduling) ranSync = true;
+            if (entry.stopped || weakMap.get(win) !== entry) return;
+
+            entry.rafId = null;
+            const keepGoing = onTick();
+            if (ranSync || !keepGoing || entry.stopped || weakMap.get(win) !== entry) {
+                return;
+            }
+            scheduleFrame();
+        };
+
+        const scheduleFrame = () => {
+            if (entry.stopped || weakMap.get(win) !== entry) return;
+            scheduling = true;
+            ranSync = false;
+            const id = raf(step);
+            scheduling = false;
+            if (!ranSync && !entry.stopped && weakMap.get(win) === entry) {
+                entry.rafId = id;
+            }
+        };
+
+        scheduleFrame();
+    }
+
+    function stopTransitionSync(options = {}) {
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object') return;
+
+        const active = viewportTransitionSyncs.get(win);
+        if (!active) return;
+
+        active.stopped = true;
+        viewportTransitionSyncs.delete(win);
+        if (active.rafId != null) {
+            const cancelRaf = getCancelAnimationFrame(options, win);
+            try { cancelRaf(active.rafId); } catch (_) { }
+        }
+    }
+
+    function startTransitionSync(options = {}) {
+        stopTransitionSync(options);
+
+        const win = getWindow(options);
+        if (!win || typeof win !== 'object' || !isAppleTouchDevice(options)) return;
+
+        const raf = getRequestAnimationFrame(options, win);
+        if (!raf) return;
+
+        const startTime = getNow(win);
+        const entry = { rafId: null, stopped: false };
+        viewportTransitionSyncs.set(win, entry);
+
+        runSafeRafLoop(raf, entry, viewportTransitionSyncs, win, () => {
+            if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
+                stopTransitionSync(options);
+                return false;
+            }
+
+            updatePosition(options);
+            if (getNow(win) - startTime < TRANSITION_SYNC_MS) {
+                return true;
+            }
+
+            stopTransitionSync(options);
+            return false;
+        });
+    }
+
+    function stopCloseSettle(options = {}, { keepOffsetVar = false } = {}) {
+        const win = getWindow(options);
+        const doc = getDocument(options);
+        const active = win && typeof win === 'object' ? viewportCloseSettles.get(win) : null;
+
+        if (active) {
+            active.stopped = true;
+            viewportCloseSettles.delete(win);
+
+            if (active.rafId != null) {
+                const cancelRaf = getCancelAnimationFrame(options, win);
+                try { cancelRaf(active.rafId); } catch (_) { }
+            }
+
+            const clearTimer = getClearTimeout(options, win);
+            if (active.timeoutId != null && clearTimer) {
+                try { clearTimer(active.timeoutId); } catch (_) { }
+            }
+
+            if (win && typeof win.removeEventListener === 'function') {
+                win.removeEventListener('scroll', active.onViewportChange);
+            }
+            if (win && win.visualViewport && typeof win.visualViewport.removeEventListener === 'function') {
+                win.visualViewport.removeEventListener('resize', active.onViewportChange);
+                win.visualViewport.removeEventListener('scroll', active.onViewportChange);
+            }
+        }
+
+        const bodyClassList = doc && doc.body && doc.body.classList;
+        if (bodyClassList && typeof bodyClassList.remove === 'function') {
+            bodyClassList.remove('vv-keyboard-settling');
+        }
+
+        if (!keepOffsetVar) {
+            removeRootVar(doc, '--vv-offset-top');
+            if (doc && typeof doc === 'object') {
+                lastSyncedLayout.delete(doc);
+            }
+        }
+    }
+
+    function startCloseSettle(options = {}, initialMetrics = null) {
+        stopCloseSettle(options, { keepOffsetVar: true });
+
+        const win = getWindow(options);
+        const doc = getDocument(options);
+        if (!win || typeof win !== 'object') {
+            stopCloseSettle(options);
+            return;
+        }
+
+        const vv = win.visualViewport;
+        const startOffset = initialMetrics
+            ? initialMetrics.offsetTop
+            : Math.max(0, Math.round(Number(vv && vv.offsetTop) || 0));
+
+        if (startOffset <= 0) {
+            stopCloseSettle(options);
+            return;
+        }
+
+        const bodyClassList = doc && doc.body && doc.body.classList;
+        if (bodyClassList && typeof bodyClassList.add === 'function') {
+            bodyClassList.add('vv-keyboard-settling');
+        }
+        setRootVar(doc, '--vv-offset-top', `${startOffset}px`);
+
+        const entry = {
+            rafId: null,
+            timeoutId: null,
+            stopped: false,
+            onViewportChange: null
+        };
+        viewportCloseSettles.set(win, entry);
+
+        const syncSettlingOffset = () => {
+            if (entry.stopped || viewportCloseSettles.get(win) !== entry) return false;
+
+            if (getExpenseInputActive(options) || getFilterSearchActive(options)) {
+                stopCloseSettle(options, { keepOffsetVar: true });
+                return false;
+            }
+
+            const nextOffset = Math.max(0, Math.round(Number(vv && vv.offsetTop) || 0));
+            if (nextOffset > 0) {
+                setRootVar(doc, '--vv-offset-top', `${nextOffset}px`);
+                return true;
+            }
+
+            stopCloseSettle(options);
+            if (win && Number(win.scrollY || 0) > 0 && typeof win.scrollTo === 'function') {
+                try { win.scrollTo(0, 0); } catch (_) { }
+            }
+            return false;
+        };
+
+        entry.onViewportChange = () => {
+            syncSettlingOffset();
+        };
+
+        if (typeof win.addEventListener === 'function') {
+            win.addEventListener('scroll', entry.onViewportChange, { passive: true });
+        }
+        if (vv && typeof vv.addEventListener === 'function') {
+            vv.addEventListener('resize', entry.onViewportChange, { passive: true });
+            vv.addEventListener('scroll', entry.onViewportChange, { passive: true });
+        }
+
+        const raf = getRequestAnimationFrame(options, win);
+        runSafeRafLoop(raf, entry, viewportCloseSettles, win, syncSettlingOffset);
+
+        const setTimer = getSetTimeout(options, win);
+        if (setTimer) {
+            entry.timeoutId = setTimer(() => {
+                if (entry.stopped || viewportCloseSettles.get(win) !== entry) return;
+
+                const needsScrollReset = !!(
+                    win && typeof win.scrollTo === 'function' && (
+                        Number(win.scrollY || 0) > 0 ||
+                        Number(vv && vv.offsetTop || 0) > 0
+                    )
+                );
+                stopCloseSettle(options);
+                if (needsScrollReset && !getExpenseInputActive(options) && !getFilterSearchActive(options)) {
+                    try { win.scrollTo(0, 0); } catch (_) { }
+                }
+            }, CLOSE_SETTLE_MS);
+        }
     }
 
     function stopKeyboardPoll(options = {}) {
@@ -464,45 +714,9 @@ export const InputBarController = (() => {
         if (options.setRafId) options.setRafId(nextRaf);
     }
 
-    function startWatch(options = {}) {
-        stopWatch(options);
-        recordBaselineViewport(options);
-
-        const win = getWindow(options);
-        const doc = getDocument(options);
-        const handler = event => {
-            if (event && event.type === 'scroll') {
-                updatePosition(options);
-                return;
-            }
-            schedulePositionUpdate(options);
-        };
-
-        if (options.setResizeHandler) options.setResizeHandler(handler);
-
-        win.addEventListener('resize', handler, { passive: true });
-
-        if (win.visualViewport) {
-            win.visualViewport.addEventListener('resize', handler, { passive: true });
-            win.visualViewport.addEventListener('scroll', handler, { passive: true });
-        }
-
-        bindKeyboardTouchLock(doc);
-        syncVisualViewportLayout(options, true);
-        startKeyboardPoll(options);
-        schedulePositionUpdate(options, true);
-
-        const delay = options.setTimeout || setTimeout;
-
-        [60, 160, 320].forEach(ms => {
-            delay(() => {
-                if (getExpenseInputActive(options)) schedulePositionUpdate(options, true);
-            }, ms);
-        });
-    }
-
-    function stopWatch(options = {}) {
+    function clearActiveWatch(options = {}) {
         stopKeyboardPoll(options);
+        stopTransitionSync(options);
 
         const currentRaf = options.getRafId ? options.getRafId() : null;
         const cancelFrame = options.cancelAnimationFrame ||
@@ -517,8 +731,10 @@ export const InputBarController = (() => {
         const win = getWindow(options);
         const doc = getDocument(options);
 
-        if (handler) {
-            win.removeEventListener('resize', handler);
+        if (handler && win) {
+            if (typeof win.removeEventListener === 'function') {
+                win.removeEventListener('resize', handler);
+            }
 
             if (win.visualViewport) {
                 win.visualViewport.removeEventListener('resize', handler);
@@ -528,15 +744,91 @@ export const InputBarController = (() => {
             if (options.setResizeHandler) options.setResizeHandler(null);
         }
 
+        if (win && typeof win === 'object') {
+            const scrollHandler = activeWindowScrollHandlers.get(win);
+            if (scrollHandler && typeof win.removeEventListener === 'function') {
+                activeWindowScrollHandlers.delete(win);
+                win.removeEventListener('scroll', scrollHandler);
+            }
+        }
+
         unbindKeyboardTouchLock(doc);
-        syncVisualViewportLayout(options, false);
+
+        const bodyClassList = doc && doc.body && doc.body.classList;
+        if (bodyClassList && typeof bodyClassList.remove === 'function') {
+            bodyClassList.remove('ios-expense-input-active');
+            bodyClassList.remove('vv-keyboard-open');
+        }
 
         const inputBar = doc ? doc.getElementById('input-bar') : null;
         if (inputBar) {
             inputBar.style.bottom = '';
             inputBar.style.transform = '';
         }
+    }
 
+    function startWatch(options = {}) {
+        stopCloseSettle(options, { keepOffsetVar: true });
+        clearActiveWatch(options);
+        recordBaselineViewport(options);
+
+        const win = getWindow(options);
+        const doc = getDocument(options);
+        const isAppleTouch = isAppleTouchDevice(options);
+        const handler = event => {
+            if (event && (event.type === 'scroll' || (isAppleTouch && event.type === 'resize'))) {
+                updatePosition(options);
+                if (isAppleTouch) startTransitionSync(options);
+                return;
+            }
+            schedulePositionUpdate(options);
+        };
+
+        if (options.setResizeHandler) options.setResizeHandler(handler);
+
+        win.addEventListener('resize', handler, { passive: true });
+        if (isAppleTouch && win && typeof win.addEventListener === 'function') {
+            win.addEventListener('scroll', handler, { passive: true });
+            activeWindowScrollHandlers.set(win, handler);
+        }
+
+        if (win.visualViewport) {
+            win.visualViewport.addEventListener('resize', handler, { passive: true });
+            win.visualViewport.addEventListener('scroll', handler, { passive: true });
+        }
+
+        bindKeyboardTouchLock(doc);
+        syncVisualViewportLayout(options, true);
+        startKeyboardPoll(options);
+        if (isAppleTouch) startTransitionSync(options);
+        schedulePositionUpdate(options, true);
+
+        const delay = options.setTimeout || setTimeout;
+
+        [60, 160, 320].forEach(ms => {
+            delay(() => {
+                if (getExpenseInputActive(options)) schedulePositionUpdate(options, true);
+            }, ms);
+        });
+    }
+
+    function stopWatch(options = {}) {
+        stopCloseSettle(options, { keepOffsetVar: true });
+        clearActiveWatch(options);
+
+        const win = getWindow(options);
+        const doc = getDocument(options);
+        const metrics = getVisualViewportMetrics(options);
+
+        if (metrics.isAppleTouch && metrics.offsetTop > 0) {
+            removeRootVar(doc, '--vv-height');
+            removeRootVar(doc, '--vv-bottom-inset');
+            updateAppMainPadding(options);
+            startCloseSettle(options, metrics);
+            return;
+        }
+
+        syncVisualViewportLayout(options, false);
         updateAppMainPadding(options);
 
         const hasViewportOffset = !!(
@@ -546,17 +838,17 @@ export const InputBarController = (() => {
                 (win.visualViewport && Number(win.visualViewport.offsetTop || 0) > 0)
             )
         );
-        if (win && typeof win.scrollTo === 'function' && (hasViewportOffset || isAppleTouchDevice(options))) {
+        if (win && typeof win.scrollTo === 'function' && (hasViewportOffset || metrics.isAppleTouch)) {
             const delay = options.setTimeout ||
                 (typeof setTimeout === 'function' ? setTimeout : callback => callback());
-            if (hasViewportOffset) {
+            if (!metrics.isAppleTouch && hasViewportOffset) {
                 delay(() => {
                     if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
                         try { win.scrollTo(0, 0); } catch (_) { }
                     }
                 }, 80);
             }
-            if (isAppleTouchDevice(options)) {
+            if (metrics.isAppleTouch && Number(win.scrollY || 0) > 0) {
                 delay(() => {
                     if (!getExpenseInputActive(options) && !getFilterSearchActive(options)) {
                         try { win.scrollTo(0, 0); } catch (_) { }

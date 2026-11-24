@@ -881,6 +881,12 @@ export default function register(test) {
         const bodyClasses = new Set();
         const intervals = [];
         const clearedIntervals = [];
+        const timers = [];
+        const clearedTimers = [];
+        const scrollCalls = [];
+        const winListeners = {};
+        const vvListeners = {};
+        const frameQueue = [];
 
         const main = { style: {}, classList: { contains: () => false } };
         const header = { offsetHeight: 56 };
@@ -910,6 +916,7 @@ export default function register(test) {
 
         let active = true;
         let resizeHandler = null;
+        let nextFrameId = 0;
         const iphoneWin = {
             innerWidth: 393,
             innerHeight: 852,
@@ -917,16 +924,31 @@ export default function register(test) {
             navigator: {
                 userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
             },
-            scrollTo() { },
+            scrollTo(x, y) { scrollCalls.push([x, y]); },
             visualViewport: {
                 width: 393,
                 height: 852,
                 offsetTop: 0,
-                addEventListener() { },
-                removeEventListener() { }
+                addEventListener(event, handler) {
+                    if (!vvListeners[event]) vvListeners[event] = new Set();
+                    vvListeners[event].add(handler);
+                },
+                removeEventListener(event, handler) {
+                    if (vvListeners[event]) vvListeners[event].delete(handler);
+                }
             },
-            addEventListener() { },
-            removeEventListener() { }
+            addEventListener(event, handler) {
+                if (!winListeners[event]) winListeners[event] = new Set();
+                winListeners[event].add(handler);
+            },
+            removeEventListener(event, handler) {
+                if (winListeners[event]) winListeners[event].delete(handler);
+            }
+        };
+
+        const emit = (map, event, payload = { type: event }) => {
+            if (!map[event]) return;
+            Array.from(map[event]).forEach(handler => handler(payload));
         };
 
         const iphoneOptions = {
@@ -937,9 +959,25 @@ export default function register(test) {
             isFilterOpen: () => false,
             getResizeHandler: () => resizeHandler,
             setResizeHandler: value => { resizeHandler = value; },
-            requestAnimationFrame: cb => { cb(); return null; },
-            cancelAnimationFrame: () => { },
-            setTimeout: () => 1,
+            requestAnimationFrame: cb => {
+                const id = ++nextFrameId;
+                frameQueue.push({ id, cb });
+                return id;
+            },
+            cancelAnimationFrame: id => {
+                const index = frameQueue.findIndex(item => item.id === id);
+                if (index >= 0) frameQueue.splice(index, 1);
+            },
+            setTimeout: (cb, ms) => {
+                const entry = { id: timers.length + 1, cb, ms, cleared: false };
+                timers.push(entry);
+                return entry.id;
+            },
+            clearTimeout: id => {
+                clearedTimers.push(id);
+                const found = timers.find(item => item.id === id);
+                if (found) found.cleared = true;
+            },
             setInterval: (cb, ms) => {
                 intervals.push({ cb, ms });
                 return intervals.length;
@@ -947,10 +985,12 @@ export default function register(test) {
             clearInterval: id => clearedIntervals.push(id)
         };
 
-        // 1. Subito al focus (t=0): ios-expense-input-active e gia attiva prima dell'animazione tastiera
+        // 1. Subito al focus (t=0): ios-expense-input-active e gia attiva e rAF di transizione parte
         InputBarController.startWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
         assert.equal(intervals[0].ms, 120);
+        assert.equal(winListeners.scroll.size, 1);
+        assert(frameQueue.length > 0, 'Sync rAF di transizione attesa su iPhone');
 
         // 2. PWA standalone iPhone: innerHeight e vv.height si riducono entrambi (852 -> 452)
         iphoneWin.innerHeight = 452;
@@ -965,22 +1005,82 @@ export default function register(test) {
         assert.equal(rootVars['--vv-bottom-inset'], '0px');
         assert.equal(inputBar.style.bottom, '0px');
 
-        // 3. Se offsetTop supera layoutHeight - vv.height viene clampato in sicurezza
+        // 3. offsetTop non viene azzerato prima che vv.height cali e vv.resize aggiorna subito
         iphoneWin.innerHeight = 852;
         doc.documentElement.clientHeight = 852;
-        iphoneWin.visualViewport.height = 452;
-        iphoneWin.visualViewport.offsetTop = 430;
-        intervals[0].cb();
-        assert.equal(rootVars['--vv-offset-top'], '400px');
+        iphoneWin.visualViewport.height = 852;
+        iphoneWin.visualViewport.offsetTop = 336;
+        emit(vvListeners, 'resize');
+        assert.equal(rootVars['--vv-offset-top'], '336px');
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
 
-        // 4. Blur: stopWatch ferma il polling e rimuove entrambe le classi
+        iphoneWin.visualViewport.height = 516;
+        iphoneWin.visualViewport.offsetTop = 336;
+        emit(vvListeners, 'resize');
+        assert.equal(rootVars['--vv-offset-top'], '336px');
+        assert.equal(rootVars['--vv-bottom-inset'], '0px');
+
+        // 4. Blur con vv.offsetTop > 0 entra in vv-keyboard-settling e segue lo scorrimento fino a 0
         active = false;
+        timers.length = 0;
         InputBarController.stopWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), false);
         assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), true);
         assert.equal(rootVars['--vv-height'], undefined);
-        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.equal(rootVars['--vv-bottom-inset'], undefined);
+        assert.equal(rootVars['--vv-offset-top'], '336px');
         assert.deepEqual(clearedIntervals, [1]);
+        const settleTimer = timers.find(t => t.ms === 450);
+        assert(settleTimer, 'Timeout di sicurezza close-settle atteso');
+
+        iphoneWin.visualViewport.offsetTop = 180;
+        emit(vvListeners, 'scroll');
+        assert.equal(rootVars['--vv-offset-top'], '180px');
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), true);
+
+        iphoneWin.visualViewport.offsetTop = 0;
+        emit(vvListeners, 'scroll');
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), false);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.equal(settleTimer.cleared, true);
+        assert.equal(vvListeners.scroll.size, 0);
+
+        // 4b. Fallback 450ms ripulisce vv-keyboard-settling se offsetTop resta > 0 e resetta scroll
+        active = true;
+        iphoneWin.visualViewport.height = 516;
+        iphoneWin.visualViewport.offsetTop = 300;
+        InputBarController.startWatch(iphoneOptions);
+        active = false;
+        timers.length = 0;
+        iphoneWin.scrollY = 24;
+        InputBarController.stopWatch(iphoneOptions);
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), true);
+        const fallbackTimer = timers.find(t => t.ms === 450);
+        assert(fallbackTimer);
+        fallbackTimer.cb();
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), false);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
+        assert.deepEqual(scrollCalls, [[0, 0]]);
+        iphoneWin.scrollY = 0;
+
+        // 4c. Re-focus rapido durante close-settle mantiene --vv-offset-top senza scatti
+        active = true;
+        iphoneWin.visualViewport.offsetTop = 280;
+        InputBarController.startWatch(iphoneOptions);
+        active = false;
+        InputBarController.stopWatch(iphoneOptions);
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), true);
+        assert.equal(rootVars['--vv-offset-top'], '280px');
+        active = true;
+        InputBarController.startWatch(iphoneOptions);
+        assert.equal(bodyClasses.has('vv-keyboard-settling'), false);
+        assert.equal(bodyClasses.has('vv-keyboard-open'), true);
+        assert.equal(rootVars['--vv-offset-top'], '280px');
+        active = false;
+        iphoneWin.visualViewport.offsetTop = 0;
+        InputBarController.stopWatch(iphoneOptions);
+        assert.equal(rootVars['--vv-offset-top'], undefined);
 
         // 5. Android con resize layout non attiva ios-expense-input-active ne vv-keyboard-open
         let androidActive = true;

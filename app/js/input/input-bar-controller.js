@@ -97,6 +97,16 @@ export const InputBarController = (() => {
         return Math.max(0, Math.round(viewportH - (targetTop + barH)));
     }
 
+    function setPreLiftClass(doc, active) {
+        const bodyClassList = doc && doc.body && doc.body.classList;
+        if (!bodyClassList) return;
+        if (active && typeof bodyClassList.add === 'function') {
+            bodyClassList.add('ios-input-bar-prelift');
+        } else if (!active && typeof bodyClassList.remove === 'function') {
+            bodyClassList.remove('ios-input-bar-prelift');
+        }
+    }
+
     function getExpenseInputActive(options) {
         return !!(options.isExpenseInputActive && options.isExpenseInputActive());
     }
@@ -704,18 +714,30 @@ export const InputBarController = (() => {
             if (win && typeof win === 'object') preLiftedInputBars.delete(win);
             inputBar.style.bottom = '';
             inputBar.style.transform = '';
+            setPreLiftClass(doc, false);
             return;
-        }
-
-        if (metrics.isKeyboardOpen) {
-            if (win && typeof win === 'object') preLiftedInputBars.delete(win);
         }
 
         const inset = metrics.bottomInset;
         const preLift = win && typeof win === 'object' ? preLiftedInputBars.get(win) : null;
 
+        if (metrics.isKeyboardOpen) {
+            if (win && typeof win === 'object') preLiftedInputBars.delete(win);
+            const nextBottom = `${inset}px`;
+            if (force || inputBar.style.bottom !== nextBottom || inputBar.style.transform !== 'none') {
+                inputBar.style.bottom = nextBottom;
+                inputBar.style.transform = 'none';
+                if (preLift) void inputBar.offsetHeight;
+            } else if (preLift) {
+                void inputBar.offsetHeight;
+            }
+            setPreLiftClass(doc, false);
+            return;
+        }
+
         if (!shouldLockVisualViewport && preLift) {
             if (getNow(win) - preLift.startedAt < PRE_LIFT_MAX_MS) {
+                setPreLiftClass(doc, true);
                 const holdBottom = `${Math.max(preLift.bottom, inset)}px`;
                 if (force || inputBar.style.bottom !== holdBottom || inputBar.style.transform !== 'none') {
                     inputBar.style.bottom = holdBottom;
@@ -724,7 +746,19 @@ export const InputBarController = (() => {
                 return;
             }
             preLiftedInputBars.delete(win);
+            if (inset <= 0) {
+                inputBar.style.bottom = '';
+                inputBar.style.transform = '';
+            } else {
+                inputBar.style.bottom = `${inset}px`;
+                inputBar.style.transform = 'none';
+            }
+            void inputBar.offsetHeight;
+            setPreLiftClass(doc, false);
+            return;
         }
+
+        setPreLiftClass(doc, false);
 
         if (!shouldLockVisualViewport && inset <= 0) {
             if (!force && inputBar.style.bottom === '' && inputBar.style.transform === '') {
@@ -808,6 +842,7 @@ export const InputBarController = (() => {
         const bodyClassList = doc && doc.body && doc.body.classList;
         if (bodyClassList && typeof bodyClassList.remove === 'function') {
             bodyClassList.remove('ios-expense-input-active');
+            bodyClassList.remove('ios-input-bar-prelift');
             bodyClassList.remove('vv-keyboard-open');
         }
 
@@ -855,6 +890,7 @@ export const InputBarController = (() => {
             const initialMetrics = getVisualViewportMetrics(options);
             if (initialMetrics.isKeyboardOpen) {
                 preLiftedInputBars.delete(win);
+                setPreLiftClass(doc, false);
             } else {
                 const inputBar = doc ? doc.getElementById('input-bar') : null;
                 const preLiftBottom = getPreLiftBottom(options, initialMetrics, inputBar);
@@ -863,6 +899,7 @@ export const InputBarController = (() => {
                         bottom: preLiftBottom,
                         startedAt: getNow(win)
                     });
+                    setPreLiftClass(doc, true);
                     inputBar.style.bottom = `${preLiftBottom}px`;
                     inputBar.style.transform = 'none';
                     void inputBar.offsetHeight;
@@ -1070,6 +1107,7 @@ export const InputBarController = (() => {
             if (bodyCls && typeof bodyCls.contains === 'function') {
                 if (bodyCls.contains('expense-input-active')) cls += 'E';
                 if (bodyCls.contains('ios-expense-input-active')) cls += 'I';
+                if (bodyCls.contains('ios-input-bar-prelift')) cls += 'P';
                 if (bodyCls.contains('vv-keyboard-open')) cls += 'O';
                 if (bodyCls.contains('vv-keyboard-settling')) cls += 'S';
             }

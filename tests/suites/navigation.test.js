@@ -727,6 +727,16 @@ export default function register(test) {
             !/body\.ios-expense-input-active #input-bar\s*\{[^}]*bottom\s*:\s*0/.test(css),
             '#input-bar non deve spostarsi subito a bottom: 0 prima che si apra la tastiera'
         );
+        assertRuleMatches(/^\s*body\.ios-expense-input-active\.vv-keyboard-open #input-bar\s*\{([^}]*)\}/m, [
+            /transition\s*:\s*opacity\s+120ms\s+ease-out/
+        ], 'body.ios-expense-input-active.vv-keyboard-open #input-bar');
+        assertRuleMatches(/^\s*body\.ios-expense-input-active\.ios-input-bar-prelift #input-bar,\s*body\.ios-input-bar-prelift #input-bar\s*\{([^}]*)\}/m, [
+            /opacity\s*:\s*0/,
+            /transition\s*:\s*none/
+        ], 'body.ios-input-bar-prelift #input-bar');
+        assertRuleMatches(/^\s*body\.ios-input-bar-prelift #expense-input\s*\{([^}]*)\}/m, [
+            /caret-color\s*:\s*transparent/
+        ], 'body.ios-input-bar-prelift #expense-input');
 
         assertRuleMatches(/^\s*#timeline-summary\s*\{([^}]*)\}/m, [
             /position\s*:\s*fixed/,

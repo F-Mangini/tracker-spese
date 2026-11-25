@@ -305,6 +305,26 @@ body.expense-input-active #input-bar {
     will-change: bottom;
 }
 
+body.ios-expense-input-active.vv-keyboard-open #input-bar {
+    transition: opacity 120ms ease-out;
+}
+
+body.ios-expense-input-active.ios-input-bar-prelift #input-bar,
+body.ios-input-bar-prelift #input-bar {
+    opacity: 0;
+    transition: none;
+}
+
+body.ios-input-bar-prelift #expense-input {
+    caret-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.ios-expense-input-active.vv-keyboard-open #input-bar {
+        transition: none;
+    }
+}
+
 #input-bar.page-swipe-input,
 body.expense-input-active #input-bar.page-swipe-input {
     transition: var(--page-swipe-input-transition, none) !important;

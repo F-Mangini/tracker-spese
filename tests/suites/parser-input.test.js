@@ -996,9 +996,10 @@ export default function register(test) {
             clearInterval: id => clearedIntervals.push(id)
         };
 
-        // 1. Subito al focus (t=0): ios-expense-input-active, pre-lift sincrono al centro libero (top=164 -> bottom=620px) e rAF di transizione
+        // 1. Subito al focus (t=0): ios-expense-input-active, ios-input-bar-prelift e pre-lift sincrono al centro libero (top=164 -> bottom=620px)
         InputBarController.startWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), true);
         assert.equal(inputBar.style.bottom, '620px');
         assert.equal(inputBar.style.transform, 'none');
         fakeNow = 1100;
@@ -1006,12 +1007,13 @@ export default function register(test) {
         iphoneWin.visualViewport.offsetTop = 0;
         InputBarController.updatePosition(iphoneOptions);
         assert.equal(inputBar.style.bottom, '620px');
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), true);
         iphoneWin.visualViewport.height = 852;
         assert.equal(intervals[0].ms, 120);
         assert.equal(winListeners.scroll.size, 1);
         assert(frameQueue.length > 0, 'Sync rAF di transizione attesa su iPhone');
 
-        // 2. PWA standalone iPhone: innerHeight e vv.height si riducono entrambi (852 -> 452)
+        // 2. PWA standalone iPhone: innerHeight e vv.height si riducono entrambi (852 -> 452) e prelift diventa visibile
         iphoneWin.innerHeight = 452;
         doc.documentElement.clientHeight = 452;
         iphoneWin.visualViewport.height = 452;
@@ -1019,6 +1021,7 @@ export default function register(test) {
         intervals[0].cb();
         assert.equal(bodyClasses.has('vv-keyboard-open'), true);
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), false);
         assert.equal(rootVars['--vv-height'], '452px');
         assert.equal(rootVars['--vv-offset-top'], '0px');
         assert.equal(rootVars['--vv-bottom-inset'], '0px');
@@ -1167,13 +1170,16 @@ export default function register(test) {
         };
         InputBarController.startWatch(pwaOptions);
         assert.equal(inputBar.style.bottom, '561px');
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), true);
 
         fakeNow = 2700;
         InputBarController.updatePosition(pwaOptions);
         assert.equal(inputBar.style.bottom, '');
         assert.equal(inputBar.style.transform, '');
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), false);
         pwaActive = false;
         InputBarController.stopWatch(pwaOptions);
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), false);
 
         // 5. Android con resize layout non attiva ios-expense-input-active ne pre-lift ne clientHeight override
         let androidActive = true;
@@ -1220,6 +1226,7 @@ export default function register(test) {
             setTimeout: () => 1
         });
         assert.equal(bodyClasses.has('ios-expense-input-active'), false);
+        assert.equal(bodyClasses.has('ios-input-bar-prelift'), false);
         assert.equal(bodyClasses.has('vv-keyboard-open'), false);
         assert.equal(inputBar.style.bottom, '');
         androidActive = false;

@@ -844,12 +844,21 @@ export default function register(test) {
         docListeners.touchend({ target: searchInput, changedTouches: [{ clientX: 121, clientY: 80 }] });
         assert.equal(blurCount, 0);
 
-        // Interazione iniziata dentro #input-bar sopprime click spuri finiti fuori al cambio layout
+        // Interazione iniziata dentro #input-bar sopprime click spuri e mousedown finiti fuori al cambio layout
+        let prevented = 0;
+        let stopped = 0;
         docListeners.touchstart({ target: input, touches: [{ clientX: 120, clientY: 700 }] });
         docListeners.touchend({ target: input, changedTouches: [{ clientX: 120, clientY: 700 }] });
-        docListeners.click({ target: summary });
+        docListeners.mousedown({ target: summary });
+        docListeners.click({
+            target: summary,
+            preventDefault() { prevented += 1; },
+            stopPropagation() { stopped += 1; }
+        });
         assert.equal(blurCount, 0);
         assert.equal(active, true);
+        assert.equal(prevented, 1, 'Click spurio fuori da #input-bar dopo pre-lift va neutralizzato');
+        assert.equal(stopped, 1);
 
         // Un nuovo touchstart fuori da #input-bar sblocca subito il dismiss
         docListeners.touchstart({ target: summary, touches: [{ clientX: 100, clientY: 120 }] });
@@ -890,7 +899,7 @@ export default function register(test) {
 
         const main = { style: {}, classList: { contains: () => false } };
         const header = { offsetHeight: 56 };
-        const inputBar = { style: { bottom: '', transform: '' } };
+        const inputBar = { offsetHeight: 68, style: { bottom: '', transform: '' } };
         const doc = {
             body: {
                 classList: {
@@ -917,10 +926,12 @@ export default function register(test) {
         let active = true;
         let resizeHandler = null;
         let nextFrameId = 0;
+        let fakeNow = 1000;
         const iphoneWin = {
             innerWidth: 393,
             innerHeight: 852,
             scrollY: 0,
+            performance: { now: () => fakeNow },
             navigator: {
                 userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
             },
@@ -985,9 +996,17 @@ export default function register(test) {
             clearInterval: id => clearedIntervals.push(id)
         };
 
-        // 1. Subito al focus (t=0): ios-expense-input-active e gia attiva e rAF di transizione parte
+        // 1. Subito al focus (t=0): ios-expense-input-active, pre-lift sincrono al centro libero (top=164 -> bottom=620px) e rAF di transizione
         InputBarController.startWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
+        assert.equal(inputBar.style.bottom, '620px');
+        assert.equal(inputBar.style.transform, 'none');
+        fakeNow = 1100;
+        iphoneWin.visualViewport.height = 802;
+        iphoneWin.visualViewport.offsetTop = 0;
+        InputBarController.updatePosition(iphoneOptions);
+        assert.equal(inputBar.style.bottom, '620px');
+        iphoneWin.visualViewport.height = 852;
         assert.equal(intervals[0].ms, 120);
         assert.equal(winListeners.scroll.size, 1);
         assert(frameQueue.length > 0, 'Sync rAF di transizione attesa su iPhone');
@@ -1002,6 +1021,27 @@ export default function register(test) {
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
         assert.equal(rootVars['--vv-height'], '452px');
         assert.equal(rootVars['--vv-offset-top'], '0px');
+        assert.equal(rootVars['--vv-bottom-inset'], '0px');
+        assert.equal(inputBar.style.bottom, '0px');
+
+        // 2b. PWA standalone iPhone reale (log iOS 18.7): innerHeight=397, clientHeight=793, vv.height=397
+        iphoneWin.innerHeight = 397;
+        doc.documentElement.clientHeight = 793;
+        iphoneWin.visualViewport.height = 397;
+        iphoneWin.visualViewport.offsetTop = 0;
+        emit(vvListeners, 'resize');
+        assert.equal(InputBarController.getVisualViewportMetrics(iphoneOptions).fixedViewportHeight, 793);
+        assert.equal(InputBarController.getVisualViewportMetrics(iphoneOptions).isKeyboardOpen, true);
+        assert.equal(rootVars['--vv-bottom-inset'], '396px');
+        assert.equal(inputBar.style.bottom, '396px');
+
+        iphoneWin.visualViewport.offsetTop = 120;
+        emit(vvListeners, 'scroll');
+        assert.equal(rootVars['--vv-bottom-inset'], '276px');
+        assert.equal(inputBar.style.bottom, '276px');
+
+        iphoneWin.visualViewport.offsetTop = 396;
+        emit(vvListeners, 'scroll');
         assert.equal(rootVars['--vv-bottom-inset'], '0px');
         assert.equal(inputBar.style.bottom, '0px');
 
@@ -1082,9 +1122,69 @@ export default function register(test) {
         InputBarController.stopWatch(iphoneOptions);
         assert.equal(rootVars['--vv-offset-top'], undefined);
 
-        // 5. Android con resize layout non attiva ios-expense-input-active ne vv-keyboard-open
+        // 4d. Riapertura con viewport 793 (standalone reale) fa pre-lift sincrono a 561px e scade dopo 650ms senza tastiera
+        fakeNow = 2000;
+        let pwaActive = true;
+        let pwaResizeHandler = null;
+        let pwaRafId = null;
+        const pwaDoc = {
+            ...doc,
+            documentElement: {
+                clientHeight: 793,
+                style: doc.documentElement.style
+            }
+        };
+        const pwaWin = {
+            ...iphoneWin,
+            innerHeight: 793,
+            performance: { now: () => fakeNow },
+            visualViewport: {
+                width: 393,
+                height: 793,
+                offsetTop: 0,
+                addEventListener() { },
+                removeEventListener() { }
+            },
+            addEventListener() { },
+            removeEventListener() { }
+        };
+        const pwaOptions = {
+            document: pwaDoc,
+            window: pwaWin,
+            isExpenseInputActive: () => pwaActive,
+            isFilterSearchActive: () => false,
+            isFilterOpen: () => false,
+            getRafId: () => pwaRafId,
+            setRafId: value => { pwaRafId = value; },
+            getResizeHandler: () => pwaResizeHandler,
+            setResizeHandler: value => { pwaResizeHandler = value; },
+            requestAnimationFrame: () => 1,
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1,
+            clearTimeout: () => { },
+            setInterval: () => 1,
+            clearInterval: () => { }
+        };
+        InputBarController.startWatch(pwaOptions);
+        assert.equal(inputBar.style.bottom, '561px');
+
+        fakeNow = 2700;
+        InputBarController.updatePosition(pwaOptions);
+        assert.equal(inputBar.style.bottom, '');
+        assert.equal(inputBar.style.transform, '');
+        pwaActive = false;
+        InputBarController.stopWatch(pwaOptions);
+
+        // 5. Android con resize layout non attiva ios-expense-input-active ne pre-lift ne clientHeight override
         let androidActive = true;
         let androidResize = null;
+        const androidDoc = {
+            ...doc,
+            documentElement: {
+                clientHeight: 852,
+                style: doc.documentElement.style
+            }
+        };
         const androidWin = {
             innerWidth: 412,
             innerHeight: 480,
@@ -1101,8 +1201,14 @@ export default function register(test) {
             addEventListener() { },
             removeEventListener() { }
         };
+        const androidMetrics = InputBarController.getVisualViewportMetrics({
+            document: androidDoc,
+            window: androidWin
+        });
+        assert.equal(androidMetrics.fixedViewportHeight, 480);
+        assert.equal(androidMetrics.bottomInset, 0);
         InputBarController.startWatch({
-            document: doc,
+            document: androidDoc,
             window: androidWin,
             isExpenseInputActive: () => androidActive,
             isFilterSearchActive: () => false,
@@ -1115,9 +1221,10 @@ export default function register(test) {
         });
         assert.equal(bodyClasses.has('ios-expense-input-active'), false);
         assert.equal(bodyClasses.has('vv-keyboard-open'), false);
+        assert.equal(inputBar.style.bottom, '');
         androidActive = false;
         InputBarController.stopWatch({
-            document: doc,
+            document: androidDoc,
             window: androidWin,
             isExpenseInputActive: () => false,
             isFilterSearchActive: () => false,

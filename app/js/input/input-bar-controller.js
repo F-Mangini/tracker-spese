@@ -7,6 +7,10 @@ export const InputBarController = (() => {
     const KEYBOARD_POLL_MS = 120;
     const TRANSITION_SYNC_MS = 500;
     const CLOSE_SETTLE_MS = 450;
+    const PRE_LIFT_TARGET_TOP = 164;
+    const PRE_LIFT_COMPACT_TARGET_TOP = 96;
+    const PRE_LIFT_FALLBACK_BAR_HEIGHT = 68;
+    const PRE_LIFT_MAX_MS = 650;
     const DEV_DIAG_MAX_ENTRIES = 180;
     const DEV_DIAG_BURST_MS = 750;
     const DEV_DIAG_BURST_TICKS = [50, 150, 300, 500, 750];
@@ -17,6 +21,7 @@ export const InputBarController = (() => {
     const activeWindowScrollHandlers = new WeakMap();
     const viewportTransitionSyncs = new WeakMap();
     const viewportCloseSettles = new WeakMap();
+    const preLiftedInputBars = new WeakMap();
     const devDiagnosticsStates = new WeakMap();
 
     function noop() { }
@@ -75,6 +80,23 @@ export const InputBarController = (() => {
         return entry ? entry.height : 0;
     }
 
+    function getPreLiftBottom(options = {}, metrics = {}, inputBar = null) {
+        const viewportH = Math.max(
+            metrics.fixedViewportHeight || 0,
+            metrics.layoutHeight || 0,
+            getBaselineHeight(options) || 0,
+            metrics.height || 0
+        );
+        if (viewportH <= 0) return 0;
+
+        const rawBarH = Number(inputBar && inputBar.offsetHeight) || 0;
+        const barH = rawBarH > 0 ? Math.max(48, Math.round(rawBarH)) : PRE_LIFT_FALLBACK_BAR_HEIGHT;
+        const targetTop = viewportH < 500
+            ? PRE_LIFT_COMPACT_TARGET_TOP
+            : PRE_LIFT_TARGET_TOP;
+        return Math.max(0, Math.round(viewportH - (targetTop + barH)));
+    }
+
     function getExpenseInputActive(options) {
         return !!(options.isExpenseInputActive && options.isExpenseInputActive());
     }
@@ -111,14 +133,18 @@ export const InputBarController = (() => {
 
     function getVisualViewportMetrics(options = {}) {
         const win = getWindow(options);
+        const doc = getDocument(options);
         const vv = win && win.visualViewport;
         const isAppleTouch = isAppleTouchDevice(options);
         const layoutHeight = Number(win && win.innerHeight) || 0;
+        const clientHeight = Number(doc && doc.documentElement && doc.documentElement.clientHeight) || 0;
+        const fixedViewportHeight = isAppleTouch ? Math.max(layoutHeight, clientHeight) : layoutHeight;
 
         if (!vv || !Number.isFinite(vv.height)) {
             return {
                 available: false,
                 layoutHeight,
+                fixedViewportHeight,
                 height: layoutHeight,
                 offsetTop: 0,
                 rawOffsetTop: 0,
@@ -132,11 +158,11 @@ export const InputBarController = (() => {
         const height = Math.max(0, Math.round(vv.height));
         const rawOffsetTop = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
         const offsetTop = rawOffsetTop;
-        const layoutGap = Math.max(0, Math.round(layoutHeight - vv.height));
+        const layoutGap = Math.max(0, Math.round(fixedViewportHeight - vv.height));
         const baselineHeight = getBaselineHeight(options);
         const baselineGap = baselineHeight > 0 ? Math.max(0, Math.round(baselineHeight - vv.height)) : 0;
         const keyboardHeight = isAppleTouch ? Math.max(layoutGap, baselineGap) : layoutGap;
-        const bottomInset = Math.max(0, Math.round(layoutHeight - (offsetTop + vv.height)));
+        const bottomInset = Math.max(0, Math.round(fixedViewportHeight - (offsetTop + vv.height)));
         const isKeyboardOpen = isAppleTouch
             ? (keyboardHeight > KEYBOARD_VIEWPORT_THRESHOLD || rawOffsetTop > 0)
             : (layoutGap > KEYBOARD_VIEWPORT_THRESHOLD);
@@ -144,6 +170,7 @@ export const InputBarController = (() => {
         return {
             available: true,
             layoutHeight,
+            fixedViewportHeight,
             height,
             offsetTop,
             rawOffsetTop,
@@ -669,16 +696,35 @@ export const InputBarController = (() => {
         updateAppMainPadding(options);
 
         const doc = getDocument(options);
+        const win = getWindow(options);
         const inputBar = doc ? doc.getElementById('input-bar') : null;
         if (!inputBar) return;
 
         if (!getExpenseInputActive(options)) {
+            if (win && typeof win === 'object') preLiftedInputBars.delete(win);
             inputBar.style.bottom = '';
             inputBar.style.transform = '';
             return;
         }
 
+        if (metrics.isKeyboardOpen) {
+            if (win && typeof win === 'object') preLiftedInputBars.delete(win);
+        }
+
         const inset = metrics.bottomInset;
+        const preLift = win && typeof win === 'object' ? preLiftedInputBars.get(win) : null;
+
+        if (!shouldLockVisualViewport && preLift) {
+            if (getNow(win) - preLift.startedAt < PRE_LIFT_MAX_MS) {
+                const holdBottom = `${Math.max(preLift.bottom, inset)}px`;
+                if (force || inputBar.style.bottom !== holdBottom || inputBar.style.transform !== 'none') {
+                    inputBar.style.bottom = holdBottom;
+                    inputBar.style.transform = 'none';
+                }
+                return;
+            }
+            preLiftedInputBars.delete(win);
+        }
 
         if (!shouldLockVisualViewport && inset <= 0) {
             if (!force && inputBar.style.bottom === '' && inputBar.style.transform === '') {
@@ -749,6 +795,7 @@ export const InputBarController = (() => {
         }
 
         if (win && typeof win === 'object') {
+            preLiftedInputBars.delete(win);
             const scrollHandler = activeWindowScrollHandlers.get(win);
             if (scrollHandler && typeof win.removeEventListener === 'function') {
                 activeWindowScrollHandlers.delete(win);
@@ -803,6 +850,30 @@ export const InputBarController = (() => {
 
         bindKeyboardTouchLock(doc);
         syncVisualViewportLayout(options, true);
+
+        if (isAppleTouch && win && typeof win === 'object' && getExpenseInputActive(options)) {
+            const initialMetrics = getVisualViewportMetrics(options);
+            if (initialMetrics.isKeyboardOpen) {
+                preLiftedInputBars.delete(win);
+            } else {
+                const inputBar = doc ? doc.getElementById('input-bar') : null;
+                const preLiftBottom = getPreLiftBottom(options, initialMetrics, inputBar);
+                if (inputBar && preLiftBottom > 0) {
+                    preLiftedInputBars.set(win, {
+                        bottom: preLiftBottom,
+                        startedAt: getNow(win)
+                    });
+                    inputBar.style.bottom = `${preLiftBottom}px`;
+                    inputBar.style.transform = 'none';
+                    void inputBar.offsetHeight;
+                    const input = doc && typeof doc.getElementById === 'function'
+                        ? doc.getElementById('expense-input')
+                        : null;
+                    if (input) void input.offsetHeight;
+                }
+            }
+        }
+
         startKeyboardPoll(options);
         if (isAppleTouch) startTransitionSync(options);
         schedulePositionUpdate(options, true);

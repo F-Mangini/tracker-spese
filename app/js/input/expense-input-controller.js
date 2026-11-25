@@ -156,22 +156,18 @@ export const ExpenseInputController = (() => {
         if (typeof activeDocument.addEventListener === 'function') {
             let outsideTouch = null;
             let lastInputBarInteractionTime = 0;
-            let lastInputBarTouchTime = 0;
             let lastScrollDragTime = 0;
 
             activeDocument.addEventListener('touchstart', event => {
                 lastScrollDragTime = 0;
                 const target = event && event.target;
                 if (isInsideElement(target, inputBar)) {
-                    const now = Date.now();
-                    lastInputBarInteractionTime = now;
-                    lastInputBarTouchTime = now;
+                    lastInputBarInteractionTime = Date.now();
                     outsideTouch = null;
                     return;
                 }
 
                 lastInputBarInteractionTime = 0;
-                lastInputBarTouchTime = 0;
                 const touches = event && event.touches;
                 const touch = touches && touches[0];
                 if (!touch || (touches && touches.length > 1) || !shouldDismissForTarget(target)) {
@@ -189,13 +185,8 @@ export const ExpenseInputController = (() => {
 
             activeDocument.addEventListener('mousedown', event => {
                 const target = event && event.target;
-                const now = Date.now();
                 if (isInsideElement(target, inputBar)) {
-                    lastInputBarInteractionTime = now;
-                    return;
-                }
-
-                if (lastInputBarTouchTime > 0 && now - lastInputBarTouchTime < INPUT_BAR_CLICK_SUPPRESS_MS) {
+                    lastInputBarInteractionTime = Date.now();
                     return;
                 }
 
@@ -252,19 +243,15 @@ export const ExpenseInputController = (() => {
 
             activeDocument.addEventListener('click', event => {
                 const now = Date.now();
-                if (lastInputBarInteractionTime > 0 && now - lastInputBarInteractionTime < INPUT_BAR_CLICK_SUPPRESS_MS) {
-                    if (!isInsideElement(event && event.target, inputBar)) {
-                        if (event && typeof event.preventDefault === 'function') event.preventDefault();
-                        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-                    }
-                    return;
-                }
-                if (lastScrollDragTime > 0 && now - lastScrollDragTime < SCROLL_CLICK_SUPPRESS_MS) {
+                if (
+                    (lastInputBarInteractionTime > 0 && now - lastInputBarInteractionTime < INPUT_BAR_CLICK_SUPPRESS_MS) ||
+                    (lastScrollDragTime > 0 && now - lastScrollDragTime < SCROLL_CLICK_SUPPRESS_MS)
+                ) {
                     return;
                 }
                 if (!shouldDismissForTarget(event && event.target)) return;
                 blurExpenseInput();
-            }, { capture: true, passive: false });
+            }, { capture: true, passive: true });
         }
 
         const SpeechRecognitionClass = options.SpeechRecognitionClass ||

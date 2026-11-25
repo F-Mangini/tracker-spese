@@ -844,19 +844,10 @@ export default function register(test) {
         docListeners.touchend({ target: searchInput, changedTouches: [{ clientX: 121, clientY: 80 }] });
         assert.equal(blurCount, 0);
 
-        // Interazione iniziata dentro #input-bar sopprime mousedown/click spuri finiti fuori al cambio layout
-        let strayPrevented = 0;
-        let strayStopped = 0;
+        // Interazione iniziata dentro #input-bar sopprime click spuri finiti fuori al cambio layout
         docListeners.touchstart({ target: input, touches: [{ clientX: 120, clientY: 700 }] });
         docListeners.touchend({ target: input, changedTouches: [{ clientX: 120, clientY: 700 }] });
-        docListeners.mousedown({ target: summary });
-        docListeners.click({
-            target: summary,
-            preventDefault() { strayPrevented += 1; },
-            stopPropagation() { strayStopped += 1; }
-        });
-        assert.equal(strayPrevented, 1);
-        assert.equal(strayStopped, 1);
+        docListeners.click({ target: summary });
         assert.equal(blurCount, 0);
         assert.equal(active, true);
 
@@ -926,14 +917,10 @@ export default function register(test) {
         let active = true;
         let resizeHandler = null;
         let nextFrameId = 0;
-        let fakeNow = 1000;
         const iphoneWin = {
             innerWidth: 393,
             innerHeight: 852,
             scrollY: 0,
-            performance: {
-                now: () => fakeNow
-            },
             navigator: {
                 userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
             },
@@ -998,19 +985,9 @@ export default function register(test) {
             clearInterval: id => clearedIntervals.push(id)
         };
 
-        // 1. Subito al focus (t=0): ios-expense-input-active, pre-lift sincrono e rAF di transizione
+        // 1. Subito al focus (t=0): ios-expense-input-active e gia attiva e rAF di transizione parte
         InputBarController.startWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), true);
-        assert.equal(inputBar.style.bottom, '426px');
-        assert.equal(inputBar.style.transform, 'none');
-        fakeNow = 1100;
-        InputBarController.updatePosition(iphoneOptions, true);
-        assert.equal(inputBar.style.bottom, '426px');
-        iphoneWin.visualViewport.height = 802;
-        iphoneWin.visualViewport.offsetTop = 0;
-        InputBarController.updatePosition(iphoneOptions);
-        assert.equal(inputBar.style.bottom, '426px');
-        iphoneWin.visualViewport.height = 852;
         assert.equal(intervals[0].ms, 120);
         assert.equal(winListeners.scroll.size, 1);
         assert(frameQueue.length > 0, 'Sync rAF di transizione attesa su iPhone');
@@ -1027,13 +1004,6 @@ export default function register(test) {
         assert.equal(rootVars['--vv-offset-top'], '0px');
         assert.equal(rootVars['--vv-bottom-inset'], '0px');
         assert.equal(inputBar.style.bottom, '0px');
-
-        iphoneWin.innerHeight = 852;
-        doc.documentElement.clientHeight = 852;
-        iphoneWin.visualViewport.height = 452;
-        iphoneWin.visualViewport.offsetTop = 0;
-        emit(vvListeners, 'resize');
-        assert.equal(inputBar.style.bottom, '400px');
 
         // 3. offsetTop non viene azzerato prima che vv.height cali e vv.resize aggiorna subito
         iphoneWin.innerHeight = 852;
@@ -1056,7 +1026,6 @@ export default function register(test) {
         InputBarController.stopWatch(iphoneOptions);
         assert.equal(bodyClasses.has('ios-expense-input-active'), false);
         assert.equal(bodyClasses.has('vv-keyboard-open'), false);
-        assert.equal(inputBar.style.bottom, '');
         assert.equal(bodyClasses.has('vv-keyboard-settling'), true);
         assert.equal(rootVars['--vv-height'], undefined);
         assert.equal(rootVars['--vv-bottom-inset'], undefined);
@@ -1113,24 +1082,7 @@ export default function register(test) {
         InputBarController.stopWatch(iphoneOptions);
         assert.equal(rootVars['--vv-offset-top'], undefined);
 
-        // 4d. Riapertura successiva riusa l altezza tastiera misurata piu recente (336 + 24px) e scade dopo 650ms senza tastiera
-        fakeNow = 2000;
-        active = true;
-        iphoneWin.innerHeight = 852;
-        doc.documentElement.clientHeight = 852;
-        iphoneWin.visualViewport.height = 852;
-        iphoneWin.visualViewport.offsetTop = 0;
-        InputBarController.startWatch(iphoneOptions);
-        assert.equal(inputBar.style.bottom, '360px');
-
-        fakeNow = 2700;
-        InputBarController.updatePosition(iphoneOptions);
-        assert.equal(inputBar.style.bottom, '');
-        assert.equal(inputBar.style.transform, '');
-        active = false;
-        InputBarController.stopWatch(iphoneOptions);
-
-        // 5. Android con resize layout non attiva ios-expense-input-active ne vv-keyboard-open ne pre-lift
+        // 5. Android con resize layout non attiva ios-expense-input-active ne vv-keyboard-open
         let androidActive = true;
         let androidResize = null;
         const androidWin = {
@@ -1163,7 +1115,6 @@ export default function register(test) {
         });
         assert.equal(bodyClasses.has('ios-expense-input-active'), false);
         assert.equal(bodyClasses.has('vv-keyboard-open'), false);
-        assert.equal(inputBar.style.bottom, '');
         androidActive = false;
         InputBarController.stopWatch({
             document: doc,

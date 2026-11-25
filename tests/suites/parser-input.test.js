@@ -1128,4 +1128,193 @@ export default function register(test) {
             setTimeout: () => 1
         });
     });
+
+    test('InputBarController.initDevDiagnostics si attiva solo su canale dev e registra eventi viewport', () => {
+        const { InputBarController } = loadUiViews();
+
+        function makeMockEl(id = '', tagName = 'DIV') {
+            const listeners = {};
+            const classes = new Set();
+            const el = {
+                id,
+                tagName,
+                style: {},
+                value: '',
+                textContent: '',
+                parentNode: null,
+                children: [],
+                rect: { top: 0, bottom: 0, height: 0 },
+                attributes: {},
+                listeners,
+                classList: {
+                    add(c) { classes.add(c); },
+                    remove(c) { classes.delete(c); },
+                    contains(c) { return classes.has(c); }
+                },
+                setAttribute(name, val) { this.attributes[name] = val; },
+                getBoundingClientRect() { return this.rect; },
+                appendChild(child) {
+                    child.parentNode = this;
+                    this.children.push(child);
+                    if (child.id) nodesById.set(child.id, child);
+                    return child;
+                },
+                insertBefore(child, ref) {
+                    child.parentNode = this;
+                    const idx = this.children.indexOf(ref);
+                    if (idx >= 0) this.children.splice(idx, 0, child);
+                    else this.children.push(child);
+                    if (child.id) nodesById.set(child.id, child);
+                    return child;
+                },
+                addEventListener(type, fn, opts) {
+                    if (!listeners[type]) listeners[type] = [];
+                    listeners[type].push({ fn, capture: !!(opts && opts.capture) });
+                }
+            };
+            return el;
+        }
+
+        const nodesById = new Map();
+        const registerEl = (el, rect) => {
+            if (rect) el.rect = rect;
+            if (el.id) nodesById.set(el.id, el);
+            return el;
+        };
+
+        const header = registerEl(makeMockEl('app-header', 'HEADER'), { top: 0, bottom: 56, height: 56 });
+        const headerActions = makeMockEl('', 'DIV');
+        const themeToggle = registerEl(makeMockEl('theme-toggle', 'BUTTON'));
+        headerActions.appendChild(themeToggle);
+        header.appendChild(headerActions);
+
+        const summary = registerEl(makeMockEl('timeline-summary', 'DIV'), { top: 68, bottom: 132, height: 64 });
+        const appMain = registerEl(makeMockEl('app-main', 'MAIN'), { top: 56, bottom: 852, height: 796 });
+        const inputBar = registerEl(makeMockEl('input-bar', 'DIV'), { top: 724, bottom: 788, height: 64 });
+        const expenseInput = registerEl(makeMockEl('expense-input', 'TEXTAREA'), { top: 732, bottom: 772, height: 40 });
+        const body = makeMockEl('', 'BODY');
+        body.rect = { top: 0, bottom: 852, height: 852 };
+
+        const docListeners = {};
+        const doc = {
+            body,
+            activeElement: body,
+            documentElement: {
+                clientHeight: 852,
+                style: {}
+            },
+            getElementById: id => nodesById.get(id) || null,
+            querySelector: sel => {
+                if (sel === '#app-header .header-actions') return headerActions;
+                if (sel === '.stats-sticky-header') return null;
+                return null;
+            },
+            createElement: tag => makeMockEl('', String(tag).toUpperCase()),
+            addEventListener(type, fn, opts) {
+                if (!docListeners[type]) docListeners[type] = [];
+                docListeners[type].push({ fn, capture: !!(opts && opts.capture) });
+            }
+        };
+
+        // 1. Canale stable/assente non inietta UI ne registra listener
+        const stableWin = {
+            innerHeight: 852,
+            SPESA_TRACKER_CONFIG: { storageKey: 'spesa-tracker-data', channel: 'stable' },
+            getComputedStyle: () => ({ bottom: '64px', getPropertyValue: () => '' })
+        };
+        assert.equal(InputBarController.initDevDiagnostics({ document: doc, window: stableWin }), null);
+        assert.equal(InputBarController.initDevDiagnostics({ document: doc, window: { innerHeight: 852 } }), null);
+        assert.equal(nodesById.get('btn-dev-vv-diag'), undefined);
+
+        // 2. Canale dev attiva registrazione completa e UI overlay
+        const vvListeners = {};
+        const devWin = {
+            innerWidth: 393,
+            innerHeight: 852,
+            scrollY: 0,
+            devicePixelRatio: 3,
+            screen: { width: 393, height: 852, availHeight: 852 },
+            location: { pathname: '/tracker-spese/dev/' },
+            navigator: {
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)',
+                standalone: true
+            },
+            SPESA_TRACKER_CONFIG: { storageKey: 'spesa-tracker-data-dev', channel: 'dev' },
+            performance: { now: () => 1000 },
+            getComputedStyle: el => {
+                if (el === inputBar) return { bottom: '64px' };
+                return { getPropertyValue: name => (name === '--vv-offset-top' ? '336px' : '') };
+            },
+            visualViewport: {
+                height: 852,
+                offsetTop: 0,
+                scale: 1,
+                addEventListener(type, fn) {
+                    if (!vvListeners[type]) vvListeners[type] = [];
+                    vvListeners[type].push(fn);
+                }
+            },
+            addEventListener() { }
+        };
+
+        const diagOptions = {
+            document: doc,
+            window: devWin,
+            requestAnimationFrame: cb => { cb(); return 1; },
+            cancelAnimationFrame: () => { },
+            setTimeout: () => 1,
+            clearTimeout: () => { }
+        };
+        const state = InputBarController.initDevDiagnostics(diagOptions);
+        assert(state, 'Deve restituire lo stato diagnostico su channel dev');
+        assert.equal(InputBarController.initDevDiagnostics(diagOptions), state, 'Chiamate ripetute non duplicano lo stato');
+
+        const diagBtn = nodesById.get('btn-dev-vv-diag');
+        assert(diagBtn, 'Deve iniettare il bottone #btn-dev-vv-diag');
+        assert.equal(headerActions.children[0], diagBtn, 'Il bottone VV va inserito prima di #theme-toggle');
+
+        // Simula sequenza focus:pre -> focus:post -> vv:resize -> blur:pre -> blur:post
+        doc.activeElement = expenseInput;
+        docListeners.focus.forEach(entry => entry.fn({ target: expenseInput }));
+        expenseInput.listeners.focus.forEach(entry => entry.fn({ target: expenseInput }));
+
+        devWin.visualViewport.height = 516;
+        devWin.visualViewport.offsetTop = 336;
+        inputBar.style.bottom = '0px';
+        body.classList.add('expense-input-active');
+        body.classList.add('ios-expense-input-active');
+        body.classList.add('vv-keyboard-open');
+        vvListeners.resize.forEach(fn => fn());
+
+        doc.activeElement = body;
+        docListeners.blur.forEach(entry => entry.fn({ target: expenseInput }));
+        expenseInput.listeners.blur.forEach(entry => entry.fn({ target: expenseInput }));
+
+        const logText = state.getText();
+        assert(logText.includes('standalone=true'), 'Meta standalone presente');
+        assert(logText.includes('[init]'), 'Evento init presente');
+        assert(logText.includes('[focus:pre]'), 'Evento focus:pre presente');
+        assert(logText.includes('[focus:post]'), 'Evento focus:post presente');
+        assert(logText.includes('[vv:resize]'), 'Evento vv:resize presente');
+        assert(logText.includes('[blur:pre]'), 'Evento blur:pre presente');
+        assert(logText.includes('[blur:post]'), 'Evento blur:post presente');
+        assert(logText.includes('ih=852') && logText.includes('vvh=516') && logText.includes('vvo=336'), 'Metriche viewport attese nel log');
+        assert(logText.includes('ib=724..788(0px)'), 'Metriche #input-bar attese nel log');
+
+        // Apre overlay e verifica clear + close
+        diagBtn.listeners.click.forEach(entry => entry.fn());
+        const overlay = nodesById.get('dev-vv-diag-overlay');
+        const textarea = nodesById.get('dev-vv-diag-log');
+        const btnClear = nodesById.get('btn-dev-vv-clear');
+        const btnClose = nodesById.get('btn-dev-vv-close');
+        assert(overlay && overlay.style.display === 'flex');
+        assert(textarea.value.includes('[vv:resize]'));
+
+        btnClear.listeners.click.forEach(entry => entry.fn());
+        assert.equal(textarea.value.includes('[vv:resize]'), false);
+        assert(textarea.value.includes('[init]'));
+
+        btnClose.listeners.click.forEach(entry => entry.fn());
+        assert.equal(overlay.style.display, 'none');
+    });
 };

@@ -621,7 +621,13 @@ export const AppWiring = (() => {
                 startInputBarWatch: () => deps.InputBarController.startWatch(inputBarOptions()),
                 stopInputBarWatch: () => deps.InputBarController.stopWatch(inputBarOptions()),
                 scheduleInputBarPositionUpdate: force => deps.InputBarController.schedulePositionUpdate(inputBarOptions(), force),
-                updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions())
+                updateAppMainPadding: () => deps.InputBarController.updateAppMainPadding(inputBarOptions()),
+                initDevDiagnostics: () => {
+                    if (deps.InputBarController && typeof deps.InputBarController.initDevDiagnostics === 'function') {
+                        return deps.InputBarController.initDevDiagnostics(inputBarOptions());
+                    }
+                    return null;
+                }
             };
         }
 

@@ -7,6 +7,9 @@ export const InputBarController = (() => {
     const KEYBOARD_POLL_MS = 120;
     const TRANSITION_SYNC_MS = 500;
     const CLOSE_SETTLE_MS = 450;
+    const DEV_DIAG_MAX_ENTRIES = 180;
+    const DEV_DIAG_BURST_MS = 750;
+    const DEV_DIAG_BURST_TICKS = [50, 150, 300, 500, 750];
     const keyboardTouchLocks = new WeakMap();
     const baselineViewports = new WeakMap();
     const keyboardPollTimers = new WeakMap();
@@ -14,6 +17,7 @@ export const InputBarController = (() => {
     const activeWindowScrollHandlers = new WeakMap();
     const viewportTransitionSyncs = new WeakMap();
     const viewportCloseSettles = new WeakMap();
+    const devDiagnosticsStates = new WeakMap();
 
     function noop() { }
 
@@ -858,6 +862,420 @@ export const InputBarController = (() => {
         }
     }
 
+    function initDevDiagnostics(options = {}) {
+        const win = getWindow(options);
+        const doc = getDocument(options);
+        const config = win && win.SPESA_TRACKER_CONFIG;
+        if (!win || typeof win !== 'object' || !doc || !config || config.channel !== 'dev') {
+            return null;
+        }
+        if (devDiagnosticsStates.has(win)) {
+            return devDiagnosticsStates.get(win);
+        }
+
+        const getById = id => (typeof doc.getElementById === 'function' ? doc.getElementById(id) : null);
+        const nav = options.navigator || win.navigator || (typeof navigator !== 'undefined' ? navigator : null);
+        const ua = String((nav && nav.userAgent) || '');
+        let standalone = !!(nav && nav.standalone);
+        if (!standalone && typeof win.matchMedia === 'function') {
+            try {
+                standalone = !!win.matchMedia('(display-mode: standalone)').matches;
+            } catch (_) { }
+        }
+        const dpr = Number(win.devicePixelRatio || 1);
+        const scrW = win.screen ? Number(win.screen.width || 0) : 0;
+        const scrH = win.screen ? Number(win.screen.height || 0) : 0;
+        const availH = win.screen ? Number(win.screen.availHeight || 0) : 0;
+        const locPath = (win.location && win.location.pathname) || '';
+        const metaLine = `meta ua="${ua}" standalone=${standalone} dpr=${dpr} screen=${scrW}x${scrH} avail=${availH} path=${locPath}`;
+
+        const readComputedStyle = el => {
+            if (!el) return null;
+            const fn = typeof win.getComputedStyle === 'function'
+                ? win.getComputedStyle.bind(win)
+                : (typeof getComputedStyle === 'function' ? getComputedStyle : null);
+            if (!fn) return null;
+            try {
+                return fn(el);
+            } catch (_) {
+                return null;
+            }
+        };
+
+        const readRect = el => {
+            if (!el || typeof el.getBoundingClientRect !== 'function') return null;
+            try {
+                return el.getBoundingClientRect();
+            } catch (_) {
+                return null;
+            }
+        };
+
+        const pickVisibleBanner = () => {
+            const tlPage = getById('page-timeline');
+            const summaryEl = getById('timeline-summary');
+            const statsBanner = typeof doc.querySelector === 'function'
+                ? doc.querySelector('.stats-sticky-header')
+                : null;
+
+            if (
+                summaryEl &&
+                (!tlPage || !tlPage.classList || !tlPage.classList.contains('hidden')) &&
+                (!summaryEl.classList || !summaryEl.classList.contains('hidden'))
+            ) {
+                return summaryEl;
+            }
+            return statsBanner || summaryEl || null;
+        };
+
+        const state = {
+            t0: getNow(win),
+            entries: [],
+            lastSig: '',
+            burstToken: 0,
+            burstRaf: null,
+            burstTimers: [],
+            copyTimer: null,
+            overlay: null,
+            textarea: null,
+            copyBtn: null,
+            getText() {
+                return [metaLine, ...state.entries].join('\n');
+            },
+            clear() {
+                state.entries.length = 0;
+                state.t0 = getNow(win);
+                state.lastSig = '';
+                record('init', true);
+            },
+            record(ev, always = true) {
+                return record(ev, always);
+            }
+        };
+        devDiagnosticsStates.set(win, state);
+
+        function refreshOverlayText() {
+            if (state.textarea && state.overlay && (!state.overlay.style || state.overlay.style.display !== 'none')) {
+                state.textarea.value = state.getText();
+            }
+        }
+
+        function record(ev, always = true) {
+            const ih = Math.round(Number(win.innerHeight) || 0);
+            const ch = Math.round(Number(doc.documentElement && doc.documentElement.clientHeight) || 0);
+            const bodyRect = readRect(doc.body);
+            const bh = bodyRect ? Math.round(Number(bodyRect.height) || 0) : 0;
+            const vv = win.visualViewport;
+            const vvh = vv && Number.isFinite(vv.height) ? Math.round(vv.height) : -1;
+            const vvo = vv && Number.isFinite(vv.offsetTop) ? Math.round(vv.offsetTop) : -1;
+            const vvs = vv && Number.isFinite(vv.scale) ? Number(vv.scale.toFixed(2)) : -1;
+            const sy = Math.round(Number(win.scrollY) || 0);
+
+            const hdrRect = readRect(getById('app-header'));
+            const hdr = hdrRect ? Math.round(Number(hdrRect.top) || 0) : 'na';
+            const banRect = readRect(pickVisibleBanner());
+            const ban = banRect ? Math.round(Number(banRect.top) || 0) : 'na';
+            const mainRect = readRect(getById('app-main'));
+            const mainT = mainRect ? Math.round(Number(mainRect.top) || 0) : 'na';
+            const mainH = mainRect ? Math.round(Number(mainRect.height) || 0) : 'na';
+
+            const inputBar = getById('input-bar');
+            const ibRect = readRect(inputBar);
+            const ibT = ibRect ? Math.round(Number(ibRect.top) || 0) : 'na';
+            const ibB = ibRect ? Math.round(Number(ibRect.bottom) || 0) : 'na';
+            const ibInlineB = inputBar && inputBar.style && inputBar.style.bottom
+                ? String(inputBar.style.bottom)
+                : '';
+            const ibComp = !ibInlineB ? readComputedStyle(inputBar) : null;
+            const ibCssB = ibInlineB || (ibComp && ibComp.bottom ? `c:${ibComp.bottom}` : 'na');
+
+            const rootComp = readComputedStyle(doc.documentElement);
+            const vvVar = rootComp && typeof rootComp.getPropertyValue === 'function'
+                ? (rootComp.getPropertyValue('--vv-offset-top').trim() || '0')
+                : '0';
+
+            const bodyCls = doc.body && doc.body.classList;
+            let cls = '';
+            if (bodyCls && typeof bodyCls.contains === 'function') {
+                if (bodyCls.contains('expense-input-active')) cls += 'E';
+                if (bodyCls.contains('ios-expense-input-active')) cls += 'I';
+                if (bodyCls.contains('vv-keyboard-open')) cls += 'O';
+                if (bodyCls.contains('vv-keyboard-settling')) cls += 'S';
+            }
+            if (!cls) cls = '-';
+
+            const activeEl = doc.activeElement;
+            const act = (activeEl && (activeEl.id || activeEl.tagName)) || '-';
+            const sig = `${ih}|${ch}|${bh}|${vvh}|${vvo}|${sy}|${hdr}|${ban}|${mainT}|${mainH}|${ibT}|${ibB}|${ibCssB}|${vvVar}|${cls}|${act}`;
+            if (!always && sig === state.lastSig) {
+                return null;
+            }
+            state.lastSig = sig;
+
+            const t = Math.round(getNow(win) - state.t0);
+            const line = `+${t}ms [${ev}] ih=${ih} ch=${ch} bh=${bh} vvh=${vvh} vvo=${vvo} s=${vvs} sy=${sy} hdr=${hdr} ban=${ban} main=${mainT}/${mainH} ib=${ibT}..${ibB}(${ibCssB}) var=${vvVar} cls=${cls} act=${act}`;
+            if (state.entries.length >= DEV_DIAG_MAX_ENTRIES) {
+                state.entries.shift();
+            }
+            state.entries.push(line);
+            refreshOverlayText();
+            return line;
+        }
+
+        function stopBurst() {
+            state.burstToken += 1;
+            if (state.burstRaf != null) {
+                const cancelRaf = getCancelAnimationFrame(options, win);
+                try { cancelRaf(state.burstRaf); } catch (_) { }
+                state.burstRaf = null;
+            }
+            const clearTimer = getClearTimeout(options, win);
+            if (clearTimer && state.burstTimers.length) {
+                state.burstTimers.forEach(id => {
+                    try { clearTimer(id); } catch (_) { }
+                });
+            }
+            state.burstTimers = [];
+        }
+
+        function startBurst(label) {
+            stopBurst();
+            const token = state.burstToken;
+            const deadline = getNow(win) + DEV_DIAG_BURST_MS;
+            const raf = getRequestAnimationFrame(options, win);
+
+            if (raf) {
+                let scheduling = false;
+                let ranSync = false;
+
+                const step = () => {
+                    if (scheduling) ranSync = true;
+                    if (token !== state.burstToken) return;
+                    state.burstRaf = null;
+                    record('raf', false);
+                    if (ranSync || token !== state.burstToken || getNow(win) >= deadline) {
+                        return;
+                    }
+                    schedule();
+                };
+
+                const schedule = () => {
+                    if (token !== state.burstToken) return;
+                    scheduling = true;
+                    ranSync = false;
+                    const id = raf(step);
+                    scheduling = false;
+                    if (!ranSync && token === state.burstToken) {
+                        state.burstRaf = id;
+                    }
+                };
+
+                schedule();
+            }
+
+            const setTimer = getSetTimeout(options, win);
+            if (setTimer) {
+                DEV_DIAG_BURST_TICKS.forEach(ms => {
+                    const id = setTimer(() => {
+                        if (token !== state.burstToken) return;
+                        record(`${label}+${ms}`, true);
+                    }, ms);
+                    state.burstTimers.push(id);
+                });
+            }
+        }
+
+        function openOverlay() {
+            if (!state.overlay && typeof doc.createElement === 'function' && doc.body && typeof doc.body.appendChild === 'function') {
+                const overlay = doc.createElement('div');
+                overlay.id = 'dev-vv-diag-overlay';
+                overlay.style.cssText = 'position:fixed;inset:12px;z-index:9999;background:var(--bg-secondary,#ffffff);color:var(--text-primary,#1a1a2e);border:2px solid #ff7c00;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 32px rgba(0,0,0,0.35);';
+                if (typeof overlay.addEventListener === 'function') {
+                    overlay.addEventListener('touchstart', event => {
+                        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+                    }, { passive: true });
+                    overlay.addEventListener('touchmove', event => {
+                        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+                    }, { passive: true });
+                }
+
+                const title = doc.createElement('div');
+                title.textContent = 'Diagnostica Tastiera / Viewport (dev)';
+                title.style.cssText = 'font-size:0.95rem;font-weight:700;color:#ff7c00;';
+
+                const help = doc.createElement('div');
+                help.textContent = '1) Pulisci e Chiudi  2) Apri tastiera (1s), chiudila (1s)  3) Riapri VV e tocca Copia';
+                help.style.cssText = 'font-size:0.78rem;line-height:1.35;color:var(--text-secondary,#5f6368);';
+
+                const textarea = doc.createElement('textarea');
+                textarea.id = 'dev-vv-diag-log';
+                textarea.readOnly = true;
+                textarea.style.cssText = 'flex:1;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.35;padding:8px;border:1px solid var(--border,#ccc);border-radius:8px;background:var(--bg-primary,#f5f5f5);color:var(--text-primary,#1a1a2e);-webkit-user-select:text;user-select:text;';
+                if (typeof textarea.addEventListener === 'function') {
+                    textarea.addEventListener('touchmove', event => {
+                        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+                    }, { passive: true });
+                }
+
+                const actions = doc.createElement('div');
+                actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+
+                const mkBtn = (id, label, primary = false) => {
+                    const b = doc.createElement('button');
+                    b.id = id;
+                    b.type = 'button';
+                    b.textContent = label;
+                    b.style.cssText = primary
+                        ? 'padding:8px 14px;border:none;border-radius:8px;background:#ff7c00;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;'
+                        : 'padding:8px 12px;border:1px solid var(--border,#ccc);border-radius:8px;background:transparent;color:var(--text-primary,#1a1a2e);font-weight:600;font-size:0.85rem;cursor:pointer;';
+                    return b;
+                };
+
+                const btnClear = mkBtn('btn-dev-vv-clear', 'Pulisci');
+                const btnClose = mkBtn('btn-dev-vv-close', 'Chiudi');
+                const btnCopy = mkBtn('btn-dev-vv-copy', 'Copia', true);
+
+                const markCopied = () => {
+                    btnCopy.textContent = 'Copiato!';
+                    const clearTimer = getClearTimeout(options, win);
+                    if (state.copyTimer != null && clearTimer) {
+                        try { clearTimer(state.copyTimer); } catch (_) { }
+                    }
+                    const setTimer = getSetTimeout(options, win);
+                    if (setTimer) {
+                        state.copyTimer = setTimer(() => {
+                            state.copyTimer = null;
+                            btnCopy.textContent = 'Copia';
+                        }, 1500);
+                    }
+                };
+
+                const fallbackCopy = () => {
+                    if (typeof textarea.focus === 'function') {
+                        try { textarea.focus(); } catch (_) { }
+                    }
+                    if (typeof textarea.select === 'function') {
+                        try { textarea.select(); } catch (_) { }
+                    }
+                    if (typeof doc.execCommand === 'function') {
+                        try { doc.execCommand('copy'); } catch (_) { }
+                    }
+                    markCopied();
+                };
+
+                if (typeof btnCopy.addEventListener === 'function') {
+                    btnCopy.addEventListener('click', () => {
+                        const text = state.getText();
+                        if (nav && nav.clipboard && typeof nav.clipboard.writeText === 'function') {
+                            try {
+                                nav.clipboard.writeText(text).then(markCopied, fallbackCopy);
+                                return;
+                            } catch (_) { }
+                        }
+                        fallbackCopy();
+                    });
+                }
+
+                if (typeof btnClear.addEventListener === 'function') {
+                    btnClear.addEventListener('click', () => {
+                        state.clear();
+                        textarea.value = state.getText();
+                    });
+                }
+
+                if (typeof btnClose.addEventListener === 'function') {
+                    btnClose.addEventListener('click', () => {
+                        overlay.style.display = 'none';
+                    });
+                }
+
+                actions.appendChild(btnClear);
+                actions.appendChild(btnClose);
+                actions.appendChild(btnCopy);
+                overlay.appendChild(title);
+                overlay.appendChild(help);
+                overlay.appendChild(textarea);
+                overlay.appendChild(actions);
+                doc.body.appendChild(overlay);
+
+                state.overlay = overlay;
+                state.textarea = textarea;
+                state.copyBtn = btnCopy;
+            }
+
+            if (state.overlay) {
+                state.overlay.style.display = 'flex';
+            }
+            refreshOverlayText();
+        }
+
+        const expenseInput = getById('expense-input');
+        if (expenseInput) {
+            if (typeof doc.addEventListener === 'function') {
+                doc.addEventListener('focus', event => {
+                    if (event && event.target === expenseInput) record('focus:pre', true);
+                }, { capture: true, passive: true });
+                doc.addEventListener('blur', event => {
+                    if (event && event.target === expenseInput) record('blur:pre', true);
+                }, { capture: true, passive: true });
+            } else if (typeof expenseInput.addEventListener === 'function') {
+                expenseInput.addEventListener('focus', () => record('focus:pre', true), { capture: true, passive: true });
+                expenseInput.addEventListener('blur', () => record('blur:pre', true), { capture: true, passive: true });
+            }
+
+            if (typeof expenseInput.addEventListener === 'function') {
+                expenseInput.addEventListener('touchstart', () => record('touchstart', true), { passive: true });
+                expenseInput.addEventListener('touchend', () => record('touchend', true), { passive: true });
+                expenseInput.addEventListener('focus', () => {
+                    record('focus:post', true);
+                    startBurst('open');
+                }, { passive: true });
+                expenseInput.addEventListener('blur', () => {
+                    record('blur:post', true);
+                    startBurst('close');
+                }, { passive: true });
+            }
+        }
+
+        if (typeof win.addEventListener === 'function') {
+            win.addEventListener('resize', () => record('win:resize', true), { passive: true });
+            win.addEventListener('scroll', () => record('win:scroll', true), { passive: true });
+        }
+        if (win.visualViewport && typeof win.visualViewport.addEventListener === 'function') {
+            win.visualViewport.addEventListener('resize', () => record('vv:resize', true), { passive: true });
+            win.visualViewport.addEventListener('scroll', () => record('vv:scroll', true), { passive: true });
+        }
+
+        record('init', true);
+
+        const headerActions = typeof doc.querySelector === 'function'
+            ? doc.querySelector('#app-header .header-actions')
+            : null;
+        if (headerActions && !getById('btn-dev-vv-diag') && typeof doc.createElement === 'function') {
+            const btn = doc.createElement('button');
+            btn.id = 'btn-dev-vv-diag';
+            btn.type = 'button';
+            btn.className = 'header-btn';
+            if (typeof btn.setAttribute === 'function') {
+                btn.setAttribute('aria-label', 'Diagnostica viewport');
+                btn.setAttribute('title', 'Diagnostica tastiera/viewport (solo dev)');
+            }
+            btn.textContent = 'VV';
+            btn.style.cssText = 'font-size:0.72rem;font-weight:800;color:#ff7c00;border:1px solid #ff7c00;border-radius:999px;padding:4px 8px;line-height:1.1;';
+            const themeBtn = getById('theme-toggle');
+            if (themeBtn && themeBtn.parentNode === headerActions && typeof headerActions.insertBefore === 'function') {
+                headerActions.insertBefore(btn, themeBtn);
+            } else if (typeof headerActions.appendChild === 'function') {
+                headerActions.appendChild(btn);
+            }
+            if (typeof btn.addEventListener === 'function') {
+                btn.addEventListener('click', openOverlay);
+            }
+        }
+
+        return state;
+    }
+
     return {
         getVisualViewportMetrics,
         getKeyboardInset,
@@ -866,6 +1284,7 @@ export const InputBarController = (() => {
         updatePosition,
         schedulePositionUpdate,
         startWatch,
-        stopWatch
+        stopWatch,
+        initDevDiagnostics
     };
 })();

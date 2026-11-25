@@ -311,6 +311,8 @@ export const ExpenseInputController = (() => {
             btnVoice.style.display = 'none';
         }
 
+        call(options.initDevDiagnostics);
+
         return {
             input,
             btnSend,

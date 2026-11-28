@@ -319,6 +319,244 @@ export default function register(test) {
         assert.deepEqual(timeouts.map(item => item.ms), []);
     });
 
+    test('Interazioni dropdown e tag modale sbloccano tastiera touch al secondo tap senza chiudersi', () => {
+        const { ModalInteractions } = loadUiViews();
+
+        function createMockField({ id, withChips = false }) {
+            const timeouts = [];
+            const classes = new Set();
+            const attributes = new Map([['readonly', '']]);
+            const events = [];
+            let activeElement = null;
+
+            const input = {
+                dataset: {},
+                readOnly: true,
+                value: '',
+                listeners: {},
+                setAttribute(name, val) {
+                    attributes.set(name, String(val));
+                },
+                removeAttribute(name) {
+                    attributes.delete(name);
+                },
+                addEventListener(event, handler) {
+                    this.listeners[event] = handler;
+                },
+                focus() {
+                    events.push('focus');
+                    activeElement = input;
+                    if (this.listeners.focus) this.listeners.focus();
+                },
+                blur() {
+                    events.push('blur');
+                    activeElement = null;
+                    if (this.listeners.blur) this.listeners.blur();
+                }
+            };
+            const list = {
+                innerHTML: '',
+                querySelectorAll() {
+                    return [];
+                }
+            };
+            const chipsEl = withChips
+                ? {
+                    innerHTML: '',
+                    querySelectorAll() {
+                        return [];
+                    }
+                }
+                : null;
+            const container = {
+                innerHTML: '',
+                classList: {
+                    add(cls) { classes.add(cls); },
+                    remove(cls) { classes.delete(cls); },
+                    contains(cls) { return classes.has(cls); }
+                },
+                querySelector(selector) {
+                    if (selector === '.sd-input') return input;
+                    if (selector === '.sd-list') return list;
+                    return null;
+                }
+            };
+            const documentLike = {
+                get activeElement() {
+                    return activeElement;
+                },
+                getElementById(targetId) {
+                    if (targetId === id) return container;
+                    if (withChips && targetId === 'tag-chips') return chipsEl;
+                    return null;
+                }
+            };
+            const runZeroTimers = () => {
+                while (timeouts.some(item => item.ms === 0)) {
+                    const pending = timeouts.splice(0, timeouts.length);
+                    pending.forEach(item => {
+                        if (item.ms === 0) item.callback();
+                    });
+                }
+            };
+            const touchEvent = (x, y, onPrevent) => ({
+                touches: [{ clientX: x, clientY: y }],
+                preventDefault() {
+                    if (onPrevent) onPrevent();
+                }
+            });
+
+            return {
+                input,
+                classes,
+                attributes,
+                events,
+                documentLike,
+                runZeroTimers,
+                getActiveElement: () => activeElement,
+                setTimeout: (callback, ms) => {
+                    timeouts.push({ callback, ms });
+                },
+                touchEvent
+            };
+        }
+
+        // 1. Dropdown ricercabile: 1° tap apre readonly, drag > 10px non sblocca, 2° tap fa blur -> focus sbloccando input
+        const dd = createMockField({ id: 'sd-categoria' });
+        ModalInteractions.createSearchableDropdown({
+            containerId: 'sd-categoria',
+            items: [
+                { id: 'bar', emoji: 'x', nome: 'Bar' },
+                { id: 'casa', emoji: 'y', nome: 'Casa' }
+            ],
+            currentValue: 'bar',
+            document: dd.documentLike,
+            setTimeout: dd.setTimeout
+        });
+        dd.input.value = 'x Bar';
+
+        let touchPrevented = false;
+        let mousePrevented = false;
+        dd.input.listeners.touchstart(dd.touchEvent(100, 300, () => { touchPrevented = true; }));
+        assert.equal(dd.input.readOnly, true);
+        assert.equal(dd.attributes.has('readonly'), true);
+        dd.input.listeners.touchend(dd.touchEvent(100, 300, () => { touchPrevented = true; }));
+        dd.input.listeners.mousedown({ preventDefault() { mousePrevented = true; } });
+        dd.input.listeners.click();
+        dd.runZeroTimers();
+
+        assert.equal(touchPrevented, false);
+        assert.equal(mousePrevented, true);
+        assert(dd.classes.has('open'));
+        assert.equal(dd.input.readOnly, true);
+        assert.equal(dd.attributes.has('readonly'), true);
+        assert.equal(dd.getActiveElement(), dd.input);
+
+        // Drag verticale (> 10px) deve annullare la preparazione edit e ripristinare readonly
+        dd.events.length = 0;
+        dd.input.listeners.touchstart(dd.touchEvent(100, 300));
+        assert.equal(dd.input.readOnly, false);
+        dd.input.listeners.touchmove(dd.touchEvent(100, 320));
+        assert.equal(dd.input.readOnly, true);
+        assert.equal(dd.attributes.has('readonly'), true);
+        dd.input.listeners.touchend(dd.touchEvent(100, 320));
+        assert.equal(dd.input.readOnly, true);
+        assert.deepEqual(dd.events, []);
+        assert.notEqual(dd.input.value, '');
+
+        // 2° tap vero: touchstart rimuove readonly, touchend esegue blur -> focus senza preventDefault
+        dd.events.length = 0;
+        mousePrevented = false;
+        dd.input.listeners.touchstart(dd.touchEvent(100, 300, () => { touchPrevented = true; }));
+        assert.equal(dd.input.readOnly, false);
+        assert.equal(dd.attributes.has('readonly'), false);
+
+        dd.input.listeners.touchend(dd.touchEvent(100, 300, () => { touchPrevented = true; }));
+        assert.equal(touchPrevented, false);
+        assert.equal(dd.events[0], 'blur');
+        assert.equal(dd.events[1], 'focus');
+        assert.equal(dd.input.readOnly, false);
+        assert.equal(dd.attributes.has('readonly'), false);
+        assert.equal(dd.input.value, '');
+        assert(dd.classes.has('open'));
+        assert.equal(dd.getActiveElement(), dd.input);
+
+        // Compatibility mousedown/click dopo touchend non richiama preventDefault ne chiude il menu
+        dd.input.listeners.mousedown({ preventDefault() { mousePrevented = true; } });
+        dd.input.listeners.click();
+        dd.runZeroTimers();
+        assert.equal(mousePrevented, false);
+        assert(dd.classes.has('open'));
+        assert.equal(dd.input.readOnly, false);
+        assert.equal(dd.getActiveElement(), dd.input);
+
+        // 2a. Tag con suggerimenti disponibili: 1° tap readonly, 2° tap editabile
+        const tagWithList = createMockField({ id: 'sd-tags', withChips: true });
+        let currentTags = [];
+        ModalInteractions.createTagInput({
+            containerId: 'sd-tags',
+            chipsId: 'tag-chips',
+            getTags: () => currentTags,
+            setTags: tags => { currentTags = tags; },
+            getAllTags: () => ['lavoro', 'casa'],
+            document: tagWithList.documentLike,
+            setTimeout: tagWithList.setTimeout
+        });
+
+        let tagMousePrevented = false;
+        tagWithList.input.listeners.touchstart(tagWithList.touchEvent(80, 420));
+        assert.equal(tagWithList.input.readOnly, true);
+        tagWithList.input.listeners.touchend(tagWithList.touchEvent(80, 420));
+        tagWithList.input.listeners.mousedown({ preventDefault() { tagMousePrevented = true; } });
+        tagWithList.input.listeners.click();
+        tagWithList.runZeroTimers();
+        assert.equal(tagMousePrevented, true);
+        assert(tagWithList.classes.has('open'));
+        assert.equal(tagWithList.input.readOnly, true);
+
+        tagMousePrevented = false;
+        tagWithList.events.length = 0;
+        tagWithList.input.listeners.touchstart(tagWithList.touchEvent(80, 420));
+        assert.equal(tagWithList.input.readOnly, false);
+        assert.equal(tagWithList.attributes.has('readonly'), false);
+        tagWithList.input.listeners.touchend(tagWithList.touchEvent(80, 420));
+        assert.equal(tagWithList.events[0], 'blur');
+        assert.equal(tagWithList.events[1], 'focus');
+        tagWithList.input.listeners.mousedown({ preventDefault() { tagMousePrevented = true; } });
+        tagWithList.input.listeners.click();
+        tagWithList.runZeroTimers();
+        assert.equal(tagMousePrevented, false);
+        assert(tagWithList.classes.has('open'));
+        assert.equal(tagWithList.input.readOnly, false);
+        assert.equal(tagWithList.getActiveElement(), tagWithList.input);
+
+        // 2b. Tag senza suggerimenti disponibili: 1° tap entra subito in edit senza preventDefault
+        const tagEmpty = createMockField({ id: 'sd-tags', withChips: true });
+        ModalInteractions.createTagInput({
+            containerId: 'sd-tags',
+            chipsId: 'tag-chips',
+            getTags: () => [],
+            setTags: () => {},
+            getAllTags: () => [],
+            document: tagEmpty.documentLike,
+            setTimeout: tagEmpty.setTimeout
+        });
+
+        let emptyMousePrevented = false;
+        tagEmpty.input.listeners.touchstart(tagEmpty.touchEvent(80, 420));
+        assert.equal(tagEmpty.input.readOnly, false);
+        assert.equal(tagEmpty.attributes.has('readonly'), false);
+        tagEmpty.input.listeners.touchend(tagEmpty.touchEvent(80, 420));
+        assert(tagEmpty.classes.has('open'));
+        assert.equal(tagEmpty.input.readOnly, false);
+        tagEmpty.input.listeners.mousedown({ preventDefault() { emptyMousePrevented = true; } });
+        tagEmpty.input.listeners.click();
+        tagEmpty.runZeroTimers();
+        assert.equal(emptyMousePrevented, false);
+        assert(tagEmpty.classes.has('open'));
+        assert.equal(tagEmpty.getActiveElement(), tagEmpty.input);
+    });
+
     test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
         const { ModalView } = loadUiViews();
         const spese = [

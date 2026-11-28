@@ -56,6 +56,206 @@ export const ModalInteractions = (() => {
         }, 10);
     }
 
+    const TAP_MOVE_LIMIT = 10;
+
+    function setReadOnlyState(input, readOnly) {
+        if (!input) return;
+        input.readOnly = Boolean(readOnly);
+        if (readOnly) {
+            if (typeof input.setAttribute === 'function') input.setAttribute('readonly', '');
+        } else if (typeof input.removeAttribute === 'function') {
+            input.removeAttribute('readonly');
+        }
+    }
+
+    /**
+     * Gestisce tap readonly -> edit su dropdown ricercabili e tag per sbloccare
+     * la tastiera iOS WebKit al secondo tap (o al primo se Tag non ha suggerimenti).
+     */
+    function bindDropdownFieldInteractions({
+        container,
+        input,
+        activeDocument,
+        options,
+        onOpen,
+        onResetValue,
+        shouldEditOnOpen = () => false
+    }) {
+        let isEditable = false;
+        let ignoreNextBlurClose = false;
+        let handledMouseDown = false;
+        let suppressNextFocusOpen = false;
+        let internalBlurToken = 0;
+        let touchState = null;
+
+        const isOpen = () => container.classList.contains('open');
+
+        const resetEditable = () => {
+            isEditable = false;
+            touchState = null;
+            setReadOnlyState(input, true);
+        };
+
+        const close = () => {
+            const wasOpen = isOpen();
+
+            container.classList.remove('open');
+            resetEditable();
+            call(onResetValue);
+
+            releaseInteractionAfterClose(options, wasOpen);
+        };
+
+        const ignoreInternalBlurOnce = () => {
+            const defer = getDefer(options);
+            const token = ++internalBlurToken;
+            ignoreNextBlurClose = true;
+            handledMouseDown = true;
+            defer(() => {
+                if (token !== internalBlurToken) return;
+                ignoreNextBlurClose = false;
+                handledMouseDown = false;
+            }, 0);
+        };
+
+        const suppressFocusOpenOnce = () => {
+            const defer = getDefer(options);
+            suppressNextFocusOpen = true;
+            defer(() => {
+                suppressNextFocusOpen = false;
+            }, 0);
+        };
+
+        const focusWithoutOpening = () => {
+            suppressFocusOpenOnce();
+            input.focus();
+        };
+
+        const enableEditing = () => {
+            ignoreInternalBlurOnce();
+            // Forza blur -> focus con readonly disattivato cosi iOS WebKit avvia l'input session.
+            if (activeDocument && activeDocument.activeElement === input && typeof input.blur === 'function') {
+                input.blur();
+            }
+            isEditable = true;
+            setReadOnlyState(input, false);
+            input.value = '';
+            focusWithoutOpening();
+        };
+
+        const closeAfterBlur = () => {
+            const defer = getDefer(options);
+            const ignoreBlur = ignoreNextBlurClose;
+            ignoreNextBlurClose = false;
+            defer(() => {
+                if (ignoreBlur) return;
+                if (activeDocument && activeDocument.activeElement === input) return;
+                close();
+            }, 0);
+        };
+
+        const cancelPendingTouchEdit = () => {
+            if (!touchState) return;
+            const shouldRestoreReadOnly = !isEditable;
+            touchState = null;
+            if (shouldRestoreReadOnly) setReadOnlyState(input, true);
+        };
+
+        input.addEventListener('touchstart', e => {
+            const touch = e && e.touches && e.touches[0];
+            if (!touch) return;
+
+            const mode = isOpen()
+                ? (!isEditable ? 'edit' : '')
+                : (shouldEditOnOpen() ? 'open-edit' : '');
+
+            if (!mode) {
+                touchState = null;
+                return;
+            }
+
+            setReadOnlyState(input, false);
+            touchState = {
+                x: touch.clientX,
+                y: touch.clientY,
+                moved: false,
+                mode
+            };
+        }, { passive: true });
+
+        input.addEventListener('touchmove', e => {
+            if (!touchState || touchState.moved) return;
+            const touch = e && e.touches && e.touches[0];
+            if (!touch) return;
+
+            if (Math.hypot(touch.clientX - touchState.x, touch.clientY - touchState.y) > TAP_MOVE_LIMIT) {
+                touchState.moved = true;
+                cancelPendingTouchEdit();
+            }
+        }, { passive: true });
+
+        input.addEventListener('touchcancel', cancelPendingTouchEdit, { passive: true });
+
+        input.addEventListener('touchend', () => {
+            if (!touchState) return;
+            const state = touchState;
+            touchState = null;
+            if (state.moved) {
+                if (!isEditable) setReadOnlyState(input, true);
+                return;
+            }
+
+            if (state.mode === 'open-edit' && !isOpen()) {
+                enableEditing();
+                call(onOpen);
+            } else if (state.mode === 'edit' && isOpen() && !isEditable) {
+                enableEditing();
+            }
+        }, { passive: true });
+
+        input.addEventListener('mousedown', e => {
+            ignoreInternalBlurOnce();
+
+            if (!isOpen()) {
+                if (shouldEditOnOpen()) {
+                    enableEditing();
+                } else {
+                    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                    focusWithoutOpening();
+                }
+                call(onOpen);
+            } else if (!isEditable) {
+                enableEditing();
+            } else {
+                suppressFocusOpenOnce();
+            }
+        });
+
+        input.addEventListener('click', () => {
+            if (handledMouseDown) {
+                handledMouseDown = false;
+            }
+        });
+
+        input.addEventListener('focus', () => {
+            if (suppressNextFocusOpen) {
+                suppressNextFocusOpen = false;
+                return;
+            }
+
+            if (!isOpen()) {
+                call(onOpen);
+            }
+        });
+
+        input.addEventListener('blur', closeAfterBlur);
+
+        return {
+            close,
+            isEditable: () => isEditable
+        };
+    }
+
     function createSearchableDropdown(options = {}) {
         const activeDocument = getDocument(options);
         const container = options.container ||
@@ -73,13 +273,13 @@ export const ModalInteractions = (() => {
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
         let highlightIdx = -1;
-        let isEditable = false;
-        let ignoreNextBlurClose = false;
-        let handledMouseDown = false;
-        let suppressNextFocusOpen = false;
+        let fieldInteractions = null;
 
         const findItem = id => items.find(item => item.id === id);
         const getSelectedItem = () => findItem(input.dataset.value) || items[0] || {};
+        const close = () => {
+            if (fieldInteractions) fieldInteractions.close();
+        };
 
         const renderList = (filter = '') => {
             const filtered = ModalView.getDropdownItems(items, filter);
@@ -101,19 +301,6 @@ export const ModalInteractions = (() => {
             });
         };
 
-        const close = () => {
-            const wasOpen = container.classList.contains('open');
-
-            container.classList.remove('open');
-            input.readOnly = true;
-            isEditable = false;
-
-            const selectedItem = getSelectedItem();
-            input.value = ModalView.formatDropdownItem(selectedItem);
-
-            releaseInteractionAfterClose(options, wasOpen);
-        };
-
         const selectItem = (item) => {
             if (!item) return;
 
@@ -131,72 +318,15 @@ export const ModalInteractions = (() => {
             renderList();
         };
 
-        const ignoreInternalBlurOnce = () => {
-            const defer = getDefer(options);
-            ignoreNextBlurClose = true;
-            handledMouseDown = true;
-            defer(() => {
-                ignoreNextBlurClose = false;
-                handledMouseDown = false;
-            }, 0);
-        };
-
-        const suppressFocusOpenOnce = () => {
-            const defer = getDefer(options);
-            suppressNextFocusOpen = true;
-            defer(() => {
-                suppressNextFocusOpen = false;
-            }, 0);
-        };
-
-        const focusWithoutOpening = () => {
-            suppressFocusOpenOnce();
-            input.focus();
-        };
-
-        const closeAfterBlur = () => {
-            const defer = getDefer(options);
-            const ignoreBlur = ignoreNextBlurClose;
-            ignoreNextBlurClose = false;
-            defer(() => {
-                if (ignoreBlur) return;
-                if (activeDocument && activeDocument.activeElement === input) return;
-                close();
-            }, 0);
-        };
-
-        input.addEventListener('mousedown', e => {
-            ignoreInternalBlurOnce();
-
-            if (!container.classList.contains('open')) {
-                e.preventDefault();
-                focusWithoutOpening();
-                open();
-            } else if (!isEditable) {
-                e.preventDefault();
-                isEditable = true;
-                input.readOnly = false;
-                input.value = '';
-                focusWithoutOpening();
-            } else {
-                suppressFocusOpenOnce();
-            }
-        });
-
-        input.addEventListener('click', e => {
-            if (handledMouseDown) {
-                handledMouseDown = false;
-            }
-        });
-
-        input.addEventListener('focus', () => {
-            if (suppressNextFocusOpen) {
-                suppressNextFocusOpen = false;
-                return;
-            }
-
-            if (!container.classList.contains('open')) {
-                open();
+        fieldInteractions = bindDropdownFieldInteractions({
+            container,
+            input,
+            activeDocument,
+            options,
+            onOpen: open,
+            onResetValue: () => {
+                const selectedItem = getSelectedItem();
+                input.value = ModalView.formatDropdownItem(selectedItem);
             }
         });
 
@@ -206,8 +336,6 @@ export const ModalInteractions = (() => {
             }
             renderList(input.value);
         });
-
-        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             const itemsInList = list.querySelectorAll('.sd-item');
@@ -263,10 +391,7 @@ export const ModalInteractions = (() => {
 
         const input = container.querySelector('.sd-input');
         const list = container.querySelector('.sd-list');
-        let isEditable = false;
-        let ignoreNextBlurClose = false;
-        let handledMouseDown = false;
-        let suppressNextFocusOpen = false;
+        let fieldInteractions = null;
 
         const getCurrentTags = () => {
             const tags = call(options.getTags);
@@ -298,7 +423,7 @@ export const ModalInteractions = (() => {
                     setCurrentTags(getCurrentTags().filter(tag => tag !== btn.dataset.tag));
                     renderChips();
 
-                    if (isEditable) {
+                    if (fieldInteractions && fieldInteractions.isEditable()) {
                         input.focus();
                         renderList(input.value);
                     }
@@ -342,97 +467,21 @@ export const ModalInteractions = (() => {
             renderList();
         };
 
-        const close = () => {
-            const wasOpen = container.classList.contains('open');
-
-            container.classList.remove('open');
-            input.readOnly = true;
-            isEditable = false;
-            input.value = '';
-
-            releaseInteractionAfterClose(options, wasOpen);
-        };
-
-        const closeAfterBlur = () => {
-            const defer = getDefer(options);
-            const ignoreBlur = ignoreNextBlurClose;
-            ignoreNextBlurClose = false;
-            defer(() => {
-                if (ignoreBlur) return;
-                if (activeDocument && activeDocument.activeElement === input) return;
-                close();
-            }, 0);
-        };
-
-        const ignoreInternalBlurOnce = () => {
-            const defer = getDefer(options);
-            ignoreNextBlurClose = true;
-            handledMouseDown = true;
-            defer(() => {
-                ignoreNextBlurClose = false;
-                handledMouseDown = false;
-            }, 0);
-        };
-
-        const suppressFocusOpenOnce = () => {
-            const defer = getDefer(options);
-            suppressNextFocusOpen = true;
-            defer(() => {
-                suppressNextFocusOpen = false;
-            }, 0);
-        };
-
-        const focusWithoutOpening = () => {
-            suppressFocusOpenOnce();
-            input.focus();
-        };
-
-        input.addEventListener('mousedown', e => {
-            ignoreInternalBlurOnce();
-
-            const availableCount = ModalView.getAvailableTagCount(getAllTags(), getCurrentTags());
-
-            if (!container.classList.contains('open')) {
-                e.preventDefault();
-
-                if (availableCount === 0) {
-                    isEditable = true;
-                    input.readOnly = false;
-                    input.value = '';
-                }
-
-                focusWithoutOpening();
-                open();
-            } else if (!isEditable) {
-                e.preventDefault();
-                isEditable = true;
-                input.readOnly = false;
+        fieldInteractions = bindDropdownFieldInteractions({
+            container,
+            input,
+            activeDocument,
+            options,
+            onOpen: open,
+            onResetValue: () => {
                 input.value = '';
-                focusWithoutOpening();
-            } else {
-                suppressFocusOpenOnce();
-            }
-        });
-
-        input.addEventListener('click', e => {
-            if (handledMouseDown) {
-                handledMouseDown = false;
-            }
-        });
-
-        input.addEventListener('focus', () => {
-            if (suppressNextFocusOpen) {
-                suppressNextFocusOpen = false;
-                return;
-            }
-
-            if (!container.classList.contains('open')) open();
+            },
+            shouldEditOnOpen: () => ModalView.getAvailableTagCount(getAllTags(), getCurrentTags()) === 0
         });
 
         input.addEventListener('input', () => {
             renderList(input.value);
         });
-        input.addEventListener('blur', closeAfterBlur);
 
         input.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;

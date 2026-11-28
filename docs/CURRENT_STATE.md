@@ -109,7 +109,7 @@ L'area interna del pannello filtri resta scrollabile anche nello stato compatto;
 
 ### Modifica Spesa
 
-La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e nota. Categoria, metodo e tag usano dropdown ricercabili custom. La cancellazione richiede conferma.
+La modale modifica importo, descrizione, data, ora, categoria, metodo, tag e nota. Categoria, metodo e tag usano dropdown ricercabili custom. Al primo tap (quando sono presenti opzioni o tag disponibili) la tendina si apre in sola lettura senza aprire la tastiera; al secondo tap (o al primo se `Tag` non ha suggerimenti disponibili) il campo rimuove `readonly`, esegue un ciclo `blur` -> `focus` dentro la gesture touch/pointer senza `preventDefault()` e svuota l'input cosi la tastiera iOS si apre per filtrare o creare voci, annullando invece il passaggio in edit se il movimento supera i 10 px di drag. La cancellazione richiede conferma.
 
 Su desktop, il tasto Invio nei campi testuali della modale conferma la modifica. Nei dropdown ricercabili e nel campo tag, Invio resta dedicato alla selezione del suggerimento o alla creazione del tag.
 

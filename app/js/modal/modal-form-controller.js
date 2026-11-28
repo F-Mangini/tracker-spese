@@ -80,9 +80,27 @@ export const ModalFormController = (() => {
         };
     }
 
+    function isAppleTouchDevice(options = {}) {
+        if (typeof options.isAppleTouch === 'boolean') return options.isAppleTouch;
+
+        const win = options.window || (typeof window !== 'undefined' ? window : null);
+        const nav = options.navigator ||
+            (win && win.navigator) ||
+            (typeof navigator !== 'undefined' ? navigator : null);
+        if (!nav) return false;
+
+        const ua = String(nav.userAgent || '');
+        const platform = String(nav.platform || '');
+        const maxTouchPoints = Number(nav.maxTouchPoints || 0);
+
+        return /iP(?:hone|ad|od)/i.test(ua) ||
+            (platform === 'MacIntel' && maxTouchPoints > 1);
+    }
+
     function bindPickerFields(options = {}) {
         const activeDocument = options.document || (typeof document !== 'undefined' ? document : null);
         const defer = options.defer || (callback => setTimeout(callback, 0));
+        const isAppleTouch = isAppleTouchDevice(options);
 
         PICKER_FIELD_IDS.forEach(id => {
             const el = getElement(activeDocument, id);
@@ -94,11 +112,16 @@ export const ModalFormController = (() => {
 
             el.addEventListener('change', () => {
                 el.classList.remove('picker-open');
+                if (isAppleTouch) return;
                 defer(() => {
                     if (activeDocument.activeElement === el) {
                         try { el.blur(); } catch (_) { }
                     }
                 });
+            });
+
+            el.addEventListener('blur', () => {
+                el.classList.remove('picker-open');
             });
 
             el.addEventListener('focus', () => {

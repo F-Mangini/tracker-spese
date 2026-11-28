@@ -120,6 +120,7 @@ export const ModalController = (() => {
 
         formController.bindPickerFields({
             document: doc,
+            window: win,
             bindPicker: el => options.bindNonStickyNativePicker(el),
             getViewportHeight: () => options.getViewportHeight(),
             setLastViewportHeight: value => options.setLastViewportHeight(value)

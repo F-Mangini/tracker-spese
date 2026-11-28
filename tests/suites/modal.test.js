@@ -557,6 +557,217 @@ export default function register(test) {
         assert.equal(tagEmpty.getActiveElement(), tagEmpty.input);
     });
 
+    test('Interazioni dropdown e tag modale su iPhone lasciano nativo il secondo tap senza perdere lo scroll', () => {
+        const { ModalInteractions } = loadUiViews();
+        const iphoneWindow = {
+            navigator: {
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1'
+            }
+        };
+
+        function createAppleField({ id, withChips = false }) {
+            const timeouts = [];
+            const classes = new Set();
+            const attributes = new Map([['readonly', '']]);
+            const docListeners = {};
+            let activeElement = null;
+
+            const input = {
+                dataset: {},
+                readOnly: true,
+                value: '',
+                listeners: {},
+                setAttribute(name, val) {
+                    attributes.set(name, String(val));
+                },
+                removeAttribute(name) {
+                    attributes.delete(name);
+                },
+                addEventListener(event, handler) {
+                    this.listeners[event] = handler;
+                },
+                focus() {
+                    activeElement = input;
+                    if (this.listeners.focus) this.listeners.focus();
+                },
+                blur() {
+                    activeElement = null;
+                    if (this.listeners.blur) this.listeners.blur();
+                }
+            };
+            const list = {
+                innerHTML: '',
+                querySelectorAll() {
+                    return [];
+                }
+            };
+            const chipsEl = withChips
+                ? {
+                    innerHTML: '',
+                    contains(node) {
+                        return node === chipsEl;
+                    },
+                    querySelectorAll() {
+                        return [];
+                    }
+                }
+                : null;
+            const container = {
+                innerHTML: '',
+                classList: {
+                    add(cls) { classes.add(cls); },
+                    remove(cls) { classes.delete(cls); },
+                    contains(cls) { return classes.has(cls); }
+                },
+                contains(node) {
+                    return node === container || node === input || node === list;
+                },
+                querySelector(selector) {
+                    if (selector === '.sd-input') return input;
+                    if (selector === '.sd-list') return list;
+                    return null;
+                }
+            };
+            const documentLike = {
+                get activeElement() {
+                    return activeElement;
+                },
+                getElementById(targetId) {
+                    if (targetId === id) return container;
+                    if (withChips && targetId === 'tag-chips') return chipsEl;
+                    return null;
+                },
+                addEventListener(event, handler) {
+                    if (!docListeners[event]) docListeners[event] = [];
+                    docListeners[event].push(handler);
+                },
+                removeEventListener(event, handler) {
+                    if (!docListeners[event]) return;
+                    docListeners[event] = docListeners[event].filter(fn => fn !== handler);
+                }
+            };
+            const emitDoc = (event, payload) => {
+                (docListeners[event] || []).forEach(fn => fn(payload));
+            };
+            const runZeroTimers = () => {
+                while (timeouts.some(item => item.ms === 0)) {
+                    const pending = timeouts.splice(0, timeouts.length);
+                    pending.forEach(item => {
+                        if (item.ms === 0) item.callback();
+                    });
+                }
+            };
+
+            return {
+                container,
+                input,
+                classes,
+                attributes,
+                documentLike,
+                emitDoc,
+                runZeroTimers,
+                getActiveElement: () => activeElement,
+                setTimeout: (callback, ms) => {
+                    timeouts.push({ callback, ms });
+                }
+            };
+        }
+
+        const dd = createAppleField({ id: 'sd-categoria' });
+        ModalInteractions.createSearchableDropdown({
+            containerId: 'sd-categoria',
+            items: [
+                { id: 'bar', emoji: 'x', nome: 'Bar' },
+                { id: 'casa', emoji: 'y', nome: 'Casa' }
+            ],
+            currentValue: 'bar',
+            document: dd.documentLike,
+            window: iphoneWindow,
+            setTimeout: dd.setTimeout
+        });
+        dd.input.value = 'x Bar';
+
+        // 1° tap: apre la tendina senza focus su input e poi sblocca readonly
+        let firstPrevented = false;
+        dd.input.listeners.touchstart();
+        dd.input.listeners.mousedown({ preventDefault() { firstPrevented = true; } });
+        dd.input.listeners.click();
+        assert.equal(firstPrevented, true);
+        assert(dd.classes.has('open'));
+        assert.equal(dd.getActiveElement(), null);
+
+        dd.runZeroTimers();
+        assert(dd.classes.has('open'));
+        assert.equal(dd.getActiveElement(), null);
+        assert.equal(dd.input.readOnly, false);
+        assert.equal(dd.attributes.has('readonly'), false);
+
+        // Scroll verticale (> 10px) fuori dal dropdown non deve chiudere la tendina
+        const outsideTarget = {};
+        dd.emitDoc('touchstart', { target: outsideTarget, touches: [{ clientX: 120, clientY: 200 }] });
+        dd.emitDoc('touchmove', { touches: [{ clientX: 120, clientY: 224 }] });
+        dd.emitDoc('touchend', { target: outsideTarget });
+        assert(dd.classes.has('open'));
+
+        // 2° tap nativo: nessun preventDefault, il focus nativo attiva edit e svuota il testo
+        let secondPrevented = false;
+        dd.input.listeners.touchstart();
+        dd.input.listeners.mousedown({ preventDefault() { secondPrevented = true; } });
+        dd.input.focus();
+        dd.input.listeners.click();
+        dd.runZeroTimers();
+        assert.equal(secondPrevented, false);
+        assert.equal(dd.getActiveElement(), dd.input);
+        assert.equal(dd.input.value, '');
+        assert(dd.classes.has('open'));
+        assert.equal(dd.input.readOnly, false);
+
+        // Tap esterno senza trascinamento chiude il dropdown e ripristina readonly
+        dd.emitDoc('touchstart', { target: outsideTarget, touches: [{ clientX: 50, clientY: 100 }] });
+        dd.emitDoc('touchend', { target: outsideTarget });
+        dd.runZeroTimers();
+        assert(!dd.classes.has('open'));
+        assert.equal(dd.input.readOnly, true);
+        assert.equal(dd.attributes.has('readonly'), true);
+        assert.equal(dd.getActiveElement(), null);
+
+        // Chiusura programmatica via closeDropdown (es. back button modale con tendina non focalizzata)
+        dd.input.listeners.mousedown({ preventDefault() {} });
+        dd.runZeroTimers();
+        assert(dd.classes.has('open'));
+        assert.equal(dd.getActiveElement(), null);
+        ModalInteractions.closeDropdown(dd.container);
+        assert(!dd.classes.has('open'));
+        assert.equal(dd.input.readOnly, true);
+
+        // Tag senza suggerimenti disponibili su iPhone parte gia sbloccato per il 1° tap nativo
+        const tagEmpty = createAppleField({ id: 'sd-tags', withChips: true });
+        ModalInteractions.createTagInput({
+            containerId: 'sd-tags',
+            chipsId: 'tag-chips',
+            getTags: () => [],
+            setTags: () => {},
+            getAllTags: () => [],
+            document: tagEmpty.documentLike,
+            window: iphoneWindow,
+            setTimeout: tagEmpty.setTimeout
+        });
+
+        assert.equal(tagEmpty.input.readOnly, false);
+        assert.equal(tagEmpty.attributes.has('readonly'), false);
+
+        let emptyPrevented = false;
+        tagEmpty.input.listeners.touchstart();
+        tagEmpty.input.listeners.mousedown({ preventDefault() { emptyPrevented = true; } });
+        tagEmpty.input.focus();
+        tagEmpty.input.listeners.click();
+        tagEmpty.runZeroTimers();
+        assert.equal(emptyPrevented, false);
+        assert(tagEmpty.classes.has('open'));
+        assert.equal(tagEmpty.getActiveElement(), tagEmpty.input);
+        assert.equal(tagEmpty.input.readOnly, false);
+    });
+
     test('Vista modale calcola suggerimenti tag per ultimo uso, frequenza e creazione', () => {
         const { ModalView } = loadUiViews();
         const spese = [
@@ -707,6 +918,72 @@ export default function register(test) {
         assert(calls.some(call => call[0] === 'bind-picker' && call[1] === 'edit-data'));
         assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-data'));
         assert(calls.some(call => call[0] === 'blur' && call[1] === 'edit-descrizione'));
+    });
+
+    test('Picker data e ora modale su iPhone restano nativi senza showPicker ne blur automatico', () => {
+        const { ModalFormController, ModalMobileController } = loadUiViews();
+        const calls = [];
+        const deferred = [];
+        const iphoneWindow = {
+            navigator: {
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1'
+            },
+            addEventListener() {}
+        };
+        const classes = new Set(['picker-open']);
+        let activeElement = null;
+        const editData = {
+            id: 'edit-data',
+            listeners: {},
+            classList: {
+                add(cls) { classes.add(cls); },
+                remove(cls) { classes.delete(cls); },
+                contains(cls) { return classes.has(cls); }
+            },
+            addEventListener(event, handler) {
+                this.listeners[event] = handler;
+            },
+            showPicker() {
+                calls.push('showPicker');
+            },
+            blur() {
+                calls.push('blur');
+                activeElement = null;
+            }
+        };
+        activeElement = editData;
+        const doc = {
+            get activeElement() {
+                return activeElement;
+            },
+            getElementById(id) {
+                return id === 'edit-data' ? editData : null;
+            },
+            addEventListener() {}
+        };
+
+        ModalFormController.bindPickerFields({
+            document: doc,
+            window: iphoneWindow,
+            bindPicker: el => ModalMobileController.bindNonStickyNativePicker(el, {
+                document: doc,
+                window: iphoneWindow
+            }),
+            defer: callback => deferred.push(callback)
+        });
+
+        assert.equal(editData.listeners.pointerdown, undefined);
+
+        editData.listeners.change();
+        deferred.forEach(cb => cb());
+
+        assert.deepEqual(calls, []);
+        assert.equal(classes.has('picker-open'), false);
+        assert.equal(activeElement, editData);
+
+        classes.add('picker-open');
+        editData.listeners.blur();
+        assert.equal(classes.has('picker-open'), false);
     });
 
     test('Controller mobile modale isola focus, picker e viewport da App', () => {

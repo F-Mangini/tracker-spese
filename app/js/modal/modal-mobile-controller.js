@@ -9,11 +9,28 @@ export const ModalMobileController = (() => {
     function noop() { }
 
     function getDocument(options) {
-        return options.document || document;
+        return options.document || (typeof document !== 'undefined' ? document : null);
     }
 
     function getWindow(options) {
-        return options.window || window;
+        return options.window || (typeof window !== 'undefined' ? window : null);
+    }
+
+    function isAppleTouchDevice(options = {}) {
+        if (typeof options.isAppleTouch === 'boolean') return options.isAppleTouch;
+
+        const win = getWindow(options);
+        const nav = options.navigator ||
+            (win && win.navigator) ||
+            (typeof navigator !== 'undefined' ? navigator : null);
+        if (!nav) return false;
+
+        const ua = String(nav.userAgent || '');
+        const platform = String(nav.platform || '');
+        const maxTouchPoints = Number(nav.maxTouchPoints || 0);
+
+        return /iP(?:hone|ad|od)/i.test(ua) ||
+            (platform === 'MacIntel' && maxTouchPoints > 1);
     }
 
     function getViewportHeight(options = {}) {
@@ -62,6 +79,7 @@ export const ModalMobileController = (() => {
 
     function bindNonStickyNativePicker(el, options = {}) {
         if (!el || typeof el.showPicker !== 'function') return;
+        if (isAppleTouchDevice(options)) return;
 
         const doc = getDocument(options);
         const win = getWindow(options);
@@ -199,7 +217,10 @@ export const ModalMobileController = (() => {
             const sdInput = dropdown.querySelector('.sd-input');
             if (sdInput) {
                 blur(sdInput);
-            } else {
+            }
+            if (typeof options.closeDropdown === 'function') {
+                options.closeDropdown(dropdown);
+            } else if (!sdInput) {
                 dropdown.classList.remove('open');
             }
         }

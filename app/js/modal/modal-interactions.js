@@ -37,6 +37,29 @@ export const ModalInteractions = (() => {
         return null;
     }
 
+    function getWindow(options = {}) {
+        if (options.window) return options.window;
+        if (typeof window !== 'undefined') return window;
+        return null;
+    }
+
+    function isAppleTouchDevice(options = {}) {
+        if (typeof options.isAppleTouch === 'boolean') return options.isAppleTouch;
+
+        const win = getWindow(options);
+        const nav = options.navigator ||
+            (win && win.navigator) ||
+            (typeof navigator !== 'undefined' ? navigator : null);
+        if (!nav) return false;
+
+        const ua = String(nav.userAgent || '');
+        const platform = String(nav.platform || '');
+        const maxTouchPoints = Number(nav.maxTouchPoints || 0);
+
+        return /iP(?:hone|ad|od)/i.test(ua) ||
+            (platform === 'MacIntel' && maxTouchPoints > 1);
+    }
+
     function getDefer(options = {}) {
         return options.setTimeout ||
             (typeof setTimeout === 'function' ? setTimeout : ((callback) => callback()));
@@ -57,6 +80,18 @@ export const ModalInteractions = (() => {
     }
 
     const TAP_MOVE_LIMIT = 10;
+    const TOUCH_CLICK_GUARD_MS = 500;
+    const dropdownClosers = new WeakMap();
+    const dropdownDisposers = new WeakMap();
+
+    function closeDropdown(container) {
+        const close = container && dropdownClosers.get(container);
+        if (typeof close === 'function') {
+            close();
+        } else if (container && container.classList) {
+            container.classList.remove('open');
+        }
+    }
 
     function setReadOnlyState(input, readOnly) {
         if (!input) return;
@@ -69,11 +104,13 @@ export const ModalInteractions = (() => {
     }
 
     /**
-     * Gestisce tap readonly -> edit su dropdown ricercabili e tag per sbloccare
-     * la tastiera iOS WebKit al secondo tap (o al primo se Tag non ha suggerimenti).
+     * Gestisce readonly -> edit sui dropdown ricercabili e tag:
+     * su Apple touch lascia il 2° tap (e il 1° se Tag e vuoto) completamente nativo
+     * su <textarea> sbloccata e senza focus preventivo cosi iOS WebKit apre la tastiera.
      */
     function bindDropdownFieldInteractions({
         container,
+        chipsEl = null,
         input,
         activeDocument,
         options,
@@ -81,19 +118,36 @@ export const ModalInteractions = (() => {
         onResetValue,
         shouldEditOnOpen = () => false
     }) {
+        const previousDispose = dropdownDisposers.get(container);
+        if (typeof previousDispose === 'function') {
+            previousDispose();
+            dropdownDisposers.delete(container);
+        }
+
+        const isAppleTouch = isAppleTouchDevice(options);
         let isEditable = false;
         let ignoreNextBlurClose = false;
         let handledMouseDown = false;
         let suppressNextFocusOpen = false;
         let internalBlurToken = 0;
+        let unlockToken = 0;
         let touchState = null;
+        let outsideTouch = null;
+        let lastDocTouchTime = 0;
 
         const isOpen = () => container.classList.contains('open');
 
+        const syncClosedReadOnly = () => {
+            if (isOpen() || isEditable) return;
+            setReadOnlyState(input, isAppleTouch ? !shouldEditOnOpen() : true);
+        };
+
         const resetEditable = () => {
+            unlockToken += 1;
             isEditable = false;
             touchState = null;
-            setReadOnlyState(input, true);
+            outsideTouch = null;
+            syncClosedReadOnly();
         };
 
         const close = () => {
@@ -105,6 +159,8 @@ export const ModalInteractions = (() => {
 
             releaseInteractionAfterClose(options, wasOpen);
         };
+
+        dropdownClosers.set(container, close);
 
         const ignoreInternalBlurOnce = () => {
             const defer = getDefer(options);
@@ -133,7 +189,6 @@ export const ModalInteractions = (() => {
 
         const enableEditing = () => {
             ignoreInternalBlurOnce();
-            // Forza blur -> focus con readonly disattivato cosi iOS WebKit avvia l'input session.
             if (activeDocument && activeDocument.activeElement === input && typeof input.blur === 'function') {
                 input.blur();
             }
@@ -141,6 +196,19 @@ export const ModalInteractions = (() => {
             setReadOnlyState(input, false);
             input.value = '';
             focusWithoutOpening();
+        };
+
+        const scheduleAppleUnlock = () => {
+            const defer = getDefer(options);
+            const token = ++unlockToken;
+            defer(() => {
+                if (token !== unlockToken || !isOpen() || isEditable) return;
+                if (activeDocument && activeDocument.activeElement === input && typeof input.blur === 'function') {
+                    ignoreInternalBlurOnce();
+                    input.blur();
+                }
+                setReadOnlyState(input, false);
+            }, 0);
         };
 
         const closeAfterBlur = () => {
@@ -160,6 +228,135 @@ export const ModalInteractions = (() => {
             touchState = null;
             if (shouldRestoreReadOnly) setReadOnlyState(input, true);
         };
+
+        const containsTarget = (node, target) => {
+            if (!node || !target) return false;
+            if (node === target) return true;
+            return typeof node.contains === 'function' && node.contains(target);
+        };
+
+        const isInsideDropdown = target =>
+            containsTarget(container, target) || containsTarget(chipsEl, target);
+
+        syncClosedReadOnly();
+
+        if (isAppleTouch) {
+            input.addEventListener('touchstart', () => {
+                if (!isOpen() && shouldEditOnOpen() && input.readOnly) {
+                    setReadOnlyState(input, false);
+                } else if (isOpen() && !isEditable && input.readOnly) {
+                    setReadOnlyState(input, false);
+                }
+            }, { passive: true });
+
+            input.addEventListener('mousedown', e => {
+                ignoreInternalBlurOnce();
+
+                if (!isOpen()) {
+                    if (shouldEditOnOpen()) {
+                        if (input.readOnly) setReadOnlyState(input, false);
+                    } else {
+                        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                        call(onOpen);
+                        scheduleAppleUnlock();
+                    }
+                    return;
+                }
+
+                if (!isEditable && input.readOnly) {
+                    setReadOnlyState(input, false);
+                }
+            });
+
+            input.addEventListener('click', () => {
+                if (handledMouseDown) {
+                    handledMouseDown = false;
+                }
+            });
+
+            input.addEventListener('focus', () => {
+                if (input.readOnly) return;
+                if (!isOpen()) {
+                    call(onOpen);
+                }
+                if (!isEditable) {
+                    isEditable = true;
+                    input.value = '';
+                }
+            });
+
+            input.addEventListener('blur', closeAfterBlur);
+
+            if (activeDocument && typeof activeDocument.addEventListener === 'function') {
+                const onDocTouchStart = e => {
+                    lastDocTouchTime = Date.now();
+                    const touch = e && e.touches && e.touches[0];
+                    if (!touch || !isOpen() || isInsideDropdown(e.target)) {
+                        outsideTouch = null;
+                        return;
+                    }
+                    outsideTouch = {
+                        x: touch.clientX,
+                        y: touch.clientY,
+                        moved: false
+                    };
+                };
+
+                const onDocTouchMove = e => {
+                    if (!outsideTouch || outsideTouch.moved) return;
+                    const touch = e && e.touches && e.touches[0];
+                    if (!touch) return;
+                    if (Math.hypot(touch.clientX - outsideTouch.x, touch.clientY - outsideTouch.y) > TAP_MOVE_LIMIT) {
+                        outsideTouch.moved = true;
+                    }
+                };
+
+                const onDocTouchCancel = () => {
+                    outsideTouch = null;
+                };
+
+                const onDocTouchEnd = () => {
+                    lastDocTouchTime = Date.now();
+                    if (!outsideTouch) return;
+                    const state = outsideTouch;
+                    outsideTouch = null;
+                    if (state.moved || !isOpen()) return;
+
+                    if (activeDocument.activeElement === input && typeof input.blur === 'function') {
+                        input.blur();
+                    } else {
+                        close();
+                    }
+                };
+
+                const onDocMouseDown = e => {
+                    if (!isOpen() || isEditable || isInsideDropdown(e && e.target)) return;
+                    if (Date.now() - lastDocTouchTime < TOUCH_CLICK_GUARD_MS) return;
+                    close();
+                };
+
+                activeDocument.addEventListener('touchstart', onDocTouchStart, { capture: true, passive: true });
+                activeDocument.addEventListener('touchmove', onDocTouchMove, { capture: true, passive: true });
+                activeDocument.addEventListener('touchcancel', onDocTouchCancel, { capture: true, passive: true });
+                activeDocument.addEventListener('touchend', onDocTouchEnd, { capture: true, passive: true });
+                activeDocument.addEventListener('mousedown', onDocMouseDown, { capture: true, passive: true });
+
+                dropdownDisposers.set(container, () => {
+                    if (typeof activeDocument.removeEventListener !== 'function') return;
+                    activeDocument.removeEventListener('touchstart', onDocTouchStart, { capture: true });
+                    activeDocument.removeEventListener('touchmove', onDocTouchMove, { capture: true });
+                    activeDocument.removeEventListener('touchcancel', onDocTouchCancel, { capture: true });
+                    activeDocument.removeEventListener('touchend', onDocTouchEnd, { capture: true });
+                    activeDocument.removeEventListener('mousedown', onDocMouseDown, { capture: true });
+                });
+            }
+
+            return {
+                close,
+                isEditable: () => isEditable,
+                syncReadOnly: syncClosedReadOnly
+            };
+        }
 
         input.addEventListener('touchstart', e => {
             const touch = e && e.touches && e.touches[0];
@@ -252,7 +449,8 @@ export const ModalInteractions = (() => {
 
         return {
             close,
-            isEditable: () => isEditable
+            isEditable: () => isEditable,
+            syncReadOnly: syncClosedReadOnly
         };
     }
 
@@ -427,6 +625,9 @@ export const ModalInteractions = (() => {
                         input.focus();
                         renderList(input.value);
                     }
+                    if (fieldInteractions && typeof fieldInteractions.syncReadOnly === 'function') {
+                        fieldInteractions.syncReadOnly();
+                    }
                 });
             });
         };
@@ -441,6 +642,9 @@ export const ModalInteractions = (() => {
             input.value = '';
             renderChips();
             renderList();
+            if (fieldInteractions && typeof fieldInteractions.syncReadOnly === 'function') {
+                fieldInteractions.syncReadOnly();
+            }
         };
 
         const renderList = (filter = '') => {
@@ -469,6 +673,7 @@ export const ModalInteractions = (() => {
 
         fieldInteractions = bindDropdownFieldInteractions({
             container,
+            chipsEl,
             input,
             activeDocument,
             options,
@@ -508,6 +713,7 @@ export const ModalInteractions = (() => {
     }
 
     return {
+        closeDropdown,
         createSearchableDropdown,
         createTagInput
     };

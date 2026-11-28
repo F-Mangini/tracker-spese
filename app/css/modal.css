@@ -290,7 +290,8 @@
     white-space: nowrap;
 }
 
-.sd-input:focus {
+.sd-input:focus,
+.searchable-dropdown.open .sd-input {
     border-color: var(--accent);
 }
 
@@ -390,7 +391,8 @@
     transition: border-color 0.2s;
 }
 
-.tag-input-container:focus-within {
+.tag-input-container:focus-within,
+.tag-input-container:has(.searchable-dropdown.open) {
     border-color: var(--accent);
 }
 

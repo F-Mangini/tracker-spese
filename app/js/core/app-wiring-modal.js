@@ -20,6 +20,9 @@ export const AppWiringModal = (() => {
                 setInteractionActive: value => { app._modalInteractionActive = value; },
                 pushUiState: core.pushUiState,
                 consumeUiState: () => core.consumeUiState(),
+                closeDropdown: dropdown => (deps.ModalInteractions && typeof deps.ModalInteractions.closeDropdown === 'function'
+                    ? deps.ModalInteractions.closeDropdown(dropdown)
+                    : undefined),
                 clearSelection: () => deps.ModalMobileController.clearSelection(modalMobileOptions()),
                 setTimeout: (callback, delay) => deps.setTimeout(callback, delay),
                 setInterval: (callback, delay) => deps.setInterval(callback, delay),
